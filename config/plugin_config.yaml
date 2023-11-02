@@ -1,0 +1,62 @@
+basePath: 'C:\QQbot' #根目录地址
+
+qq:
+  bot: 10000 # bot的QQ号
+  ban:
+    # 不响应本列表下的QQ的所有指令
+    - 10000
+
+group:
+  main: 738721109 # 除草器主群，用于发布生草系统运行提示
+  log: 123456789 # 除草器日志群，用于推送一些日志
+  sysu: 123456789 # SYSU幻想乡群号，用于支持SYSU特色功能
+  adminAuthGroup:
+    # 除草器担任管理员的群，仅在以下群中响应管理员指令
+    - 738721109
+  allow:
+    # 除草器指令回复使用白名单制，仅在以下群中回复消息
+    - 738721109
+
+guaihua:
+  notRecordWords:
+    # 带有以下关键词的消息不会被记录为怪话
+    - 'CQ:at'
+    - 'CQ:rich'
+    - 'CQ:face'
+    - 'CQ:xml'
+    - 'CQ:reply'
+    - 'CQ:json'
+    - 'CQ:file'
+    - '\n'
+    - '闪照'
+    - '视频'
+    - '红包'
+  notRecordMembers:
+    # 以下QQ的发送消息不会被记录为怪话
+    - 10000
+  risk: 0.2 # 自动怪话触发率，0.2表示有0.2%的概率在接收到消息后自动发送怪话
+
+drawItem:
+  banRisk: 0.6 # 抽奖抽到口球的概率，0.6表示有60%的概率抽到口球
+  itemHideAmount: 25  # 已抽取物品数量大于等于该值时，在展示已有物品列表时默认隐藏
+  groupAllowItem:
+    # 这些群聊在抽奖中可以获得奖品
+    - 738721109
+  groupAllowDraw:
+    # 这些群聊允许抽奖（如果不在允许获得奖品的群聊中，抽奖时百分百抽到口球）
+    - 738721109
+
+sendNews:
+  group:
+    # 这些群聊会在每日早上9点收到新闻推送
+    - 738721109
+
+web:
+  proxy: "http://127.0.0.1:7890" # chat和搜图功能需要访问外网
+  userAgent: "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36"
+  neteaseMusic:
+    cookie: "" # 音乐搜索功能需求此cookie，请从网易云音乐官方获取
+  saucenao:
+    key: "" # saucenao搜图需求此key，请从saucenao官方获取
+  openai:
+    key: "" # chat功能需求此key，请从openAI官方获取

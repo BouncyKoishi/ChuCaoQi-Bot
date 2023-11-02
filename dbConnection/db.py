@@ -1,0 +1,120 @@
+from nonebot import on_startup
+from tortoise import Tortoise
+from .models import User, KusaField, Flag
+from .kusa_item import changeItemAmount
+import datetime
+
+
+async def createUser(qqNum):
+    existUser = await getUser(qqNum)
+    if not existUser:
+        await User.create(qq=qqNum, lastUseTime=datetime.datetime.now())
+        await KusaField.create(qq=qqNum)
+        await changeItemAmount(qqNum, "草地", 1)
+    else:
+        existUser.lastUseTime = datetime.datetime.now()
+        await existUser.save()
+
+
+async def getUserListOrderByDonate():
+    return await User.filter(donateAmount__gte=10).order_by('-donateAmount')
+
+
+async def getUser(qqNum) -> User:
+    return await User.filter(qq=qqNum).first()
+
+
+async def getAllUser():
+    return await User.all()
+
+
+async def changeName(qqNum, newName):
+    user = await getUser(qqNum)
+    if user:
+        user.name = newName
+        await user.save()
+        return True
+    else:
+        return False
+
+
+async def changeTitle(qqNum, newTitle):
+    user = await getUser(qqNum)
+    if user:
+        user.title = newTitle
+        await user.save()
+        return True
+    else:
+        return False
+
+
+async def changeKusa(qqNum, changeAmount):
+    user = await getUser(qqNum)
+    if user:
+        user.kusa += changeAmount
+        await user.save()
+        return True
+    else:
+        return False
+
+
+async def changeAdvKusa(qqNum, changeAmount):
+    user = await getUser(qqNum)
+    if user:
+        user.advKusa += changeAmount
+        await user.save()
+        return True
+    else:
+        return False
+
+
+async def getFlagValue(userId, flagName):
+    flag = await Flag.filter(name=flagName, ownerId=userId).first()
+    if not flag:
+        flag = await Flag.filter(name=flagName, forAll=True).first()
+    if not flag:
+        raise Exception("Config Error: 读取时错误，无该参数信息")
+    return flag.value
+
+
+async def setFlag(userId, flagName, value):
+    existFlag = await Flag.filter(name=flagName, ownerId=userId).first()
+    if existFlag:
+        existFlag.value = value
+        await existFlag.save()
+    else:
+        publicFlag = await Flag.filter(name=flagName, forAll=True).first()
+        if not publicFlag:
+            raise Exception("Config Error: 新增时错误，无此公共参数")
+        await Flag.create(name=flagName, ownerId=userId, value=value, forAll=False)
+
+
+async def getFlagList():
+    return await Flag.filter(forAll=True).all()
+
+
+class DB:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @classmethod
+    async def init(cls):
+        from . import models
+        await Tortoise.init(
+            db_url=f"sqlite://database/chuchu.sqlite",
+            modules={'models': [locals()['models']]}
+        )
+        await Tortoise.generate_schemas()
+
+    async def createUser(self, qqNum):
+        pass
+
+
+@on_startup
+async def init():
+    async with DB() as db:
+        await db.init()
+        print("--- DB Init ---")
