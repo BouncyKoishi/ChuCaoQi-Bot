@@ -104,6 +104,7 @@ async def kusaHistoryReport(qqNum):
     ''', [qqNum])
     return rows[0]
 
+
 async def noKusaAdvHistory(qqNum, limit: int):
-    rows = await KusaHistory.filter(qq__contains=qqNum).order_by('-createTime').limit(limit)
+    rows = await KusaHistory.filter(qq=qqNum).order_by('-createTime').limit(limit)
     return rows

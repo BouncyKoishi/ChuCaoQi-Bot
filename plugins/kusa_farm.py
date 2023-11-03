@@ -297,12 +297,12 @@ async def getCreateAdvKusaNum(field):
         advKusaNum *= 2
     return advKusaNum
 
+
 async def goodNewsReport(field):
     if field.advKusaResult > 0:
         advKusa = field.advKusaResult if field.kusaType != "灵草" else field.advKusaResult * 2
-        if field.kusaType == "灵草" and field.advKusaResult >= 7 or \
-            field.kusaType == "巨草" and field.advKusaResult >= 16 or \
-            field.kusaType != "巨草" and  field.advKusaResult >= 8:
+        isDoubleType = (field.kusaType == "灵草" or field.kusaType == "巨草")
+        if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
             user = await baseDB.getUser(field.qq)
             userName = user.name if user.name else user.qq
             kusaType = field.kusaType if field.kusaType else "普通草"
@@ -318,17 +318,18 @@ async def goodNewsReport(field):
 
         quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
         quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
-        if quality3 >= 1 or quality2 >= 1:
-            maxlen = 30 if quality3 >= 1 else 40
+        if quality3 or quality2:
+            maxlen = 30 if quality3 else 40
             history = await fieldDB.noKusaAdvHistory(field.qq, maxlen)
             cnt = 0
-            while cnt < len(history):
-                if history[cnt].advKusaResult > 0:
+            for i in range(len(history)):
+                if history[i].advKusaResult > 0:
                     break
-            if quality3 >= 1 and cnt >= 8 or cnt >= 11:
+                cnt += 1
+            if (quality3 and cnt >= 8) or cnt >= 11:
                 user = await baseDB.getUser(field.qq)
                 userName = user.name if user.name else user.qq
-                itemName = "生草质量III" if quality3 >=1 else "生草质量II"
+                itemName = "生草质量III" if quality3 else "生草质量II"
                 try:
                     bot = nonebot.get_bot()
                     await bot.send_group_msg(group_id=config['group']['main'],
