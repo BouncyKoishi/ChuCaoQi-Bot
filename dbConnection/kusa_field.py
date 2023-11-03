@@ -1,5 +1,6 @@
 import datetime
-from .models import KusaField
+from tortoise import Tortoise
+from .models import KusaField, KusaHistory
 
 
 async def getKusaField(qqNum) -> KusaField:
@@ -77,3 +78,29 @@ async def kusaSoilRecover(qqNum):
         if kusaField.soilCapacity == 25:
             return True
     return False
+
+
+async def kusaHistoryAdd(qqNum):
+    kusaField = await getKusaField(qqNum)
+    if kusaField:
+        kusa = kusaField.kusaResult * 2 if kusaField.kusaType == '灵草' else kusaField.kusaResult
+        advKusa = kusaField.advKusaResult * 2 if kusaField.kusaType == '灵草' else kusaField.advKusaResult
+        await KusaHistory.create(qq=kusaField.qq, kusaType=kusaField.kusaType, kusaResult=kusa, advKusaResult=advKusa)
+
+
+async def kusaHistoryReport(qqNum):
+    conn = Tortoise.get_connection('default')
+    rows = await conn.execute_query_dict('''
+        SELECT
+            count(*) AS count,
+            sum(kusaResult) AS sumKusa,
+            sum(advKusaResult) AS sumAdvKusa,
+            avg(kusaResult) AS avgKusa,
+            avg(advKusaResult) AS avgAdvKusa
+        FROM
+            KusaHistory
+        WHERE
+            qq = ? AND strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
+    ''', [qqNum])
+    return rows[0]
+

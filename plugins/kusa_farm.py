@@ -175,6 +175,16 @@ async def _(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='生草简报', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    row = await fieldDB.kusaHistoryReport(userId)
+    successOutput = (f'最近24小时共生草{row["count"]}次\n'
+            f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
+            f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')     
+    await session.send(successOutput if row["count"] else '最近24小时未生出草！')
+
+
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
@@ -194,6 +204,7 @@ async def save():
                 await bot.send_private_msg(user_id=field.qq, message=outputMsg)
             except:
                 print(f'错误：sendmsg api not available，qq={field.qq}')
+            await fieldDB.kusaHistoryAdd(field.qq)
             await fieldDB.kusaStopGrowing(field.qq, False)
         else:
             await fieldDB.kusaTimePass(field.qq)
