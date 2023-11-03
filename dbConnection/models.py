@@ -30,6 +30,14 @@ class KusaField(Model):
     lastUseTime = DatetimeField(null=True)
 
 
+class KusaHistory(Model):
+    qq = CharField(max_length=12)
+    createTime = DatetimeField(auto_now_add=True)
+    kusaType = CharField(max_length=8, default="")
+    kusaResult = IntField(default=0)
+    advKusaResult = IntField(default=0)
+
+
 class DrawItemList(Model):
     id = IntField(pk=True)
     name = CharField(max_length=64)

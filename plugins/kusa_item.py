@@ -54,7 +54,7 @@ async def usefulItemQuery(session: CommandSession):
     output += f'拥有数量：{ownItemAmount}\n' if not item.isSingle else ('已拥有\n' if ownItemAmount else '未拥有\n')
     output += f'最大数量限制：{item.amountLimit}\n' if item.amountLimit else ''
     moneyType = '草之精华' if item.isUsingAdvKusa else '草'
-    output += f'商店价格：{item.shopPrice}{moneyType}\n' if item.shopPrice else '不可从商店购买\n'
+    output += f'商店基础价格：{item.shopPrice}{moneyType}\n' if item.shopPrice else '不可从商店购买\n'
     output += f'价格倍率：{item.priceRate}\n' if item.priceRate else ''
     output += f'商店售价：{item.sellingPrice}{moneyType}\n' if item.sellingPrice else ''
     output += '唯一 ' if item.isSingle else ''
@@ -64,7 +64,6 @@ async def usefulItemQuery(session: CommandSession):
     output += f'物品说明：{item.detail}\n' if item.detail else '暂无物品说明= =\n'
 
     output = output[:-1] if output[-1] == '\n' else output
-    print(output)
     await session.send(output)
 
 
@@ -101,7 +100,7 @@ async def shopBuy(session: CommandSession):
 
     totalPrice = getMultiItemPrice(item, nowAmount, buyingAmount)
     costType = '草之精华' if item.isUsingAdvKusa else '草'
-    if item.priceRate and buyingAmount > 1:
+    if item.priceRate and buyingAmount > 0:
         priceInfo = f'本物品价格随购买数量上升，购买{buyingAmount}个{itemName}共计消耗{totalPrice}{costType}。是否继续购买？(y/n)'
         confirm = await session.aget(prompt=priceInfo)
         if confirm.lower() != 'y':
@@ -144,7 +143,7 @@ async def shopSell(session: CommandSession):
         await session.send(f'你不够{itemName}^ ^')
 
 
-@on_command(name='道具转让', only_to_me=False)
+@on_command(name='道具转让', aliases='物品转让', only_to_me=False)
 async def usefulItemTransfer(session: CommandSession):
     userId = session.ctx['user_id']
     argText = session.current_arg_text.strip()

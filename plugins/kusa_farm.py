@@ -6,6 +6,7 @@ import dbConnection.kusa_field as fieldDB
 import dbConnection.kusa_item as itemDB
 from nonebot import on_command, CommandSession
 from datetime import datetime, timedelta
+from kusa_base import config
 
 
 @on_command(name='生草', only_to_me=False)
@@ -175,6 +176,19 @@ async def _(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='生草简报', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    row = await fieldDB.kusaHistoryReport(userId)
+    if not row["count"]:
+        await session.send('最近24小时未生出草！')
+        return
+    await session.send(f'最近24小时共生草{row["count"]}次\n'
+        f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
+        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')  
+        
+
+
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
@@ -194,6 +208,8 @@ async def save():
                 await bot.send_private_msg(user_id=field.qq, message=outputMsg)
             except:
                 print(f'错误：sendmsg api not available，qq={field.qq}')
+            await goodNewsReport(field)
+            await fieldDB.kusaHistoryAdd(field.qq)
             await fieldDB.kusaStopGrowing(field.qq, False)
         else:
             await fieldDB.kusaTimePass(field.qq)
@@ -281,3 +297,45 @@ async def getCreateAdvKusaNum(field):
         advKusaNum *= 2
     return advKusaNum
 
+
+async def goodNewsReport(field):
+    if field.advKusaResult > 0:
+        advKusa = field.advKusaResult if field.kusaType != "灵草" else field.advKusaResult * 2
+        isDoubleType = (field.kusaType == "灵草" or field.kusaType == "巨草")
+        if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
+            user = await baseDB.getUser(field.qq)
+            userName = user.name if user.name else user.qq
+            kusaType = field.kusaType if field.kusaType else "普通草"
+            try:
+                bot = nonebot.get_bot()
+                await bot.send_group_msg(group_id=config['group']['main'],
+                                         message=f"喜报\n"
+                                                 f"[CQ:face,id=144]玩家 {userName} "
+                                                 f"单次生{kusaType}获得了{advKusa}个草之精华！"
+                                                 f"大家快来围殴他吧！[CQ:face,id=144]")
+            except:
+                print('错误：sendmsg api not available')
+
+        quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
+        quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
+        if quality3 or quality2:
+            maxlen = 30 if quality3 else 40
+            history = await fieldDB.noKusaAdvHistory(field.qq, maxlen)
+            cnt = 0
+            for i in range(len(history)):
+                if history[i].advKusaResult > 0:
+                    break
+                cnt += 1
+            if (quality3 and cnt >= 8) or cnt >= 11:
+                user = await baseDB.getUser(field.qq)
+                userName = user.name if user.name else user.qq
+                itemName = "生草质量III" if quality3 else "生草质量II"
+                try:
+                    bot = nonebot.get_bot()
+                    await bot.send_group_msg(group_id=config['group']['main'],
+                                             message=f"喜报\n"
+                                                     f"[CQ:face,id=144]玩家 {userName} 使用 {itemName} "
+                                                     f"在连续{cnt}次生草中未获得草之精华！"
+                                                     f"[CQ:face,id=144]")
+                except:
+                    print('错误：sendmsg api not available')
