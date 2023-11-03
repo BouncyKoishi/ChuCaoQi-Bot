@@ -179,10 +179,13 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     row = await fieldDB.kusaHistoryReport(userId)
-    successOutput = (f'最近24小时共生草{row["count"]}次\n'
-            f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
-            f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')     
-    await session.send(successOutput if row["count"] else '最近24小时未生出草！')
+    if not row["count"]:
+        await session.send('最近24小时未生出草！')
+        return
+    await session.send(f'最近24小时共生草{row["count"]}次\n'
+        f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
+        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')  
+        
 
 
 # 生草结算
