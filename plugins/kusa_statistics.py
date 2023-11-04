@@ -93,7 +93,10 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
         return
+    outputStr = await getKusaAdvRank()
+    await session.send(outputStr)
 
+async def getKusaAdvRank():
     userList = await baseDB.getAllUser()
     advShopItemList = await itemDB.getShopItemList(isAdvItem=True)
     userAdvKusaDict = {}
@@ -109,7 +112,7 @@ async def _(session: CommandSession):
         user = userAdvKusaDict[i][0]
         userName = user.name if user.name else user.qq
         outputStr += f'{i + 1}. {userName}: {userAdvKusaDict[i][1]}\n'
-    await session.send(outputStr)
+    return outputStr
 
 
 async def getKusaAdv(user, advShopItemList):
