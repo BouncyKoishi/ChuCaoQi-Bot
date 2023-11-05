@@ -108,3 +108,41 @@ async def kusaHistoryReport(qqNum):
 async def noKusaAdvHistory(qqNum, limit: int):
     rows = await KusaHistory.filter(qq=qqNum).order_by('-createTime').limit(limit)
     return rows
+
+async def kusaHistoryDailyReport():
+    conn = Tortoise.get_connection('default')
+    rows = await conn.execute_query_dict('''
+        SELECT
+            count(*) AS count,
+            sum(kusaResult) AS sumKusa,
+            sum(advKusaResult) AS sumAdvKusa,
+        FROM
+            KusaHistory
+        WHERE
+            strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
+    ''', [])
+    return rows[0]
+
+async def executeChampionQuery(conn, select: str, orderBy: str):
+    rows = await conn.execute_query_dict(f'''
+            SELECT
+                qq,
+                {select}
+            FROM
+                KusaHistory
+            WHERE
+                strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
+            GROUP BY
+                qq
+            ORDER BY
+                {orderBy} DESC
+        ''', [])
+    return rows[0]
+
+async def kusaFarmChampion():
+    conn = Tortoise.get_connection('default')
+    maxTimes = await executeChampionQuery(conn, "count(*) AS count", "count")
+    maxKusa = await executeChampionQuery(conn, "sum(kusaResult) AS sumKusa", "sumKusa")
+    maxAdvKusa = await executeChampionQuery(conn, "sum(advKusaResult) AS sumAdvKusa", "sumAdvKusa")
+    maxAvgAdvKusa = await executeChampionQuery(conn, "avg(advKusaResult) AS avgAdvKusa", "avgAdvKusa")
+    return maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa

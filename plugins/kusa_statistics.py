@@ -41,7 +41,13 @@ async def _(session: CommandSession):
 @on_command(name='KUSA_RANK', only_to_me=False)
 async def _(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
-        return
+        userId = session.ctx['user_id']
+        amount = await itemDB.getItemAmount(userId, "侦察凭证")
+        if amount >= 10:
+            await itemDB.changeItemAmount(userId, '侦察凭证', -10)
+        else:
+            await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
+            return
 
     userList = await baseDB.getAllUser()
     userList = sorted(userList, key=lambda x: x.kusa, reverse=True)
@@ -58,7 +64,13 @@ async def _(session: CommandSession):
 @on_command(name='FACTORY_RANK', only_to_me=False)
 async def _(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
-        return
+        userId = session.ctx['user_id']
+        amount = await itemDB.getItemAmount(userId, "侦察凭证")
+        if amount >= 10:
+            await itemDB.changeItemAmount(userId, '侦察凭证', -10)
+        else:
+            await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
+            return
 
     factoryList = await itemDB.getStoragesOrderByAmountDesc("生草工厂")
     outputStr = "工厂数排行榜：\n"
@@ -92,8 +104,17 @@ async def _(session: CommandSession):
 @on_command(name='KUSA_ADV_RANK', only_to_me=False)
 async def _(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
-        return
+        userId = session.ctx['user_id']
+        amount = await itemDB.getItemAmount(userId, "侦察凭证")
+        if amount >= 10:
+            await itemDB.changeItemAmount(userId, '侦察凭证', -10)
+        else:
+            await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
+            return
+    outputStr = await getKusaAdvRank()
+    await session.send(outputStr)
 
+async def getKusaAdvRank():
     userList = await baseDB.getAllUser()
     advShopItemList = await itemDB.getShopItemList(isAdvItem=True)
     userAdvKusaDict = {}
@@ -109,7 +130,7 @@ async def _(session: CommandSession):
         user = userAdvKusaDict[i][0]
         userName = user.name if user.name else user.qq
         outputStr += f'{i + 1}. {userName}: {userAdvKusaDict[i][1]}\n'
-    await session.send(outputStr)
+    return outputStr
 
 
 async def getKusaAdv(user, advShopItemList):
