@@ -6,7 +6,6 @@ import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 from nonebot import on_command, CommandSession
 from kusa_base import isUserExist, config
-from .kusa_statistics import getKusaAdvRank
 
 vipTitleName = ['用户', '信息员', '高级信息员', '特级信息员', '后浪信息员', '天琴信息员', '天琴信息节点', '天琴信息矩阵', '天琴信息网络',
                 '???', '???', '???', '???']
@@ -376,8 +375,3 @@ async def daily():
               f'{advFactoryInfo.amount if advFactoryInfo else 0}个草之精华。')
     print(f'每日生草机器、生草工厂、核心工厂、草精炼厂运作完毕。草随机值为{randomKusa}，核心随机值为{randomCore}。')
 
-    outputStr = await getKusaAdvRank()
-    try:
-        await bot.send_group_msg(group_id=config['group']['main'], message=outputStr)
-    except:
-        pass
