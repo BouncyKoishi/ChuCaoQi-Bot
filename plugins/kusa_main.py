@@ -4,6 +4,7 @@ import random
 import nonebot
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
+import dbConnection.kusa_field as fieldDB
 from nonebot import on_command, CommandSession
 from kusa_base import isUserExist, config
 
@@ -375,3 +376,26 @@ async def daily():
               f'{advFactoryInfo.amount if advFactoryInfo else 0}个草之精华。')
     print(f'每日生草机器、生草工厂、核心工厂、草精炼厂运作完毕。草随机值为{randomKusa}，核心随机值为{randomCore}。')
 
+
+# 生草冠军运作
+@nonebot.scheduler.scheduled_job('cron', hour=4)
+async def dailyChampion():
+    maxTimes, maxKusa, maxAdvKusa, maxAvgKusaAdv = fieldDB.kusaFarmChampion()
+    user1 = await baseDB.getUser(maxTimes['qq'])
+    userName1 = user1.name if user1.name else user1.qq
+    user2 = await baseDB.getUser(maxKusa['qq'])
+    userName2 = user2.name if user2.name else user2.qq
+    user3 = await baseDB.getUser(maxAdvKusa['qq'])
+    userName3 = user3.name if user3.name else user3.qq
+    user4 = await baseDB.getUser(maxAvgKusaAdv['qq'])
+    userName4 = user4.name if user4.name else user4.qq
+    outputStr = f"最近24h生草冠军为:\n" \
+                f"生草次数最多:{userName1}, {maxTimes['count']}\n" \
+                f"获得草最多:{userName2}, {maxKusa['sumKusa']}\n" \
+                f"获得草之精华最多:{userName3}, {maxAdvKusa['sumAdvKusa']}\n" \
+                f"平均草之精华最多:{userName4}, {round(maxAvgKusaAdv['avgAdvKusa'], 2)}"
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_group_msg(group_id=config['group']['main'], message=outputStr)
+    except:
+        print('错误：sendmsg api not available')
