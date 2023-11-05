@@ -380,20 +380,26 @@ async def daily():
 # 生草冠军运作
 @nonebot.scheduler.scheduled_job('cron', hour=4)
 async def dailyChampion():
-    maxTimes, maxKusa, maxAdvKusa, maxAvgKusaAdv = fieldDB.kusaFarmChampion()
+    row = await fieldDB.kusaHistoryDailyReport()
+    maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa = await fieldDB.kusaFarmChampion()
     user1 = await baseDB.getUser(maxTimes['qq'])
     userName1 = user1.name if user1.name else user1.qq
     user2 = await baseDB.getUser(maxKusa['qq'])
     userName2 = user2.name if user2.name else user2.qq
     user3 = await baseDB.getUser(maxAdvKusa['qq'])
     userName3 = user3.name if user3.name else user3.qq
-    user4 = await baseDB.getUser(maxAvgKusaAdv['qq'])
+    user4 = await baseDB.getUser(maxAvgAdvKusa['qq'])
     userName4 = user4.name if user4.name else user4.qq
-    outputStr = f"最近24h生草冠军为:\n" \
+    outputStr = f"最近24h生草统计:\n" \
+                f"总生草次数:{row['count']}\n" \
+                f"总草产量:{round(row['sumKusa'] / 10000, 0)}w\n" \
+                f"总草之精华产量:{row['sumAdvKusa']}\n" \
+                f"\n" \
+                f"生草冠军为:\n" \
                 f"生草次数最多:{userName1}, {maxTimes['count']}\n" \
                 f"获得草最多:{userName2}, {maxKusa['sumKusa']}\n" \
                 f"获得草之精华最多:{userName3}, {maxAdvKusa['sumAdvKusa']}\n" \
-                f"平均草之精华最多:{userName4}, {round(maxAvgKusaAdv['avgAdvKusa'], 2)}"
+                f"平均草之精华最多:{userName4}, {round(maxAvgAdvKusa['avgAdvKusa'], 2)}"
     try:
         bot = nonebot.get_bot()
         await bot.send_group_msg(group_id=config['group']['main'], message=outputStr)
