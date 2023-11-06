@@ -37,11 +37,11 @@ async def setItemDetail(item: DrawItemList, newItemDetail):
 async def getItemsWithStorage(qqNum, rareRank):
     if rareRank is not None:
         querySet = await DrawItemList.filter(rareRank=rareRank).prefetch_related(
-            Prefetch("item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
+            Prefetch("draw_item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
         )
     else:
         querySet = await DrawItemList.all().order_by("-rareRank").prefetch_related(
-            Prefetch("item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
+            Prefetch("draw_item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
         )
     return querySet
 
