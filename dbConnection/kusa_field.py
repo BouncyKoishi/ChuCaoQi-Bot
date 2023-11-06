@@ -115,7 +115,7 @@ async def kusaHistoryDailyReport():
         SELECT
             count(*) AS count,
             sum(kusaResult) AS sumKusa,
-            sum(advKusaResult) AS sumAdvKusa,
+            sum(advKusaResult) AS sumAdvKusa
         FROM
             KusaHistory
         WHERE

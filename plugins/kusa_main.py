@@ -391,17 +391,12 @@ async def dailyChampion():
     user4 = await baseDB.getUser(maxAvgAdvKusa['qq'])
     userName4 = user4.name if user4.name else user4.qq
     outputStr = f"最近24h生草统计:\n" \
-                f"总生草次数:{row['count']}\n" \
-                f"总草产量:{round(row['sumKusa'] / 10000, 0)}w\n" \
-                f"总草之精华产量:{row['sumAdvKusa']}\n" \
+                f"总生草次数: {row['count']}\n" \
+                f"总草产量: {round(row['sumKusa'] / 1000000, 2)}m\n" \
+                f"总草之精华产量: {row['sumAdvKusa']}\n" \
                 f"\n" \
-                f"生草冠军为:\n" \
-                f"生草次数最多:{userName1}, {maxTimes['count']}\n" \
-                f"获得草最多:{userName2}, {maxKusa['sumKusa']}\n" \
-                f"获得草之精华最多:{userName3}, {maxAdvKusa['sumAdvKusa']}\n" \
-                f"平均草之精华最多:{userName4}, {round(maxAvgAdvKusa['avgAdvKusa'], 2)}"
-    try:
-        bot = nonebot.get_bot()
-        await bot.send_group_msg(group_id=config['group']['main'], message=outputStr)
-    except:
-        print('错误：sendmsg api not available')
+                f"生草次数最多: {userName1}({maxTimes['count']}次)\n" \
+                f"获得草最多: {userName2}(共{round(maxKusa['sumKusa'] / 1000000, 2)}m草)\n" \
+                f"获得草之精华最多: {userName3}(共{maxAdvKusa['sumAdvKusa']}草精)\n" \
+                f"平均草之精华最多: {userName4}(平均{round(maxAvgAdvKusa['avgAdvKusa'], 2)}草精)"
+    await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
