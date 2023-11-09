@@ -109,9 +109,9 @@ async def noKusaAdvHistory(qqNum, limit: int):
     rows = await KusaHistory.filter(qq=qqNum).order_by('-createTime').limit(limit)
     return rows
 
-async def kusaHistoryDailyReport():
+async def kusaHistoryTotalReport(interval):
     conn = Tortoise.get_connection('default')
-    rows = await conn.execute_query_dict('''
+    rows = await conn.execute_query_dict(f'''
         SELECT
             count(*) AS count,
             sum(kusaResult) AS sumKusa,
@@ -119,7 +119,7 @@ async def kusaHistoryDailyReport():
         FROM
             KusaHistory
         WHERE
-            strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
+            strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < {interval}
     ''', [])
     return rows[0]
 

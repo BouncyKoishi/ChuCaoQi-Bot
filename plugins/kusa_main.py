@@ -377,10 +377,10 @@ async def daily():
     print(f'每日生草机器、生草工厂、核心工厂、草精炼厂运作完毕。草随机值为{randomKusa}，核心随机值为{randomCore}。')
 
 
-# 生草冠军运作
+# 生草日报运作
 @nonebot.scheduler.scheduled_job('cron', hour=4)
-async def dailyChampion():
-    row = await fieldDB.kusaHistoryDailyReport()
+async def dailyReport():
+    row = await fieldDB.kusaHistoryTotalReport(86400)
     maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa = await fieldDB.kusaFarmChampion()
     user1 = await baseDB.getUser(maxTimes['qq'])
     userName1 = user1.name if user1.name else user1.qq
@@ -399,4 +399,15 @@ async def dailyChampion():
                 f"获得草最多: {userName2}(共{round(maxKusa['sumKusa'] / 1000000, 2)}m草)\n" \
                 f"获得草之精华最多: {userName3}(共{maxAdvKusa['sumAdvKusa']}草精)\n" \
                 f"平均草之精华最多: {userName4}(平均{round(maxAvgAdvKusa['avgAdvKusa'], 2)}草精)"
+    await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
+
+
+# 生草周报运作
+@nonebot.scheduler.scheduled_job('cron', hour=4, day_of_week='mon')
+async def weeklyReport():
+    row = await fieldDB.kusaHistoryTotalReport(604800)
+    outputStr = f"最近一周生草统计:\n" \
+                f"总生草次数: {row['count']}\n" \
+                f"总草产量: {round(row['sumKusa'] / 1000000, 2)}m\n" \
+                f"总草之精华产量: {row['sumAdvKusa']}"
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
