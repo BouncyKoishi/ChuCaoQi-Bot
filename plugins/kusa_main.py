@@ -7,6 +7,7 @@ import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
 from nonebot import on_command, CommandSession
 from kusa_base import isUserExist, config
+from .kusa_statistics import getKusaAdvRank
 
 vipTitleName = ['用户', '信息员', '高级信息员', '特级信息员', '后浪信息员', '天琴信息员', '天琴信息节点', '天琴信息矩阵', '天琴信息网络',
                 '???', '???', '???', '???']
@@ -410,4 +411,10 @@ async def weeklyReport():
                 f"总生草次数: {row['count']}\n" \
                 f"总草产量: {round(row['sumKusa'] / 1000000)}m\n" \
                 f"总草之精华产量: {row['sumAdvKusa']}"
+    await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
+
+# 每周草精总榜
+@nonebot.scheduler.scheduled_job('cron', hour=4, minute=1, day_of_week='mon')
+async def weeklyReport():
+    outputStr = await getKusaAdvRank()
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
