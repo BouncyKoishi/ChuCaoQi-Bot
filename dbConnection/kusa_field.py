@@ -100,7 +100,8 @@ async def kusaHistoryReport(qqNum, queryTimeStamp, interval):
         FROM
             KusaHistory
         WHERE
-            qq = ? AND {queryTimeStamp} - strftime('%s', createTime) < {interval}
+            qq = ? AND {queryTimeStamp} - strftime('%s', createTime) < {interval} 
+            AND {queryTimeStamp} - strftime('%s', createTime) >= 0
     ''', [qqNum])
     return rows[0]
 

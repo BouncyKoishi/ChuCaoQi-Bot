@@ -191,7 +191,7 @@ async def _(session: CommandSession):
 @on_command(name='生草日报', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    queryTime = datetime.combine(date.today(), time.min)
+    queryTime = datetime.combine(date.today(), time.min) + timedelta(hours=4)
     row = await fieldDB.kusaHistoryReport(userId, queryTime.timestamp(), 86400)
     if not row["count"]:
         await session.send('昨日未生出草！')
@@ -203,7 +203,7 @@ async def _(session: CommandSession):
 @on_command(name='生草周报', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    queryTime = datetime.combine(date.today(), time.min) - timedelta(days=date.today().weekday())
+    queryTime = datetime.combine(date.today(), time.min) - timedelta(days=date.today().weekday()) + timedelta(hours=4)
     row = await fieldDB.kusaHistoryReport(userId, queryTime.timestamp(), 604800)
     if not row["count"]:
         await session.send('上周未生出草！')
