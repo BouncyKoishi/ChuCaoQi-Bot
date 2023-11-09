@@ -408,6 +408,6 @@ async def weeklyReport():
     row = await fieldDB.kusaHistoryTotalReport(604800)
     outputStr = f"最近一周生草统计:\n" \
                 f"总生草次数: {row['count']}\n" \
-                f"总草产量: {round(row['sumKusa'] / 1000000, 2)}m\n" \
+                f"总草产量: {round(row['sumKusa'] / 1000000)}m\n" \
                 f"总草之精华产量: {row['sumAdvKusa']}"
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
