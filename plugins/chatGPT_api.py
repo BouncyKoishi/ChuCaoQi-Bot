@@ -186,10 +186,10 @@ async def changeModel(session: CommandSession):
         return
     userId = session.event.user_id
     chatUser = await db.getChatUser(userId)
-    newModel = "gpt-4" if chatUser.chosenModel == "gpt-3.5-turbo" else "gpt-3.5-turbo"
+    newModel = "gpt-4-1106-preview" if "gpt-3.5-turbo" in chatUser.chosenModel else "gpt-3.5-turbo"
     await db.updateUsingModel(userId, newModel)
     output = f"已切换到{newModel}模型"
-    output += "\nGPT4 token的价格是普通token的20倍，请勿用于娱乐！" if newModel == "gpt-4" else ""
+    output += "\nGPT4 token的价格比普通token高出一个数量级，请勿用于娱乐！" if "gpt-4" in newModel else ""
     await session.send(output)
 
 
@@ -236,7 +236,7 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bo
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 else ""
-        gpt4Sign = f"\nModel: GPT-4" if model == "gpt-4" else ""
+        gpt4Sign = f"\nModel: GPT-4" if "gpt-4" in model else ""
         tokenSign = f"\nTokens: {usage['total_tokens']}"
         return reply + "\n" + roleSign + gpt4Sign + tokenSign
     except Exception as e:
