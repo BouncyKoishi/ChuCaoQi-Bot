@@ -413,6 +413,7 @@ async def weeklyReport():
                 f"总草之精华产量: {row['sumAdvKusa']}"
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
 
+
 # 每周草精总榜
 @nonebot.scheduler.scheduled_job('cron', hour=4, minute=1, day_of_week='mon')
 async def weeklyReport():

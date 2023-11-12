@@ -188,10 +188,11 @@ async def _(session: CommandSession):
         f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
         f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
+
 @on_command(name='生草日报', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    queryTime = datetime.combine(date.today(), time.min) + timedelta(hours=4)
+    queryTime = datetime.combine(date.today(), time.min)
     row = await fieldDB.kusaHistoryReport(userId, queryTime.timestamp(), 86400)
     if not row["count"]:
         await session.send('昨日未生出草！')
@@ -200,10 +201,11 @@ async def _(session: CommandSession):
         f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
         f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
+
 @on_command(name='生草周报', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    queryTime = datetime.combine(date.today(), time.min) - timedelta(days=date.today().weekday()) + timedelta(hours=4)
+    queryTime = datetime.combine(date.today(), time.min) - timedelta(days=date.today().weekday())
     row = await fieldDB.kusaHistoryReport(userId, queryTime.timestamp(), 604800)
     if not row["count"]:
         await session.send('上周未生出草！')
