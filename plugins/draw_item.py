@@ -233,24 +233,8 @@ async def _(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
     if not item:
-        if len(stripped_arg) < 2:
-            await session.send('搜索关键词至少为两个字^ ^')
-            return
-        offset = 0
-        while True:
-            count, items = await drawItemDB.searchItem(stripped_arg, 10, offset)
-            if not count:
-                await session.send('没有找到该物品^ ^')
-                return
-            outputStr = '' if offset else '你要找的是不是：\n'
-            outputStr += '\n'.join(f'[{itemRareDescribe[item["rareRank"]]}]{item["name"]}' for item in items)
-            offset += len(items)
-            if offset >= count:
-                await session.send(outputStr)
-                return
-            confirm = await session.aget(prompt=outputStr + f'\n（找到了{count}件物品，输入next继续显示）')
-            if confirm.lower() != 'next':
-                return
+        await itemSearch(session)
+        return
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
     personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     if item.detail:
@@ -270,6 +254,35 @@ async def _(session: CommandSession):
         outputStr += f'\n抽到该物品的人数：{personCount}\n被抽到的总次数：{numberCount}'
 
     await session.send(outputStr)
+
+
+@on_command(name='物品搜索', only_to_me=False)
+async def _(session: CommandSession):
+    await itemSearch(session)
+
+
+async def itemSearch(session: CommandSession):
+    stripped_arg = session.current_arg_text.strip()
+    if len(stripped_arg) < 2:
+        await session.send('搜索关键词至少为两个字^ ^')
+        return
+    offset = 0
+    while True:
+        pageSize = 10
+        count, items = await drawItemDB.searchItem(stripped_arg, pageSize, offset)
+        if not count:
+            await session.send('没有找到该物品^ ^')
+            return
+        outputStr = '' if offset else '你要找的是不是：\n'
+        outputStr += '\n'.join(f'[{itemRareDescribe[item["rareRank"]]}]{item["name"]}' for item in items)
+        offset += len(items)
+        if offset >= count:
+            outputStr += f'\n(共{count}件物品，当前最后一页)' if count > pageSize else ''
+            await session.send(outputStr)
+            return
+        confirm = await session.aget(prompt=outputStr + f'\n(共{count}件物品，当前第{offset // pageSize}页，输入Next显示下一页)')
+        if confirm.lower() != 'next':
+            return
 
 
 @on_command(name='物品修改', only_to_me=False)
