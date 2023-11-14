@@ -232,18 +232,27 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
-    personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     if not item:
         if len(stripped_arg) < 2:
             await session.send('搜索关键词至少为两个字^ ^')
             return
-        items = await drawItemDB.searchItem(stripped_arg, 10)
-        if not items:
-            await session.send('没有找到该物品^ ^')
-            return
-        await session.send('你要找的是不是：\n' + '\n'.join(f'{item["name"]} ({itemRareDescribe[item["rareRank"]]})' for item in items))
-        return
+        offset = 0
+        while True:
+            count, items = await drawItemDB.searchItem(stripped_arg, 10, offset)
+            if not count:
+                await session.send('没有找到该物品^ ^')
+                return
+            outputStr = '' if offset else '你要找的是不是：\n'
+            outputStr += '\n'.join(f'[{itemRareDescribe[item["rareRank"]]}]{item["name"]}' for item in items)
+            offset += len(items)
+            if offset >= count:
+                await session.send(outputStr)
+                return
+            confirm = await session.aget(prompt=outputStr + f'\n（找到了{count}件物品，输入next继续显示）')
+            if confirm.lower() != 'next':
+                return
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
+    personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     if item.detail:
         outputStr += f'\n物品说明：{item.detail}'
     else:

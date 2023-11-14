@@ -22,9 +22,17 @@ async def getRandomItem(rareRank):
     return rareItemList[randint(0, len(rareItemList) - 1)]
 
 
-async def searchItem(keyword, limit):
+async def searchItem(keyword, limit, offset = 0):
     conn = Tortoise.get_connection('default')
-    rows = await conn.execute_query_dict(f'''
+    count = (await conn.execute_query_dict('''
+        SELECT
+            count(*) AS count
+        FROM
+            DrawItemList
+        WHERE
+            name LIKE ('%' || ? || '%')
+    ''', [keyword,]))[0]['count']
+    rows = await conn.execute_query_dict('''
         SELECT
             name,
             rareRank
@@ -32,9 +40,11 @@ async def searchItem(keyword, limit):
             DrawItemList
         WHERE
             name LIKE ('%' || ? || '%')
-            LIMIT ?
-    ''', [keyword, limit])
-    return rows
+        ORDER BY
+            rareRank DESC
+            LIMIT ? OFFSET ?
+    ''', [keyword, limit, offset])
+    return count, rows
 
 
 async def addItem(itemName, itemRare, itemDetail, author):
