@@ -1,6 +1,5 @@
 from random import randint
 from .models import DrawItemList, DrawItemStorage
-from tortoise import Tortoise
 from tortoise.query_utils import Prefetch
 from tortoise.functions import Sum
 
@@ -20,21 +19,6 @@ async def getItemListByAuthor(qqNum):
 async def getRandomItem(rareRank):
     rareItemList = await DrawItemList.filter(rareRank=rareRank)
     return rareItemList[randint(0, len(rareItemList) - 1)]
-
-
-async def searchItem(keyword, limit):
-    conn = Tortoise.get_connection('default')
-    rows = await conn.execute_query_dict(f'''
-        SELECT
-            name,
-            rareRank
-        FROM
-            DrawItemList
-        WHERE
-            name LIKE ('%' || ? || '%')
-            LIMIT ?
-    ''', [keyword, limit])
-    return rows
 
 
 async def addItem(itemName, itemRare, itemDetail, author):
