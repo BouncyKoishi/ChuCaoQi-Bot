@@ -89,42 +89,23 @@ async def kusaHistoryAdd(qqNum):
         advKusa = kusaField.advKusaResult * 2 if kusaField.kusaType == '灵草' else kusaField.advKusaResult
         await KusaHistory.create(qq=kusaField.qq, kusaType=kusaField.kusaType, kusaResult=kusa, advKusaResult=advKusa)
 
-class strftime(Function):
-    database_func = CustomFunction("strftime", ["format", "name"])
 
-async def kusaHistoryReport(qqNum, queryTimeStamp, interval):
-    rows = await KusaHistory.filter(qq=qqNum)\
-        .annotate(date=strftime('%s', 'createTime'),
-                  count=Count('qq'),
+async def kusaHistoryReport(qqNum, endTime, interval):
+    startTime = endTime - datetime.timedelta(seconds=interval)
+    rows = await KusaHistory.filter(qq=qqNum, createTime__gt=startTime, createTime__lte=endTime)\
+        .annotate(count=Count('qq'),
                   sumKusa=Sum('kusaResult'),
                   sumAdvKusa=Sum('advKusaResult'),
                   avgKusa=Avg('kusaResult'),
                   avgAdvKusa=Avg('advKusaResult')) \
-        .filter(date__gt=queryTimeStamp - interval, date__lte=queryTimeStamp) \
         .values('count', 'sumKusa', 'sumAdvKusa', 'avgKusa', 'avgAdvKusa')
     return rows[0]
-
-# async def kusaHistoryReport(qqNum, queryTimeStamp, interval):
-#     conn = Tortoise.get_connection('default')
-#     rows = await conn.execute_query_dict(f'''
-#         SELECT
-#             count(*) AS count,
-#             sum(kusaResult) AS sumKusa,
-#             sum(advKusaResult) AS sumAdvKusa,
-#             avg(kusaResult) AS avgKusa,
-#             avg(advKusaResult) AS avgAdvKusa
-#         FROM
-#             KusaHistory
-#         WHERE
-#             qq = ? AND {queryTimeStamp} - strftime('%s', createTime) < {interval}
-#             AND {queryTimeStamp} - strftime('%s', createTime) >= 0
-#     ''', [qqNum])
-#     return rows[0]
 
 
 async def noKusaAdvHistory(qqNum, limit: int):
     rows = await KusaHistory.filter(qq=qqNum).order_by('-createTime').limit(limit)
     return rows
+
 
 async def kusaHistoryTotalReport(interval):
     conn = Tortoise.get_connection('default')
@@ -139,6 +120,7 @@ async def kusaHistoryTotalReport(interval):
             strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < ?
     ''', [interval])
     return rows[0]
+
 
 async def executeChampionQuery(conn, select: str, orderBy: str):
     rows = await conn.execute_query_dict(f'''
@@ -155,6 +137,7 @@ async def executeChampionQuery(conn, select: str, orderBy: str):
                 {orderBy} DESC
         ''', [])
     return rows[0]
+
 
 async def kusaFarmChampion():
     conn = Tortoise.get_connection('default')
