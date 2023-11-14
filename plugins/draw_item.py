@@ -180,7 +180,7 @@ async def addItem(session, rare):
         return
 
     user = await baseDB.getUser(userId)
-    costKusa = 1000 * (8 ** rare)
+    costKusa = 1000 * (8**rare)
     if not user.kusa >= costKusa:
         await session.send('你不够草^_^')
         return
@@ -201,7 +201,7 @@ async def _(session: CommandSession):
         itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=itemRareDescribe.index(arg))
     else:
         itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=None)
-    
+
     allItemNumList = [0, 0, 0, 0]
     ownItemNumList = [0, 0, 0, 0]
     describeStrList = ['', '', '', '']
@@ -212,7 +212,7 @@ async def _(session: CommandSession):
             continue
         ownItemNumList[item.rareRank] += 1
         describeStrList[item.rareRank] += f' {item.name}*{item.storage[0].amount},'
-    
+
     outputStr = ""
     for i in range(3, -1, -1):
         if ownItemNumList[i]:
@@ -241,7 +241,7 @@ async def _(session: CommandSession):
         outputStr += f'\n物品说明：{item.detail}'
     else:
         outputStr += '\n暂无物品说明。'
-    
+
     try:
         sender_infor = await nonebot.get_bot().get_stranger_info(user_id=item.author)
         outputStr += f'\n创作者：{sender_infor["nickname"]}({item.author})'
@@ -252,7 +252,7 @@ async def _(session: CommandSession):
         outputStr += f'\n暂时还没有人抽到这个物品= ='
     else:
         outputStr += f'\n抽到该物品的人数：{personCount}\n被抽到的总次数：{numberCount}'
-        
+
     await session.send(outputStr)
 
 
@@ -268,7 +268,7 @@ async def _(session: CommandSession):
     if item.author != str(userId):
         await session.send('你不是该物品的作者，无法修改物品说明^ ^')
         return
-    
+
     await drawItemDB.setItemDetail(item, itemDetail)
     await session.send('修改成功！')
 
@@ -284,10 +284,22 @@ async def _(session: CommandSession):
     if item.author != str(userId):
         await session.send('你不是该物品的作者，无法删除物品^ ^')
         return
-    
+
     await drawItemDB.deleteItem(item)
     await session.send('删除成功！')
 
+
+@on_command(name='物品搜索', only_to_me=False)
+async def _(session: CommandSession):
+    stripped_arg = session.current_arg_text.strip()
+    if len(stripped_arg) < 2:
+        await session.send('搜索关键词至少为两个字！')
+        return
+    items = await drawItemDB.searchItem(stripped_arg, 10)
+    if not items:
+        await session.send('什么也没找到！')
+        return
+    await session.send('你要找的是不是：\n' + '\n'.join(f'{item["name"]} ({itemRareDescribe[item["rareRank"]]})' for item in items))
 
 @on_command(name='自制物品列表', only_to_me=False)
 async def _(session: CommandSession):
