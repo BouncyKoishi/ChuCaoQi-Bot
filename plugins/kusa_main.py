@@ -404,7 +404,7 @@ async def dailyReport():
 
 
 # 生草周报运作
-@nonebot.scheduler.scheduled_job('cron', hour=4, second=30, day_of_week='mon')
+@nonebot.scheduler.scheduled_job('cron', hour=4, minute=0, second=30, day_of_week='mon')
 async def weeklyReport():
     row = await fieldDB.kusaHistoryTotalReport(604800)
     outputStr = f"最近一周生草统计:\n" \
