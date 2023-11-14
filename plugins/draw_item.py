@@ -234,7 +234,14 @@ async def _(session: CommandSession):
     item = await drawItemDB.getItemByName(stripped_arg)
     personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     if not item:
-        await session.send('没有找到该物品^ ^')
+        if len(stripped_arg) < 2:
+            await session.send('搜索关键词至少为两个字^ ^')
+            return
+        items = await drawItemDB.searchItem(stripped_arg, 10)
+        if not items:
+            await session.send('没有找到该物品^ ^')
+            return
+        await session.send('你要找的是不是：\n' + '\n'.join(f'{item["name"]} ({itemRareDescribe[item["rareRank"]]})' for item in items))
         return
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
     if item.detail:
@@ -288,18 +295,6 @@ async def _(session: CommandSession):
     await drawItemDB.deleteItem(item)
     await session.send('删除成功！')
 
-
-@on_command(name='物品搜索', only_to_me=False)
-async def _(session: CommandSession):
-    stripped_arg = session.current_arg_text.strip()
-    if len(stripped_arg) < 2:
-        await session.send('搜索关键词至少为两个字！')
-        return
-    items = await drawItemDB.searchItem(stripped_arg, 10)
-    if not items:
-        await session.send('什么也没找到！')
-        return
-    await session.send('你要找的是不是：\n' + '\n'.join(f'{item["name"]} ({itemRareDescribe[item["rareRank"]]})' for item in items))
 
 @on_command(name='自制物品列表', only_to_me=False)
 async def _(session: CommandSession):
