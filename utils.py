@@ -36,16 +36,18 @@ async def getUserAndGroupMsg(userId, groupId):
     return userMsg, groupMsg
 
 
-def nameDetailSplit(stripped_arg):
-    if not stripped_arg:
+def nameDetailSplit(strippedText):
+    if not strippedText:
         return "", ""
+    colonEnIndex = strippedText.find(":")
+    colonCnIndex = strippedText.find("：")
+    colonEnIndex = len(strippedText) if colonEnIndex == -1 else colonEnIndex
+    colonCnIndex = len(strippedText) if colonCnIndex == -1 else colonCnIndex
     # 英文冒号
-    splitEn = stripped_arg.split(':', 1)
-    if len(splitEn) > 1:
-        return splitEn
+    if colonEnIndex < colonCnIndex:
+        return strippedText.split(':', 1)
     # 中文冒号
-    splitCn = stripped_arg.split('：', 1)
-    if len(splitCn) > 1:
-        return splitCn
+    if colonCnIndex < colonEnIndex:
+        return strippedText.split('：', 1)
     # 没有冒号
-    return stripped_arg, ""
+    return strippedText, ""
