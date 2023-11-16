@@ -5,4 +5,4 @@
 !商店：查询商店已有的物品，查询道具系统指令。
 !测G：查看G市情况，查询G市交易指令。
 
-更多指令请查看：https://docs.qq.com/doc/DSGlhbE5wY1ZKd0xh
+更多指令与系统说明请查看：https://docs.qq.com/doc/DQVlFQnBwc0d6eE9Z

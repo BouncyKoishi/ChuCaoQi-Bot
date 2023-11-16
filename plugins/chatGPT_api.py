@@ -3,7 +3,7 @@ import json
 import openai
 import asyncio
 import dbConnection.chat as db
-from kusa_base import isSuperAdmin, config
+from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
 from utils import nameDetailSplit
 
@@ -240,7 +240,7 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bo
         tokenSign = f"\nTokens: {usage['total_tokens']}"
         return reply + "\n" + roleSign + gpt4Sign + tokenSign
     except Exception as e:
-        print(e)
+        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{e}")
         return "对话出错了，请稍后再试。"
 
 
@@ -258,7 +258,7 @@ async def getResponseAsync(model, history):
 
 
 def getResponse(model, history):
-    return openai.ChatCompletion.create(model=model, messages=history)
+    return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
 
 
 async def getNewConversation(roleId):

@@ -137,25 +137,25 @@ async def getCardModify(groupNum, userId, sender):
     await bot.send_group_msg(group_id=groupNum, message=msg)
 
 
-@on_command(name='添加-Easy', only_to_me=False)
+@on_command(name='添加-Easy', aliases='物品添加-Easy', only_to_me=False)
 @CQ_injection_check_command
 async def addItemEasy(session: CommandSession):
     await addItem(session, 0)
 
 
-@on_command(name='添加-Normal', only_to_me=False)
+@on_command(name='添加-Normal', aliases='物品添加-Normal', only_to_me=False)
 @CQ_injection_check_command
 async def addItemNormal(session: CommandSession):
     await addItem(session, 1)
 
 
-@on_command(name='添加-Hard', only_to_me=False)
+@on_command(name='添加-Hard', aliases='物品添加-Hard', only_to_me=False)
 @CQ_injection_check_command
 async def addItemHard(session: CommandSession):
     await addItem(session, 2)
 
 
-@on_command(name='添加-Lunatic', only_to_me=False)
+@on_command(name='添加-Lunatic', aliases='物品添加-Lunatic', only_to_me=False)
 @CQ_injection_check_command
 async def addItemLunatic(session: CommandSession):
     await addItem(session, 3)
@@ -201,7 +201,7 @@ async def _(session: CommandSession):
         itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=itemRareDescribe.index(arg))
     else:
         itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=None)
-    
+
     allItemNumList = [0, 0, 0, 0]
     ownItemNumList = [0, 0, 0, 0]
     describeStrList = ['', '', '', '']
@@ -212,7 +212,7 @@ async def _(session: CommandSession):
             continue
         ownItemNumList[item.rareRank] += 1
         describeStrList[item.rareRank] += f' {item.name}*{item.storage[0].amount},'
-    
+
     outputStr = ""
     for i in range(3, -1, -1):
         if ownItemNumList[i]:
@@ -232,16 +232,16 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
-    personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     if not item:
-        await session.send('没有找到该物品^ ^')
+        await itemSearch(session)
         return
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
+    personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     if item.detail:
         outputStr += f'\n物品说明：{item.detail}'
     else:
         outputStr += '\n暂无物品说明。'
-    
+
     try:
         sender_infor = await nonebot.get_bot().get_stranger_info(user_id=item.author)
         outputStr += f'\n创作者：{sender_infor["nickname"]}({item.author})'
@@ -252,8 +252,37 @@ async def _(session: CommandSession):
         outputStr += f'\n暂时还没有人抽到这个物品= ='
     else:
         outputStr += f'\n抽到该物品的人数：{personCount}\n被抽到的总次数：{numberCount}'
-        
+
     await session.send(outputStr)
+
+
+@on_command(name='物品搜索', only_to_me=False)
+async def _(session: CommandSession):
+    await itemSearch(session)
+
+
+async def itemSearch(session: CommandSession):
+    stripped_arg = session.current_arg_text.strip()
+    if len(stripped_arg) < 2:
+        await session.send('搜索关键词至少为两个字^ ^')
+        return
+    offset = 0
+    while True:
+        pageSize = 10
+        count, items = await drawItemDB.searchItem(stripped_arg, pageSize, offset)
+        if not count:
+            await session.send('没有找到该物品^ ^')
+            return
+        outputStr = '' if offset else '你要找的是不是：\n'
+        outputStr += '\n'.join(f'[{itemRareDescribe[item["rareRank"]]}]{item["name"]}' for item in items)
+        offset += len(items)
+        if offset >= count:
+            outputStr += f'\n(共{count}件物品，当前最后一页)' if count > pageSize else ''
+            await session.send(outputStr)
+            return
+        confirm = await session.aget(prompt=outputStr + f'\n(共{count}件物品，当前第{offset // pageSize}页，输入Next显示下一页)')
+        if confirm.lower() != 'next':
+            return
 
 
 @on_command(name='物品修改', only_to_me=False)
@@ -268,7 +297,7 @@ async def _(session: CommandSession):
     if item.author != str(userId):
         await session.send('你不是该物品的作者，无法修改物品说明^ ^')
         return
-    
+
     await drawItemDB.setItemDetail(item, itemDetail)
     await session.send('修改成功！')
 
@@ -284,7 +313,7 @@ async def _(session: CommandSession):
     if item.author != str(userId):
         await session.send('你不是该物品的作者，无法删除物品^ ^')
         return
-    
+
     await drawItemDB.deleteItem(item)
     await session.send('删除成功！')
 
