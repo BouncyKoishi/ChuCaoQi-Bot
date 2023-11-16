@@ -47,11 +47,10 @@ async def _(session: CommandSession):
         for arg in args:
             if arg > len(resultDict["info"]) or arg < 1:
                 args.remove(arg)
-        msg, signFlag = "", False
+        msg = ""
         for index in args:
             url = resultDict["info"][index - 1]["url"]
             msg += f"{index} - {url}\n"
-        msg += 'danbooru链接直接发会被吞，请自行将上面的[danbooru]进行替换' if signFlag else ''
         await session.send(msg)
     except (IndexError, ValueError):
         return

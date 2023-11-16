@@ -137,25 +137,25 @@ async def getCardModify(groupNum, userId, sender):
     await bot.send_group_msg(group_id=groupNum, message=msg)
 
 
-@on_command(name='添加-Easy', only_to_me=False)
+@on_command(name='添加-Easy', aliases='物品添加-Easy', only_to_me=False)
 @CQ_injection_check_command
 async def addItemEasy(session: CommandSession):
     await addItem(session, 0)
 
 
-@on_command(name='添加-Normal', only_to_me=False)
+@on_command(name='添加-Normal', aliases='物品添加-Normal', only_to_me=False)
 @CQ_injection_check_command
 async def addItemNormal(session: CommandSession):
     await addItem(session, 1)
 
 
-@on_command(name='添加-Hard', only_to_me=False)
+@on_command(name='添加-Hard', aliases='物品添加-Hard', only_to_me=False)
 @CQ_injection_check_command
 async def addItemHard(session: CommandSession):
     await addItem(session, 2)
 
 
-@on_command(name='添加-Lunatic', only_to_me=False)
+@on_command(name='添加-Lunatic', aliases='物品添加-Lunatic', only_to_me=False)
 @CQ_injection_check_command
 async def addItemLunatic(session: CommandSession):
     await addItem(session, 3)
@@ -180,7 +180,7 @@ async def addItem(session, rare):
         return
 
     user = await baseDB.getUser(userId)
-    costKusa = 1000 * (8**rare)
+    costKusa = 1000 * (8 ** rare)
     if not user.kusa >= costKusa:
         await session.send('你不够草^_^')
         return

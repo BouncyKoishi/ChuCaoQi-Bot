@@ -1,7 +1,6 @@
 import datetime
-from pypika import CustomFunction
 from tortoise import Tortoise
-from tortoise.functions import Function, Count, Sum, Avg
+from tortoise.functions import Count, Sum, Avg
 from .models import KusaField, KusaHistory
 
 
