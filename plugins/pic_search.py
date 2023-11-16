@@ -8,10 +8,11 @@ import urllib
 import asyncio
 from lxml import etree
 from PicImageSearch import Network, SauceNAO, Ascii2D
-from pil import Image, ImageFont, ImageDraw, ImageFilter
+from PIL import Image, ImageFont, ImageDraw, ImageFilter
 
+from utils import getImgBase64
 from kusa_base import config
-from nonebot import on_command, CommandSession, Message, MessageSegment
+from nonebot import on_command, CommandSession
 from nonebot.command.argfilter.extractors import extract_image_urls
 
 proxy = config['web']['proxy']
@@ -28,33 +29,31 @@ async def _(session: CommandSession):
     if imgCq is None or not imgCq.startswith('[CQ:image'):
         await session.send("非图片，取消saucenao搜索")
         return
+    await session.send("正在搜索……")
     imgUrl = extract_image_urls(imgCq)[0]
     async with httpx.AsyncClient(proxies=proxy) as client:
         search = ImgExploration(pic_url=imgUrl, client=client, proxies=proxy,
                                 saucenao_apikey=saucenaoApiKey, header=generalHeader)
         await search.doSearch()
     resultDict = search.getResultDict()
-    imgNum = await session.aget(
-        message=Message(
-            MessageSegment.image(file=resultDict["pic"]) + MessageSegment.text(
-                "请在180s内发送序号以获得对应结果的链接，一次可以发送多个序号，例如：1 5 6"),
-        )
-    )
+    if not resultDict or not resultDict["info"]:
+        await session.send('没有搜索到结果^ ^')
+        return
+    await session.send(getImgBase64('picsearch.jpg'))
+    imgNum = await session.aget(prompt="若需要提取图片链接，请在60s内发送对应结果的序号\n注: danbooru等敏感网站链接直接发送会被吞，请自行图片转文字提取")
     try:
         args = list(map(int, str(imgNum).split()))
-        if 0 in args or len(args) == 0:
-            await session.send("搜图结束！")
-            return
+        args = list(set(args))
         for arg in args:
             if arg > len(resultDict["info"]) or arg < 1:
                 args.remove(arg)
-        msg = ""
+        msg, signFlag = "", False
         for index in args:
             url = resultDict["info"][index - 1]["url"]
             msg += f"{index} - {url}\n"
+        msg += 'danbooru链接直接发会被吞，请自行将上面的[danbooru]进行替换' if signFlag else ''
         await session.send(msg)
     except (IndexError, ValueError):
-        await session.send("你没有发送序号，搜图结束！")
         return
 
 
@@ -85,43 +84,6 @@ class ImgExploration:
         self.__google_cookies = ""
         self.setFont(big_size=25, normal_size=20, small_size=15)
 
-    async def __getImgBytes(self):
-        try:
-            self.__pic_bytes = (await self.client.get(url=self.__pic_url, timeout=10)).content
-            img = Image.open(BytesIO(self.__pic_bytes))
-            img = img.convert("RGB")
-            width = img.width
-            height = img.height
-            if width > 2000 or height > 2000:
-                radius = width // 1000 if width > height else height // 1000
-                img = img.resize((int(width / radius), int(height / radius)))
-                res = BytesIO()
-                img.save(res, format="JPEG")
-                self.__pic_bytes = res.getvalue()
-        except Exception as e:
-            print(e)
-
-    async def __uploadToImgops(self):
-        print("图片上传到Imgops")
-        try:
-            files = {"photo": self.__pic_bytes}
-            data = {"isAjax": "true"}
-            headers = {
-                "sec-ch-ua": '"Google Chrome";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-                "sec-ch-ua-platform": '"Windows"',
-                "Origin": "https://imgops.com",
-                "Referer": "https://imgops.com/",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Accept-Language": "zh-CN,zh;q=0.9",
-            }
-            post = await self.client.post("https://imgops.com/store", files=files, data=data, headers=headers, timeout=10)
-
-            self.__imgopsUrl = "https:/" + post.text
-        except Exception as e:
-            self.__imgopsUrl = self.__pic_url
-            print(e)
-
     def setFont(self, big_size: int, normal_size: int, small_size: int):
         self.__font_b_size = big_size
         self.__font_b = ImageFont.truetype("HarmonyOS_Sans_SC_Regular", big_size)
@@ -129,7 +91,7 @@ class ImgExploration:
         self.__font_s = ImageFont.truetype("HarmonyOS_Sans_SC_Light", small_size)
 
     @staticmethod
-    async def ImageBatchDownload(urls: list, client: httpx.AsyncClient) -> list[bytes]:
+    async def ImageBatchDownload(urls: list, client: httpx.AsyncClient) -> list:
         tasks = [asyncio.create_task(client.get(url)) for url in urls]
         return [(await task).content for task in tasks]
 
@@ -218,17 +180,17 @@ class ImgExploration:
                 vernier += height
 
             save = BytesIO()
-            img.save(save, format="JPEG", quality=95)
+            img.save("picsearch.jpg", format="JPEG", quality=95)
             return save.getvalue()
         except Exception as e:
             raise e
 
-    async def __saucenao_build_result(self, result_num=10, minSim=60) -> list[dict]:
+    async def __saucenao_build_result(self, result_num=8, minSim=70) -> list:
         resList = []
         try:
-            async with Network(proxies=self.__proxy, timeout=20) as client:
+            async with Network(proxies=self.__proxy, timeout=100) as client:
                 saucenao = SauceNAO(client=client, api_key=self.__saucenao_apikey, numres=result_num)
-                saucenao_result = await saucenao.search(url=self.__imgopsUrl)
+                saucenao_result = await saucenao.search(url=self.__pic_url)
 
                 thumbnail_urls = []
                 for single in saucenao_result.raw:
@@ -258,7 +220,7 @@ class ImgExploration:
             print(f"saucenao result:{len(resList)}")
             return resList
 
-    async def __google_build_result(self, result_num=5) -> list[dict]:
+    async def __google_build_result(self, result_num=4) -> list:
         google_header = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Encoding": "gzip, deflate, br",
@@ -269,9 +231,9 @@ class ImgExploration:
         resList = []
         try:
             params = {
-                "url": self.__imgopsUrl,
+                "url": self.__pic_url,
             }
-            google_lens_text = (await self.client.get(f"https://lens.google.com/uploadbyurl", params=params, headers=google_header, follow_redirects=True, timeout=10)).text
+            google_lens_text = (await self.client.get(f"https://lens.google.com/uploadbyurl", params=params, headers=google_header, follow_redirects=True, timeout=50)).text
 
             req_tex = re.findall(r"var AF_dataServiceRequests = (.+?); var AF_initDataChunkQueue", google_lens_text)
             if req_tex:
@@ -348,7 +310,6 @@ class ImgExploration:
             print(f"google result:{len(resList)}")
             return resList
 
-    @staticmethod
     def __ascii2d_get_external_url(self, rawHtml):
         rawHtml = str(rawHtml)
         external_url_li = etree.HTML(rawHtml).xpath('//div[@class="external"]/a[1]/@href')
@@ -357,7 +318,7 @@ class ImgExploration:
         else:
             return False
 
-    async def __ascii2d_build_result(self, sh_num: int = 2, tz_num: int = 3) -> list[dict]:
+    async def __ascii2d_build_result(self, sh_num: int = 2, tz_num: int = 2) -> list:
         """
         Parameters
         ----------
@@ -367,12 +328,12 @@ class ImgExploration:
         """
         result_li = []
         try:
-            async with Network(proxies=self.__proxy, timeout=20) as client:
+            async with Network(proxies=self.__proxy, timeout=100) as client:
                 ascii2d_sh = Ascii2D(client=client, bovw=False)
                 ascii2d_tz = Ascii2D(client=client, bovw=True)
 
-                ascii2d_sh_result = await asyncio.create_task(ascii2d_sh.search(url=self.__imgopsUrl))
-                ascii2d_tz_result = await asyncio.create_task(ascii2d_tz.search(url=self.__imgopsUrl))
+                ascii2d_sh_result = await asyncio.create_task(ascii2d_sh.search(url=self.__pic_url))
+                ascii2d_tz_result = await asyncio.create_task(ascii2d_tz.search(url=self.__pic_url))
 
                 thumbnail_urls = []
                 for single in ascii2d_tz_result.raw[0:tz_num] + ascii2d_sh_result.raw[0:sh_num]:
@@ -403,7 +364,7 @@ class ImgExploration:
             print(f"ascii2d result:{len(result_li)}")
             return result_li
 
-    async def __yandex_build_result(self, result_num=5) -> list[dict]:
+    async def __yandex_build_result(self, result_num=4) -> list:
         """
         Parameter:
         ---------
@@ -414,10 +375,14 @@ class ImgExploration:
             yandexurl = f"https://yandex.com/images/search"
             data = {
                 "rpt": "imageview",
-                "url": self.__imgopsUrl,
+                "url": self.__pic_url,
             }
 
-            yandexPage = await self.client.get(url=yandexurl, params=data, headers=self.__generalHeader, timeout=20)
+            yandexPage = await self.client.get(url=yandexurl, params=data, headers=self.__generalHeader, timeout=50)
+            # yandexPage可能会返回一个302重定向
+            if yandexPage.has_redirect_location:
+                redirectUrl = yandexPage.headers["location"]
+                yandexPage = await self.client.get(url=redirectUrl, params=data, headers=self.__generalHeader, timeout=50)
             yandexHtml = etree.HTML(yandexPage.text)
             InfoJSON = yandexHtml.xpath('//*[@class="cbir-section cbir-section_name_sites"]/div/@data-state')[0]
             result_dict = json.loads(InfoJSON)
@@ -446,8 +411,6 @@ class ImgExploration:
             return result_li
 
     async def doSearch(self):
-        await self.__getImgBytes()
-        await self.__uploadToImgops()
         task_saucenao = asyncio.create_task(self.__saucenao_build_result())
         task_ascii2d = asyncio.create_task(self.__ascii2d_build_result())
         task_google = asyncio.create_task(self.__google_build_result())
