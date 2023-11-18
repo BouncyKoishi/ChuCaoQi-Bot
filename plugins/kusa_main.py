@@ -382,24 +382,28 @@ async def daily():
 @nonebot.scheduler.scheduled_job('cron', hour=4)
 async def dailyReport():
     row = await fieldDB.kusaHistoryTotalReport(86400)
-    maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa = await fieldDB.kusaFarmChampion()
-    user1 = await baseDB.getUser(maxTimes['qq'])
-    userName1 = user1.name if user1.name else user1.qq
-    user2 = await baseDB.getUser(maxKusa['qq'])
-    userName2 = user2.name if user2.name else user2.qq
-    user3 = await baseDB.getUser(maxAdvKusa['qq'])
-    userName3 = user3.name if user3.name else user3.qq
-    user4 = await baseDB.getUser(maxAvgAdvKusa['qq'])
-    userName4 = user4.name if user4.name else user4.qq
+    maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa, maxOneceAdvKusa = await fieldDB.kusaFarmChampion()
     outputStr = f"最近24h生草统计:\n" \
                 f"总生草次数: {row['count']}\n" \
                 f"总草产量: {round(row['sumKusa'] / 1000000, 2)}m\n" \
-                f"总草之精华产量: {row['sumAdvKusa']}\n" \
-                f"\n" \
-                f"生草次数最多: {userName1}({maxTimes['count']}次)\n" \
-                f"获得草最多: {userName2}(共{round(maxKusa['sumKusa'] / 1000000, 2)}m草)\n" \
-                f"获得草之精华最多: {userName3}(共{maxAdvKusa['sumAdvKusa']}草精)\n" \
-                f"平均草之精华最多: {userName4}(平均{round(maxAvgAdvKusa['avgAdvKusa'], 2)}草精)"
+                f"总草之精华产量: {row['sumAdvKusa']}\n"
+    if maxTimes['count']:
+        user1 = await baseDB.getUser(maxTimes['qq'])
+        userName1 = user1.name if user1.name else user1.qq
+        user2 = await baseDB.getUser(maxKusa['qq'])
+        userName2 = user2.name if user2.name else user2.qq
+        user3 = await baseDB.getUser(maxAdvKusa['qq'])
+        userName3 = user3.name if user3.name else user3.qq
+        user4 = await baseDB.getUser(maxAvgAdvKusa['qq'])
+        userName4 = user4.name if user4.name else user4.qq
+        user5 = await baseDB.getUser(maxAvgAdvKusa['qq'])
+        userName5 = user5.name if user5.name else user5.qq
+        outputStr += f"\n" \
+                     f"生草次数最多: {userName1}({maxTimes['count']}次)\n" \
+                     f"获得草最多: {userName2}(共{round(maxKusa['sumKusa'] / 1000000, 2)}m草)\n" \
+                     f"获得草之精华最多: {userName3}(共{maxAdvKusa['sumAdvKusa']}草精)\n" \
+                     f"平均草之精华最多: {userName4}(平均{round(maxAvgAdvKusa['avgAdvKusa'], 2)}草精)\n" \
+                     f"单次草之精华最多: {userName5}({maxOneceAdvKusa['maxAdvKusa']}草精)"
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
 
 
