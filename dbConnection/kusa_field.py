@@ -89,15 +89,21 @@ async def kusaHistoryAdd(qqNum):
         await KusaHistory.create(qq=kusaField.qq, kusaType=kusaField.kusaType, kusaResult=kusa, advKusaResult=advKusa)
 
 
-async def kusaHistoryReport(qqNum, endTime, interval):
+async def kusaHistoryReport(qqNum, endTime: datetime.datetime, interval):
     startTime = endTime - datetime.timedelta(seconds=interval)
-    rows = await KusaHistory.filter(qq=qqNum, createTime__gt=startTime, createTime__lte=endTime)\
-        .annotate(count=Count('qq'),
-                  sumKusa=Sum('kusaResult'),
-                  sumAdvKusa=Sum('advKusaResult'),
-                  avgKusa=Avg('kusaResult'),
-                  avgAdvKusa=Avg('advKusaResult')) \
-        .values('count', 'sumKusa', 'sumAdvKusa', 'avgKusa', 'avgAdvKusa')
+    conn = Tortoise.get_connection('default')
+    rows = await conn.execute_query_dict(f'''
+            SELECT
+                count(*) AS count,
+                sum(kusaResult) AS sumKusa,
+                avg(kusaResult) AS avgKusa,
+                sum(advKusaResult) AS sumAdvKusa,
+                avg(advKusaResult) AS avgAdvKusa
+            FROM
+                KusaHistory
+            WHERE
+                qq = ? AND strftime('%s', createTime) < ? AND strftime('%s', createTime) > ?
+        ''', [qqNum, endTime.timestamp(), startTime.timestamp()])
     return rows[0]
 
 
@@ -120,28 +126,26 @@ async def kusaHistoryTotalReport(interval):
     ''', [interval])
     return rows[0]
 
-
-async def executeChampionQuery(conn, select: str, orderBy: str):
-    rows = await conn.execute_query_dict(f'''
-            SELECT
-                qq,
-                {select}
-            FROM
-                KusaHistory
-            WHERE
-                strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
-            GROUP BY
-                qq
-            ORDER BY
-                {orderBy} DESC
-        ''', [])
-    return rows[0]
-
-
 async def kusaFarmChampion():
+    async def executeChampionQuery(conn, select: str, orderBy: str):
+        rows = await conn.execute_query_dict(f'''
+                SELECT
+                    qq,
+                    {select}
+                FROM
+                    KusaHistory
+                WHERE
+                    strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
+                GROUP BY
+                    qq
+                ORDER BY
+                    {orderBy} DESC
+            ''', [])
+        return rows[0]
     conn = Tortoise.get_connection('default')
     maxTimes = await executeChampionQuery(conn, "count(*) AS count", "count")
     maxKusa = await executeChampionQuery(conn, "sum(kusaResult) AS sumKusa", "sumKusa")
     maxAdvKusa = await executeChampionQuery(conn, "sum(advKusaResult) AS sumAdvKusa", "sumAdvKusa")
     maxAvgAdvKusa = await executeChampionQuery(conn, "avg(advKusaResult) AS avgAdvKusa", "avgAdvKusa")
-    return maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa
+    maxOnceAdvKusa = await executeChampionQuery(conn, "max(advKusaResult) AS maxAdvKusa", "maxAdvKusa")
+    return maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa, maxOnceAdvKusa
