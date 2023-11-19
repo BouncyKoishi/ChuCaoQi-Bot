@@ -1,8 +1,9 @@
 import nonebot
+import dbConnection.db as baseDB
 import dbConnection.work_order as orderDB
 from nonebot import on_command, CommandSession
 from kusa_base import isSuperAdmin
-from utils import nameDetailSplit, getUserAndGroupMsg
+from utils import nameDetailSplit
 
 
 @on_command(name='提交工单', only_to_me=False)
@@ -34,11 +35,10 @@ async def _(session: CommandSession):
     outputStr = ""
     if workOrders:
         for order in workOrders:
-            authorName, _ = await getUserAndGroupMsg(order.author)
+            user = await baseDB.getUser(order.author)
             outputStr += f"[{order.id}]{order.title}"
             outputStr += f":{order.detail}\n" if order.detail else "\n"
-            outputStr += f"提出者: {authorName}"
-            outputStr += f"({order.author})\n\n" if authorName != order.author else "\n\n"
+            outputStr += f"提出者: {user.name}({user.qq})\n\n"
         outputStr = outputStr[:-2]
     else:
         outputStr = "没有，别追啦"
