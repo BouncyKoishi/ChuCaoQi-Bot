@@ -102,7 +102,7 @@ async def kusaHistoryReport(qqNum, endTime: datetime.datetime, interval):
             FROM
                 KusaHistory
             WHERE
-                qq = ? AND strftime('%s', createTime) < ? AND strftime('%s', createTime) > ?
+                qq = ? AND strftime('%s', createTime) - 0 < ? AND strftime('%s', createTime) - 0 > ?
         ''', [qqNum, endTime.timestamp(), startTime.timestamp()])
     return rows[0]
 
