@@ -382,7 +382,7 @@ async def daily():
 @nonebot.scheduler.scheduled_job('cron', hour=4)
 async def dailyReport():
     row = await fieldDB.kusaHistoryTotalReport(86400)
-    maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa, maxOneceAdvKusa = await fieldDB.kusaFarmChampion()
+    maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa, maxOnceAdvKusa = await fieldDB.kusaFarmChampion()
     outputStr = f"最近24h生草统计:\n" \
                 f"总生草次数: {row['count']}\n" \
                 f"总草产量: {round(row['sumKusa'] / 1000000, 2)}m\n" \
@@ -396,7 +396,7 @@ async def dailyReport():
         userName3 = user3.name if user3.name else user3.qq
         user4 = await baseDB.getUser(maxAvgAdvKusa['qq'])
         userName4 = user4.name if user4.name else user4.qq
-        user5 = await baseDB.getUser(maxAvgAdvKusa['qq'])
+        user5 = await baseDB.getUser(maxOnceAdvKusa['qq'])
         userName5 = user5.name if user5.name else user5.qq
         outputStr += f"\n" \
                      f"生草次数最多: {userName1}({maxTimes['count']}次)\n" \
