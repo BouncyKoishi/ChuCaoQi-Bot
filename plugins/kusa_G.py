@@ -17,6 +17,7 @@ import dbConnection.g_value as gValueDB
 
 G_PIC = 'gPic'
 
+systemRandom = random.SystemRandom()
 
 @on_command(name='测G', only_to_me=False)
 async def _(session: CommandSession):
@@ -210,7 +211,7 @@ async def G_change():
 
 
 def getNewG(oldG: float, changeRange: float):
-    rank = changeRange * (random.random() - 0.498)
+    rank = changeRange * (systemRandom.random() - 0.498)
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
