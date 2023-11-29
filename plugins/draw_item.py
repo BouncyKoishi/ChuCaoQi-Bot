@@ -263,8 +263,8 @@ async def _(session: CommandSession):
 
 async def itemSearch(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
-    if len(stripped_arg) < 2:
-        await session.send('搜索关键词至少为两个字^ ^')
+    if not stripped_arg:
+        await session.send('没有搜索关键词呢^ ^')
         return
     offset = 0
     while True:
