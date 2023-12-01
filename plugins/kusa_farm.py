@@ -8,6 +8,8 @@ from nonebot import on_command, CommandSession
 from datetime import datetime, timedelta, date, time
 from kusa_base import config
 
+systemRandom = random.SystemRandom()
+
 
 @on_command(name='生草', only_to_me=False)
 async def kusa_born(session: CommandSession):
@@ -40,7 +42,7 @@ async def kusa_born(session: CommandSession):
         await session.send(f'当前承载力为{field.soilCapacity}，强制土壤保护启用中，不允许生草。\n如果需要强制生草，请先禁用土壤保护装置。')
         return
 
-    growTime = 40 + int(40 * random.random())
+    growTime = 40 + int(40 * systemRandom.random())
     isUsingKela = False
     bioGasEffect = 1
     kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
@@ -61,7 +63,7 @@ async def kusa_born(session: CommandSession):
     if kusaType == "速草":
         growTime = math.ceil(growTime / 2)
     if kusaType == "半灵草":
-        if random.random() < 0.5:
+        if systemRandom.random() < 0.5:
             kusaType = "灵草"
         else:
             kusaType = ""
@@ -72,7 +74,7 @@ async def kusa_born(session: CommandSession):
     await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient)
 
     newField = await fieldDB.getKusaField(userId)
-    baseKusaNum = 10 * random.random()
+    baseKusaNum = 10 * systemRandom.random()
     finalKusaNum = await getCreateKusaNum(newField, baseKusaNum)
     finalAdvKusaNum = await getCreateAdvKusaNum(newField)
     await fieldDB.updateKusaResult(userId, finalKusaNum, finalAdvKusaNum)
@@ -311,12 +313,12 @@ async def getCreateAdvKusaNum(field):
     advKusaGetRisk *= soilEffect
 
     if advKusaCreateIII:
-        newRandom = random.random()
+        newRandom = systemRandom.random()
         while newRandom < advKusaGetRisk:
             advKusaNum += 1
-            newRandom = random.random()
+            newRandom = systemRandom.random()
     else:
-        if random.random() < advKusaGetRisk:
+        if systemRandom.random() < advKusaGetRisk:
             advKusaNum = 1
     if field.kusaType == "巨草":
         advKusaNum *= 2
