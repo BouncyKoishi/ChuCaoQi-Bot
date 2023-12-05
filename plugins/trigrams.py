@@ -7,8 +7,7 @@ from nonebot import on_command, CommandSession
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     strippedArg = session.current_arg_text.strip()
-
-    hashingStr = strippedArg + str(userId) + str(time.localtime()) + 'Trigram'
+    hashingStr = strippedArg + str(userId) + str(time.strftime("%Y-%m-%d %H", time.localtime())) + 'Trigram'
     random.seed(hash(hashingStr))
 
     symbols = []
@@ -30,13 +29,12 @@ async def _(session: CommandSession):
             changedSymbols[i] = b'1' if changedSymbols[i] == b'0' else b'0'
         changedTrigram64 = getTrigram64(changedSymbols)
 
-    trigramName, trigramInfo = trigram64['base'].split('：')
-    changedTrigramName, changedTrigramInfo = changedTrigram64['base'].split('：')
-    outputStr = f'爻的信息：[{[getSymbolName(symbol, i) for i, symbol in enumerate(symbols)]}]\n'
-    outputStr += f'内卦：{innerTrigram8["name"]}({innerTrigram8["alias"]}) 外卦：{outerTrigram8["name"]}({outerTrigram8["alias"]})\n'
+    trigramName = trigram64['base'].split('：')[0]
+    changedTrigramName = changedTrigram64['base'].split('：')[0]
+    outputStr = f'爻：{getSymbolsName(symbols, changeableIndex)}\n'
+    outputStr += f'内卦：{innerTrigram8["name"]}({innerTrigram8["display"]}) 外卦：{outerTrigram8["name"]}({outerTrigram8["display"]})\n'
     outputStr += f'卦象：{trigramName}之{changedTrigramName}\n' if len(changeableIndex) != 0 else f'卦象：{trigramName}\n'
-    outputStr += f'本卦卦辞：{trigramInfo}\n'
-    outputStr += f'变卦卦辞：{changedTrigramInfo}\n' if len(changeableIndex) != 0 else ''
+    outputStr += f'卦辞：{getFinalWords(trigram64, changedTrigram64, changeableIndex)}'
 
     await session.send(outputStr)
     random.seed()
@@ -55,8 +53,54 @@ def getLinearSymbol(coins):
         return b'0', True
 
 
-def getSymbolName(symbol, index):
-    return '阳' if symbol == b'1' else '阴'
+def getSymbolsName(symbols, changeableIndex):
+    nameList = []
+    for i in range(6):
+        if i == 0:
+            symbolName = '初九' if symbols[i] == b'1' else '初六'
+        elif i == 5:
+            symbolName = '上九' if symbols[i] == b'1' else '上六'
+        else:
+            indexDict = {1: '二', 2: '三', 3: '四', 4: '五'}
+            symbolName = '九' if symbols[i] == b'1' else '六'
+            symbolName += indexDict[i] if i in indexDict else ''
+        symbolName += '（变）' if i == changeableIndex else ''
+        nameList.append(symbolName)
+    return ','.join(nameList)
+
+
+def getFinalWords(trigram64, changedTrigram64, changeableIndex):
+    if len(changeableIndex) == 0:
+        return trigram64['base']
+    elif len(changeableIndex) == 1:
+        index = changeableIndex[0]
+        lineKey = f'line{index + 1}'
+        return trigram64[lineKey]
+    elif len(changeableIndex) == 2:
+        index1, index2 = changeableIndex
+        lineKey1 = f'line{index1 + 1}'
+        lineKey2 = f'line{index2 + 1}'
+        return trigram64[lineKey1] + '\n' + trigram64[lineKey2]
+    elif len(changeableIndex) == 3:
+        return trigram64['base'] + '\n' + changedTrigram64['base']
+    elif len(changeableIndex) == 4:
+        index1, index2 = set(range(6)) - set(changeableIndex)
+        lineKey1 = f'line{index1 + 1}'
+        lineKey2 = f'line{index2 + 1}'
+        return trigram64[lineKey1] + '\n' + trigram64[lineKey2]
+    elif len(changeableIndex) == 5:
+        index = list(set(range(6)) - set(changeableIndex))[0]
+        lineKey = f'line{index + 1}'
+        return trigram64[lineKey]
+    elif len(changeableIndex) == 6:
+        if trigram64['base'].split('：')[0] == '乾':
+            return '用九：见群龙无首，吉。'
+        elif trigram64['base'].split('：')[0] == '坤':
+            return '用六：利永贞。'
+        else:
+            return changedTrigram64['base']
+    return '未知'
+
 
 def getTrigram8(linearSymbols):
     trigramsMap = {
@@ -69,7 +113,8 @@ def getTrigram8(linearSymbols):
         b'100': {'name': '艮', 'alias': '山', 'display': '☶'},
         b'000': {'name': '坤', 'alias': '地', 'display': '☷'}
     }
-    symbolsStr = linearSymbols.reverse().join('')
+    linearSymbols.reverse()
+    symbolsStr = b"".join(linearSymbols)
     return trigramsMap[symbolsStr]
 
 
@@ -140,5 +185,6 @@ def getTrigram64(linearSymbols):
         b'010101': {'order': 63, 'base': '既济：亨，小利贞，初吉终乱。', 'line1': '初九：曳其轮，濡其尾，无咎。', 'line2': '六二：妇丧其茀，勿逐，七日得。', 'line3': '九三：高宗伐鬼方，三年克之，小人勿用。', 'line4': '六四：繻有衣袽，终日戒。', 'line5': '九五：东邻杀牛，不如西邻之禴祭，实受其福。', 'line6': '上六：濡其首，厉。'},
         b'101010': {'order': 64, 'base': '未济：亨，小狐汔济，濡其尾，无攸利。', 'line1': '初六：濡其尾，吝。', 'line2': '九二：曳其轮，贞吉。', 'line3': '六三：未济，征凶，利涉大川。', 'line4': '九四：贞吉，悔亡，震用伐鬼方，三年有赏于大国。', 'line5': '六五：贞吉，无悔，君子之光，有孚，吉。', 'line6': '上九：有孚于饮酒，无咎，濡其首，有孚失是。'}
     }
-    symbolsStr = linearSymbols.reverse().join('')
+    linearSymbols.reverse()
+    symbolsStr = b"".join(linearSymbols)
     return trigramsMap[symbolsStr]
