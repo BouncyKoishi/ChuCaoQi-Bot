@@ -104,7 +104,8 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     stripped_arg = session.current_arg_text.strip().replace('\n', '')
     answer = ['是', '否']
-    hashingStr = stripped_arg + time.strftime("%Y-%m-%d", time.localtime()) + 'confounding'
+    userId = session.ctx['user_id']
+    hashingStr = stripped_arg + str(userId) + time.strftime("%Y-%m-%d", time.localtime()) + 'confounding'
     st = stripped_arg + '\n判断：' + answer[hash(hashingStr) % 2]
     await session.send(st)
 

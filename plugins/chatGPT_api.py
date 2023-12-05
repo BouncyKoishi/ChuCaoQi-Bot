@@ -240,7 +240,7 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bo
         tokenSign = f"\nTokens: {usage['total_tokens']}"
         return reply + "\n" + roleSign + gpt4Sign + tokenSign
     except Exception as e:
-        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{e}")
+        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}")
         return "对话出错了，请稍后再试。"
 
 

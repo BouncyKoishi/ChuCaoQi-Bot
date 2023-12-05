@@ -19,15 +19,15 @@ async def _(session: CommandSession):
         if isChangeAble:
             changeableIndex.append(i)
 
-    innerTrigram8 = getTrigram8(symbols[:3])
-    outerTrigram8 = getTrigram8(symbols[3:])
-    trigram64 = getTrigram64(symbols)
+    innerTrigram8 = getTrigram8(symbols[:3].copy())
+    outerTrigram8 = getTrigram8(symbols[3:].copy())
+    trigram64 = getTrigram64(symbols.copy())
     changedTrigram64 = trigram64
     if len(changeableIndex) != 0:
         changedSymbols = symbols.copy()
         for i in changeableIndex:
             changedSymbols[i] = b'1' if changedSymbols[i] == b'0' else b'0'
-        changedTrigram64 = getTrigram64(changedSymbols)
+        changedTrigram64 = getTrigram64(changedSymbols.copy())
 
     trigramName = trigram64['base'].split('：')[0]
     changedTrigramName = changedTrigram64['base'].split('：')[0]
@@ -66,7 +66,7 @@ def getSymbolsName(symbols, changeableIndex):
             symbolName += indexDict[i] if i in indexDict else ''
         symbolName += '（变）' if i == changeableIndex else ''
         nameList.append(symbolName)
-    return ','.join(nameList)
+    return '，'.join(nameList)
 
 
 def getFinalWords(trigram64, changedTrigram64, changeableIndex):
