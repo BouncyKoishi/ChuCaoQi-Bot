@@ -1,5 +1,6 @@
 import math
 import random
+import re
 import nonebot
 import asyncio
 from nonebot import on_natural_language, NLPSession
@@ -25,7 +26,7 @@ print(f'怪话条目数：{len(sentenceList)}')
 async def gh_frozen(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
         return
-        
+
     global freeze
     freeze = not freeze
     await session.send(f'怪话接收已{"冻结" if freeze else "解冻"}')
@@ -81,28 +82,28 @@ async def saySentenceShuffle(session: CommandSession):
         random.shuffle(msg_list)
         msg_shuffle = ''.join(msg_list)
         await session.send(msg_shuffle)
-        
+
 
 @on_natural_language(keywords=None, only_to_me=False)
 async def record(session: NLPSession):
     if 'group_id' not in session.ctx:
         return
-        
+
     global sentenceList
     listLen = len(sentenceList)
     msg = session.msg
     userId = session.ctx['user_id']
     groupNum = session.ctx['group_id']
-    
+
     if groupNum != config['group']['sysu']:
         return
-    
+
     # 主动怪话
     if random.random() < config['guaihua']['risk'] / 100:
         msg = sentenceList[int(random.random() * listLen)]
         await session.send(msg)
         return
-    
+
     # 不录入条件
     if freeze:
         return
@@ -115,6 +116,9 @@ async def record(session: NLPSession):
     for nrm in notRecordWords:
         if nrm in msg:
             return
+    # 小伞的东方原曲挑战相关
+    if re.search(r'(?:(?:hmx|yym|yyc|hyz|fsl|dld|xlc|slm|hzc|gzz|tkz|gxs|hld|swy|wht(?:ds)?|dzz|txg|(?:mf)?emrj|dmk|fxtz?|sml|xql|pyh|gyyw|红魔乡|妖妖梦|永夜抄|花映(?:冢|塚)|风神录|地灵殿|星莲船|神灵庙|辉针城|绀珠传|天空璋|鬼形兽|虹龙洞|兽王园|文花帖(?:ds)?|大战争|天邪鬼|(?:秘封)?噩梦日记|弹幕狂|绯想天则?|深秘录|心绮楼|凭依华|刚欲异闻)(?:[1-6]|ex|ph)(?:dz|boss|道中))|^(?:这首曲目(?:出自|不?是道中曲$)|(?:当前分数榜|提示)$|正确答案是)', msg, re.I | re.M):
+        return
 
     # 概率录入
     record_risk = 200 - (listLen / 2)
@@ -133,7 +137,7 @@ async def record(session: NLPSession):
             delMsg = sentenceList[delMsgIndex]
             print(f'DelMsgIndex={delMsgIndex}, Delete:{delMsg}')
             del sentenceList[delMsgIndex]
-        
+
 
 def repeat(latestSentence):
     global previousSentence
