@@ -251,7 +251,7 @@ async def soilCapacityIncreaseBase():
             await sendFieldRecoverInfo(field.qq)
 
 
-@nonebot.scheduler.scheduled_job('cron', minute='55')
+@nonebot.scheduler.scheduled_job('interval', minutes=60)
 async def soilCapacityIncreaseForInactive():
     badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
     for field in badSoilFields:

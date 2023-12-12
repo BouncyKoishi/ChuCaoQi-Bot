@@ -117,7 +117,7 @@ async def record(session: NLPSession):
         if nrm in msg:
             return
     # 小伞的东方原曲挑战相关
-    if re.search(r'(?:(?:hmx|yym|yyc|hyz|fsl|dld|xlc|slm|hzc|gzz|tkz|gxs|hld|swy|wht(?:ds)?|dzz|txg|(?:mf)?emrj|dmk|fxtz?|sml|xql|pyh|gyyw|红魔乡|妖妖梦|永夜抄|花映(?:冢|塚)|风神录|地灵殿|星莲船|神灵庙|辉针城|绀珠传|天空璋|鬼形兽|虹龙洞|兽王园|文花帖(?:ds)?|大战争|天邪鬼|(?:秘封)?噩梦日记|弹幕狂|绯想天则?|深秘录|心绮楼|凭依华|刚欲异闻)(?:[1-6]|ex|ph)(?:dz|boss|道中))|^(?:这首曲目(?:出自|不?是道中曲$)|(?:当前分数榜|提示)$|正确答案是)', msg, re.I | re.M):
+    if re.search(r'(?:(?:hmx|yym|yyc|hyz|fsl|dld|xlc|slm|hzc|gzz|tkz|gxs|hld|swy|wht(?:ds)?|dzz|txg|(?:mf)?emrj|dmk|fxtz?|sml|xql|pyh|gyyw|红魔乡|妖妖梦|永夜抄|花映(?:冢|塚)|风神录|地灵殿|星莲船|神灵庙|辉针城|绀珠传|天空璋|鬼形兽|虹龙洞|兽王园|文花帖(?:ds)?|大战争|天邪鬼|(?:秘封)?噩梦日记|弹幕狂|绯想天|非想天则|深秘录|心绮楼|凭依华|刚欲异闻)(?:[1-6]|ex|ph)(?:dz|boss|道中))|^(?:这首曲目(?:出自|不?是道中曲$)|(?:当前分数榜|提示)$|正确答案是)', msg, re.I | re.M):
         return
 
     # 概率录入

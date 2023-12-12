@@ -64,7 +64,7 @@ def getSymbolsName(symbols, changeableIndex):
             indexDict = {1: '二', 2: '三', 3: '四', 4: '五'}
             symbolName = '九' if symbols[i] == b'1' else '六'
             symbolName += indexDict[i] if i in indexDict else ''
-        symbolName += '（变）' if i == changeableIndex else ''
+        symbolName += '(变)' if i in changeableIndex else ''
         nameList.append(symbolName)
     return '，'.join(nameList)
 

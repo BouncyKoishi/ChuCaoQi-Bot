@@ -1,3 +1,4 @@
+import re
 import os
 import json
 import openai
@@ -144,8 +145,8 @@ async def updateRole(session: CommandSession):
         return
     userId = session.event.user_id
     strippedText = session.current_arg_text.strip()
-    isPublicRole = strippedText.startswith("-p") or strippedText.startswith("-public")
-    strippedText = strippedText.strip("-public").strip("-p").strip()
+    isPublicRole = strippedText.startswith("-p ") or strippedText.startswith("-public ")
+    strippedText = re.sub("^(-p|-public) ", "", strippedText)
     name, detail = nameDetailSplit(strippedText)
     if not name:
         await session.send('至少需要一个角色名称！')
@@ -185,8 +186,19 @@ async def changeModel(session: CommandSession):
     if not await permissionCheck(session, "model"):
         return
     userId = session.event.user_id
-    chatUser = await db.getChatUser(userId)
-    newModel = "gpt-4-1106-preview" if "gpt-3.5-turbo" in chatUser.chosenModel else "gpt-3.5-turbo"
+    strippedText = session.current_arg_text.strip()
+    if strippedText:
+        if strippedText == "gpt-4":
+            newModel = "gpt-4-1106-preview"
+        elif strippedText == "gpt-3.5":
+            newModel = "gpt-3.5-turbo"
+        elif strippedText == "gpt-3.5-old":
+            newModel = "gpt-3.5-turbo-0301"
+        else:
+            newModel = strippedText
+            await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
+    else:
+        newModel = "gpt-3.5-turbo"
     await db.updateUsingModel(userId, newModel)
     output = f"已切换到{newModel}模型"
     output += "\nGPT4 token的价格比普通token高出一个数量级，请勿用于娱乐！" if "gpt-4" in newModel else ""
