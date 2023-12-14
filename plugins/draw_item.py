@@ -168,6 +168,8 @@ async def addItem(session, rare):
     if not itemName:
         await session.send('需要物品名!')
         return
+
+    itemName = itemName.strip()
     if len(itemName) > 32:
         await session.send('物品名太长啦!最多32字')
         return

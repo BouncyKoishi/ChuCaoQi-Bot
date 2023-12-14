@@ -225,11 +225,11 @@ async def save():
             await baseDB.changeKusa(field.qq, field.kusaResult)
             await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
             outputMsg = f'你的草生了出来！获得草*{field.kusaResult}'
-            outputMsg += f'\n你还获得了额外的{field.advKusaResult}个草之精华！' if field.advKusaResult else ''
+            outputMsg += f'草之精华*{field.advKusaResult}' if field.advKusaResult else ''
             if field.kusaType == '灵草':
                 await baseDB.changeKusa(field.qq, field.kusaResult)
                 await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
-                outputMsg += f'\n本次额外收获了草的灵体，以上草/草之精华获取两次！'
+                outputMsg += f'\n额外收获了草的灵体，以上草/草之精华获取两次！'
             try:
                 bot = nonebot.get_bot()
                 await bot.send_private_msg(user_id=field.qq, message=outputMsg)

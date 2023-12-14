@@ -248,9 +248,9 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bo
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 else ""
-        gpt4Sign = f"\nModel: GPT-4" if "gpt-4" in model else ""
-        tokenSign = f"\nTokens: {usage['total_tokens']}"
-        return reply + "\n" + roleSign + gpt4Sign + tokenSign
+        gpt4Sign = "(GPT4)" if "gpt-4" in model else ""
+        tokenSign = f"\nTokens{gpt4Sign}: {usage['total_tokens']}"
+        return reply + "\n" + roleSign + tokenSign
     except Exception as e:
         await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}")
         return "对话出错了，请稍后再试。"
