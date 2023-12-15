@@ -3,6 +3,7 @@ import os
 import json
 import openai
 import asyncio
+
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
@@ -226,6 +227,35 @@ async def chatHelp(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='chatpic', only_to_me=False)
+async def chatPic(session: CommandSession):
+    if not await permissionCheck(session, "admin"):
+        return
+
+    text = session.current_arg_text.strip()
+    picInfo = await session.aget('给出你需要上传的图片')
+    if picInfo is None or not picInfo.startswith('[CQ:image'):
+        await session.send("非图片，取消chat")
+        return
+    await session.send("已开启新对话，等待回复……")
+    picUrl = re.search(r",url=(.+?)]", picInfo).group(1)
+
+    history = [{"role": "user", "content": [
+        {"type": "text", "text": text},
+        {"type": "image_url", "image_url": {"url": picUrl}}
+    ]}]
+
+    try:
+        response = await getResponseAsync("gpt-4-vision-preview", history)
+        reply = response['choices'][0]['message']['content']
+        usage = response['usage']
+        tokenSign = f"\nTokens(gpt4-pic): {usage['total_tokens']}"
+        return reply + "\n" + tokenSign
+    except Exception as e:
+        await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
+        return "对话出错了，请稍后再试。"
+
+
 async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bool = False):
     chatUser = await db.getChatUser(userId)
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
@@ -275,7 +305,7 @@ def getResponse(model, history):
 
 async def getNewConversation(roleId):
     role = await db.getChatRoleById(roleId)
-    return [{"role": "system", "content": role.detail}]
+    return [{"role": "system", "content": role.detail}] if role.detail else []
 
 
 async def readOldConversation(userId):
