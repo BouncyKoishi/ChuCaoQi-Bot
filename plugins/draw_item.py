@@ -25,16 +25,16 @@ async def itemDraw(session: CommandSession):
         await session.send('本群暂不支持抽奖^ ^')
         return
     if groupId not in drawConfig['groupAllowItem']:
-        await ban(groupId, userId, True)
+        await ban(groupId, userId)
         return
 
     banRisk = drawConfig['banRisk']
     banShieldInfo = await usefulItemDB.getItemStorageInfo(userId, '量子护盾')
     if banShieldInfo and banShieldInfo.allowUse:
         await usefulItemDB.changeItemAmount(userId, '量子护盾', -1)
-        banRisk = banRisk / 2
+        banRisk = banRisk / 10
     if random.random() < banRisk:
-        await ban(groupId, userId, False)
+        await ban(groupId, userId)
         return
 
     await getItem(groupId, userId, session.ctx['sender'], 0)
@@ -73,11 +73,9 @@ async def itemDraw10(session: CommandSession):
     await session.send(outputStr)
 
 
-async def ban(groupNum, userId, isForceBan=False):
+async def ban(groupNum, userId):
     bot = nonebot.get_bot()
     dur_time = int(1.1 ** (5 + random.random() * 70))
-    if isForceBan:
-        dur_time = int(1.1 ** (15 + random.random() * 70))
 
     print(f'抽奖口球-{dur_time}s, id:{userId}, group:{groupNum}')
     msg = f'获得了：口球({dur_time}s)！'
