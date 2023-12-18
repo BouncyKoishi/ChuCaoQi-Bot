@@ -184,7 +184,7 @@ class ImgExploration:
         except Exception as e:
             raise e
 
-    async def __saucenao_build_result(self, result_num=8, minSim=70) -> list:
+    async def __saucenao_build_result(self, result_num=8, minSim=68) -> list:
         resList = []
         try:
             async with Network(proxies=self.__proxy, timeout=100) as client:
@@ -317,7 +317,7 @@ class ImgExploration:
         else:
             return False
 
-    async def __ascii2d_build_result(self, sh_num: int = 2, tz_num: int = 2) -> list:
+    async def __ascii2d_build_result(self, sh_num: int = 1, tz_num: int = 1) -> list:
         """
         Parameters
         ----------
@@ -411,11 +411,10 @@ class ImgExploration:
 
     async def doSearch(self):
         task_saucenao = asyncio.create_task(self.__saucenao_build_result())
-        task_ascii2d = asyncio.create_task(self.__ascii2d_build_result())
         task_google = asyncio.create_task(self.__google_build_result())
         task_yandex = asyncio.create_task(self.__yandex_build_result())
 
-        self.__result_info = (await task_saucenao) + (await task_ascii2d) + (await task_google) + (await task_yandex)
+        self.__result_info = (await task_saucenao) + (await task_google) + (await task_yandex)
         result_pic = await self.__draw()
 
         self.__picNinfo = {
