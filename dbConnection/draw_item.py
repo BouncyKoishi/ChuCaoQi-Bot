@@ -24,6 +24,8 @@ async def getRandomItem(rareRank, poolName=None):
         rareItemList = await DrawItemList.filter(rareRank=rareRank, pool=poolName)
     else:
         rareItemList = await DrawItemList.filter(rareRank=rareRank)
+    if not rareItemList:
+        return None
     return rareItemList[randint(0, len(rareItemList) - 1)]
 
 
@@ -65,7 +67,7 @@ async def setItemDetail(item: DrawItemList, newItemDetail):
     await item.save()
 
 
-async def getItemsWithStorage(qqNum, rareRank, poolName):
+async def getItemsWithStorage(qqNum, rareRank=None, poolName=None):
     if rareRank is not None and poolName is not None:
         filterQuery = DrawItemList.filter(rareRank=rareRank, pool=poolName)
     elif rareRank is None and poolName is not None:
