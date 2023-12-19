@@ -4,6 +4,7 @@ import nonebot
 from nonebot import on_command, CommandSession
 from kusa_base import config
 from utils import nameDetailSplit
+from itertools import groupby
 from decorator import CQ_injection_check_command
 import dbConnection.db as baseDB
 import dbConnection.draw_item as drawItemDB
@@ -94,12 +95,33 @@ async def ban(groupNum, userId):
 
 
 async def getItem(groupNum, userId, senderInfo, poolName=None, startRareRank=0):
-    item = await getItemFromDB(startRareRank, poolName)
-    if not item:
-        await getCardModify(groupNum, userId, senderInfo)
+    redrawDice = await usefulItemDB.getItemStorageInfo(userId, '骰子碎片')
+    if not redrawDice or not redrawDice.allowUse:
+        drawLimit = 1
+    else:
+        drawLimit = min(51, redrawDice.amount + 1)
+
+    redrawCount, item = 0, None
+    for i in range(drawLimit):
+        item = await getItemFromDB(startRareRank, poolName)
+        if not item:
+            redrawCount += 1
+            continue
+        existItemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
+        if existItemStorage:
+            redrawCount += 1
+            continue
+
+    msg = ''
+    if redrawCount > 0:
+        await usefulItemDB.changeItemAmount(userId, '骰子碎片', -redrawCount)
+        msg += f'消耗了骰子碎片*{redrawCount}，'
+    if item is None:
+        await getCardModify(groupNum, userId, senderInfo, msg)
         return
+
     existItemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
-    msg = f'获得了：[{itemRareDescribe[item.rareRank]}]{item.name}'
+    msg += f'获得了：[{itemRareDescribe[item.rareRank]}]{item.name}'
     if not existItemStorage:
         msg += '(New!)'
     if item.detail:
@@ -128,7 +150,7 @@ async def getItemFromDB(startRareRank, poolName=None, allowCardModify=True):
     return await getItemFromDB(startRareRank, poolName, allowCardModify)
 
 
-async def getCardModify(groupNum, userId, sender):
+async def getCardModify(groupNum, userId, sender, baseMsg=''):
     bot = nonebot.get_bot()
     cardName = sender['card']
     if not cardName:
@@ -144,7 +166,7 @@ async def getCardModify(groupNum, userId, sender):
         else:
             new_name = '[信息员]' + cardName
     await bot.set_group_card(group_id=groupNum, user_id=userId, card=new_name)
-    msg = '获得了：*除草器的认证*'
+    msg = baseMsg + '获得了：*除草器的认证*'
     await bot.send_group_msg(group_id=groupNum, message=msg)
 
 
@@ -211,33 +233,44 @@ async def _(session: CommandSession):
     arg = session.current_arg_text.strip()
     level, poolName = getLevelAndPoolName(arg)
     itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=level, poolName=poolName)
+    if not itemStorageList:
+        poolInfo = f'{poolName}奖池' if poolName is not None else ''
+        levelInfo = f'{itemRareDescribe[level]}等级' if level is not None else ''
+        await session.send(f'{poolInfo}{levelInfo}暂无可抽取物品^ ^')
+        return
 
-    # todo
-    if level is not None:
-        allItemNumList = [0, 0, 0, 0]
-        ownItemNumList = [0, 0, 0, 0]
-        describeStrList = ['', '', '', '']
-
-        for item in itemStorageList:
-            allItemNumList[item.rareRank] += 1
-            if not item.storage:
-                continue
-            ownItemNumList[item.rareRank] += 1
-            describeStrList[item.rareRank] += f' {item.name}*{item.storage[0].amount},'
-
-        outputStr = ""
+    outputStr = ""
+    # 展示全部等级的物品
+    if level is None:
+        itemStorageDict = groupby(itemStorageList, key=lambda x: x.rareRank)
         for i in range(3, -1, -1):
-            if ownItemNumList[i]:
-                outputStr += f'{itemRareDescribe[i]}({ownItemNumList[i]}/{allItemNumList[i]}):'
-                if ownItemNumList[i] > drawConfig['itemHideAmount'] and arg != '展开' and arg not in itemRareDescribe:
-                    outputStr += ' ---隐藏了过长的物品列表--- \n'
-                else:
-                    outputStr += describeStrList[i] + '\n'
-        if outputStr:
-            outputStr = outputStr[:-2]
-        else:
-            outputStr = '暂无任何抽奖物品^ ^'
-        await session.send(outputStr)
+            levelItems = itemStorageDict.get(i)
+            levelOwnItems = [item for item in levelItems if item.storage]
+            if levelOwnItems:
+                outputStr += f'{itemRareDescribe[i]}({len(levelOwnItems)}/{len(levelItems)}):'
+                if len(levelOwnItems) > drawConfig['itemHideAmount']:
+                    outputStr += ' ---隐藏了过长的物品列表--- '
+                outputStr += ','.join([f' {item.name}*{item.storage[0].amount}' for item in levelOwnItems])
+    # 展示指定等级的物品
+    else:
+        ownItem = [item for item in itemStorageList if item.storage]
+        if ownItem:
+            outputStr += f'{itemRareDescribe[level]}({len(ownItem)}/{len(itemStorageList)}):'
+            pageSize, offset = 100, 0
+            while True:
+                displayItems = ownItem[offset: min(offset + pageSize, len(ownItem))]
+                outputStr += ','.join([f' {item.name}*{item.storage[0].amount}' for item in displayItems])
+                offset += len(displayItems)
+                if offset >= len(ownItem):
+                    outputStr += f'\n(当前最后一页)' if len(ownItem) > pageSize else ''
+                    break
+                confirm = await session.aget(prompt=outputStr + f'\n(当前第{offset // pageSize}页，输入Next显示下一页)')
+                outputStr = ''
+                if confirm.lower() != 'next':
+                    break
+
+    outputStr = outputStr if outputStr else '抽奖物品仓库为空^ ^'
+    await session.send(outputStr)
 
 
 @on_command(name='物品详情', only_to_me=False)
@@ -326,21 +359,42 @@ async def _(session: CommandSession):
 
 @on_command(name='自制物品列表', only_to_me=False)
 async def _(session: CommandSession):
-    itemStorageList = await drawItemDB.getItemListByAuthor(session.ctx['user_id'])
-    rareDescribeFlags = [False, False, False, False]
-    outputStr = ""
+    userId = session.ctx['user_id']
+    strippedArg = session.current_arg_text.strip()
+    level, _ = getLevelAndPoolName(strippedArg)
+    itemList = await drawItemDB.getItemListByAuthor(userId, level)
+    if not itemList:
+        levelInfo = f'在{itemRareDescribe[level]}等级' if level is not None else ''
+        await session.send(f'{levelInfo}暂未添加任何物品^ ^^ ^')
+        return
 
-    for item in itemStorageList:
-        if not rareDescribeFlags[item.rareRank]:
-            if outputStr:
-                outputStr = outputStr[:-2] + '\n'
-            outputStr += f'{itemRareDescribe[item.rareRank]}: '
-            rareDescribeFlags[item.rareRank] = True
-        outputStr += f'{item.name}, '
-    if outputStr:
-        outputStr = outputStr[:-2]
+    outputStr = ""
+    # 展示全部等级的物品
+    if level is None:
+        itemDict = groupby(itemList, key=lambda x: x.rareRank)
+        for i in range(3, -1, -1):
+            levelItems = itemDict.get(i)
+            if levelItems:
+                outputStr += f'{itemRareDescribe[i]}:'
+                if levelItems > drawConfig['itemHideAmount'] * 1.25:
+                    outputStr += ' ---隐藏了过长的自制物品列表--- '
+                outputStr += ','.join([f' {item.name}' for item in levelItems])
+    # 展示指定等级的物品
     else:
-        outputStr = '暂未添加任何物品^ ^'
+        outputStr += f'{itemRareDescribe[level]}:'
+        pageSize, offset = 100, 0
+        while True:
+            displayItems = itemList[offset: min(offset + pageSize, len(itemList))]
+            outputStr += ','.join([f' {item.name}' for item in displayItems])
+            offset += len(displayItems)
+            if offset >= len(itemList):
+                outputStr += f'\n(当前最后一页)' if len(itemList) > pageSize else ''
+                break
+            confirm = await session.aget(prompt=outputStr + f'\n(当前第{offset // pageSize}页，输入Next显示下一页)')
+            outputStr = ''
+            if confirm.lower() != 'next':
+                break
+
     await session.send(outputStr)
 
 

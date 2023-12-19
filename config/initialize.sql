@@ -9,8 +9,12 @@ INSERT INTO "kusaitemlist" VALUES ('生草工厂', '生产草的自动化工厂�
 INSERT INTO "kusaitemlist" VALUES ('金坷垃', '高效的肥料，将生草速度加倍的同时还能使草产量翻倍。每块草地每次生草消耗一个金坷垃施肥。', '道具', 0, 1, 1, 1, 1, 0, 4, 3, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('双生法术卷轴', '记录着一种能使草的生长量翻倍的法术。使生草产量永久加倍。', '图纸', 1, 0, 1, 0, 0, 0, 240, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('自动化核心', '储存着一些能量的精密核心，用于建造一些大型建筑。', '道具', 0, 0, 1, 1, 1, 0, 1000, 500, NULL, NULL);
-INSERT INTO "kusaitemlist" VALUES ('量子护盾', '闪耀着蓝光的不稳定护盾。抽奖时使用，被口球的概率降低50%。', '道具', 0, 1, 1, 1, 1, 0, 800, 600, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('量子护盾', '闪耀着蓝光的口球护盾，并不完全可靠。抽奖时使用，被口球的概率降低90%。', '道具', 0, 1, 1, 1, 1, 0, 800, 600, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('十连券', '印着“choujiang”字样的白色票据。允许你进行一次十连抽奖，十连抽奖不会获得口球，除此以外没有保底。', '道具', 0, 1, 1, 1, 1, 0, 32000, 24000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('上级十连券', '印着“choujiang”字样的蓝色票据。允许你进行一次十连抽奖，抽奖获得的物品最低为Normal等级。', '道具', 0, 1, 1, 1, 1, 0, 320000, 240000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('特级十连券', '印着“choujiang”字样的金色票据。允许你进行一次十连抽奖，抽奖获得的物品最低为Hard等级。', '道具', 0, 1, 1, 1, 1, 0, 3200000, 2400000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('天琴十连券', '印着“choujiang”字样，闪耀着七色圣光的票据。允许你进行一次十连抽奖，抽奖获得的物品必定为Lunatic等级。', '道具', 0, 0, 0, 0, 1, 0, '道具', NULL, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('骰子碎片', '重置你的命运。如果抽奖单抽获得的物品是已经拥有的，消耗一个骰子碎片，重新进行抽取一次。每次抽奖最多消耗50个骰子碎片。', '道具', 0, 1, 1, 1, 1, 0, 2500, 2000, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('核心装配工厂', '自行装配自动化核心的工厂。每天0点生产4~12个自动化核心。', '财产', 0, 0, 1, 0, 0, 0, 250000, NULL, NULL, 15);
 INSERT INTO "kusaitemlist" VALUES ('扭秤装置图纸', '罗俊测G时使用的某种大型装置的图纸。解锁建造“扭秤装置”的能力，可以使用"!扭秤装置"指令。', '图纸', 1, 0, 1, 0, 0, 0, 1000000, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('扭秤装置', '能为你自动测G的大型装置。每次G市重置时，生成50~500个随机校区的G。', '财产', 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, 50);

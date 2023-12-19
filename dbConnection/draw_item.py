@@ -13,10 +13,9 @@ async def getItemByName(itemName):
     return await DrawItemList.filter(name=itemName).first()
 
 
-async def getItemListByAuthor(qqNum, poolName=None):
-    if poolName is not None:
-        return await DrawItemList.filter(author=qqNum, pool=poolName).order_by("-rareRank")
-    return await DrawItemList.filter(author=qqNum).order_by("-rareRank")
+async def getItemListByAuthor(qqNum, rareRank=None, poolName=None):
+    filterQuery = getRareRankAndPoolFilter(rareRank, poolName)
+    return await filterQuery.filter(author=qqNum).order_by("-rareRank")
 
 
 async def getRandomItem(rareRank, poolName=None):
@@ -68,15 +67,7 @@ async def setItemDetail(item: DrawItemList, newItemDetail):
 
 
 async def getItemsWithStorage(qqNum, rareRank=None, poolName=None):
-    if rareRank is not None and poolName is not None:
-        filterQuery = DrawItemList.filter(rareRank=rareRank, pool=poolName)
-    elif rareRank is None and poolName is not None:
-        filterQuery = DrawItemList.filter(pool=poolName)
-    elif rareRank is not None and poolName is None:
-        filterQuery = DrawItemList.filter(rareRank=rareRank)
-    else:
-        filterQuery = DrawItemList.all()
-
+    filterQuery = getRareRankAndPoolFilter(rareRank, poolName)
     return await filterQuery.order_by("-rareRank").prefetch_related(
             Prefetch("draw_item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
         )
@@ -100,3 +91,14 @@ async def setItemStorage(qqNum, itemId):
     else:
         item = await getItem(itemId)
         await DrawItemStorage.create(qq=qqNum, item=item, amount=1)
+
+
+def getRareRankAndPoolFilter(rareRank, poolName):
+    if rareRank is not None and poolName is not None:
+        return DrawItemList.filter(rareRank=rareRank, pool=poolName)
+    elif rareRank is None and poolName is not None:
+        return DrawItemList.filter(pool=poolName)
+    elif rareRank is not None and poolName is None:
+        return DrawItemList.filter(rareRank=rareRank)
+    else:
+        return DrawItemList.all()
