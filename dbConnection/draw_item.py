@@ -19,12 +19,12 @@ async def getItemListByAuthor(qqNum, rareRank=None, poolName=None):
 
 
 async def getRandomItem(rareRank, poolName=None):
-    if poolName is not None:
+    if poolName:
         rareItemList = await DrawItemList.filter(rareRank=rareRank, pool=poolName)
     else:
         rareItemList = await DrawItemList.filter(rareRank=rareRank)
     if not rareItemList:
-        return None
+        raise Exception(f"DrawItem Error: 抽奖物品列表为空！")
     return rareItemList[randint(0, len(rareItemList) - 1)]
 
 
@@ -94,11 +94,11 @@ async def setItemStorage(qqNum, itemId):
 
 
 def getRareRankAndPoolFilter(rareRank, poolName):
-    if rareRank is not None and poolName is not None:
+    if rareRank is not None and poolName:
         return DrawItemList.filter(rareRank=rareRank, pool=poolName)
-    elif rareRank is None and poolName is not None:
+    elif rareRank is None and poolName:
         return DrawItemList.filter(pool=poolName)
-    elif rareRank is not None and poolName is None:
+    elif rareRank is not None and not poolName:
         return DrawItemList.filter(rareRank=rareRank)
     else:
         return DrawItemList.all()

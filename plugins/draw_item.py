@@ -39,7 +39,7 @@ async def itemDraw(session: CommandSession):
         return
 
     strippedArg = session.current_arg_text.strip()
-    await getItem(groupId, userId,  session.ctx['sender'], strippedArg)
+    await getItem(groupId, userId, strippedArg)
 
 
 @on_command(name='十连抽', only_to_me=False)
@@ -57,6 +57,7 @@ async def itemDraw10(session: CommandSession):
     strippedArg = session.current_arg_text.strip()
     baseLevel, poolName = getLevelAndPoolName(strippedArg)
     baseLevel = baseLevel if baseLevel is not None else 0
+    
     ticketName = ['十连券', '上级十连券', '特级十连券', '天琴十连券'][baseLevel]
     drawTenTicketInfo = await usefulItemDB.getItemStorageInfo(userId, ticketName)
     if not drawTenTicketInfo or not drawTenTicketInfo.allowUse:
@@ -64,13 +65,7 @@ async def itemDraw10(session: CommandSession):
         return
     await usefulItemDB.changeItemAmount(userId, ticketName, -1)
 
-    itemList = []
-    for i in range(10):
-        item = await getItemFromDB(baseLevel, poolName, False)
-        if not item:
-            await session.send("本奖池缺乏对应等级的物品！")
-            return
-        itemList.append(item)
+    itemList = [await getItemFromDB(baseLevel, poolName) for i in range(10)]
 
     outputStr = '十连抽结果：\n'
     for item in itemList:
@@ -94,7 +89,7 @@ async def ban(groupNum, userId):
     await bot.send_group_msg(group_id=groupNum, message=msg)
 
 
-async def getItem(groupNum, userId, senderInfo, poolName=None, startRareRank=0):
+async def getItem(groupNum, userId, poolName=None):
     redrawDice = await usefulItemDB.getItemStorageInfo(userId, '骰子碎片')
     if not redrawDice or not redrawDice.allowUse:
         drawLimit = 1
@@ -103,22 +98,16 @@ async def getItem(groupNum, userId, senderInfo, poolName=None, startRareRank=0):
 
     redrawCount, item = 0, None
     for i in range(drawLimit):
-        item = await getItemFromDB(startRareRank, poolName)
-        if not item:
-            redrawCount += 1
-            continue
+        redrawCount = i
+        item = await getItemFromDB(poolName=poolName)
         existItemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
-        if existItemStorage:
-            redrawCount += 1
-            continue
+        if not existItemStorage:
+            break
 
     msg = ''
     if redrawCount > 0:
         await usefulItemDB.changeItemAmount(userId, '骰子碎片', -redrawCount)
         msg += f'消耗了骰子碎片*{redrawCount}，'
-    if item is None:
-        await getCardModify(groupNum, userId, senderInfo, msg)
-        return
 
     existItemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
     msg += f'获得了：[{itemRareDescribe[item.rareRank]}]{item.name}'
@@ -131,7 +120,7 @@ async def getItem(groupNum, userId, senderInfo, poolName=None, startRareRank=0):
     await drawItemDB.setItemStorage(userId, item.id)
 
 
-async def getItemFromDB(startRareRank, poolName=None, allowCardModify=True):
+async def getItemFromDB(startRareRank=0, poolName=None):
     easyRand = 1 if startRareRank > 0 else random.random()
     if easyRand < 0.7:
         return await drawItemDB.getRandomItem(0, poolName)
@@ -144,30 +133,7 @@ async def getItemFromDB(startRareRank, poolName=None, allowCardModify=True):
     lunaticRand = random.random()
     if lunaticRand < 0.7:
         return await drawItemDB.getRandomItem(3, poolName)
-    if allowCardModify:
-        return None
-    # 潜在的无限递归可能？
-    return await getItemFromDB(startRareRank, poolName, allowCardModify)
-
-
-async def getCardModify(groupNum, userId, sender, baseMsg=''):
-    bot = nonebot.get_bot()
-    cardName = sender['card']
-    if not cardName:
-        nickname = sender['nickname']
-        new_name = f'[信息员]{nickname}'
-    else:
-        if '[信息员]' in cardName:
-            amount = re.search(r'(?<=\*)(\d+)\s(.*)', cardName)
-            if amount:
-                new_name = f'[信息员]*{int(amount.group(1)) + 1} {amount.group(2)}'
-            else:
-                new_name = f'[信息员]*2 {cardName[5:]}'
-        else:
-            new_name = '[信息员]' + cardName
-    await bot.set_group_card(group_id=groupNum, user_id=userId, card=new_name)
-    msg = baseMsg + '获得了：*除草器的认证*'
-    await bot.send_group_msg(group_id=groupNum, message=msg)
+    return await getItemFromDB(startRareRank, poolName)
 
 
 @on_command(name='添加-Easy', aliases='物品添加-Easy', only_to_me=False)
@@ -234,7 +200,7 @@ async def _(session: CommandSession):
     level, poolName = getLevelAndPoolName(arg)
     itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=level, poolName=poolName)
     if not itemStorageList:
-        poolInfo = f'{poolName}奖池' if poolName is not None else ''
+        poolInfo = f'{poolName}奖池' if poolName else ''
         levelInfo = f'{itemRareDescribe[level]}等级' if level is not None else ''
         await session.send(f'{poolInfo}{levelInfo}暂无可抽取物品^ ^')
         return
@@ -242,21 +208,23 @@ async def _(session: CommandSession):
     outputStr = ""
     # 展示全部等级的物品
     if level is None:
-        itemStorageDict = groupby(itemStorageList, key=lambda x: x.rareRank)
-        for i in range(3, -1, -1):
-            levelItems = itemStorageDict.get(i)
+        groupedData = groupby(itemStorageList, key=lambda x: x.rareRank)
+        for level, levelItemIterator in groupedData:
+            levelItems = list(levelItemIterator)
             levelOwnItems = [item for item in levelItems if item.storage]
             if levelOwnItems:
-                outputStr += f'{itemRareDescribe[i]}({len(levelOwnItems)}/{len(levelItems)}):'
+                outputStr += f'{itemRareDescribe[level]}({len(levelOwnItems)}/{len(levelItems)}):'
                 if len(levelOwnItems) > drawConfig['itemHideAmount']:
-                    outputStr += ' ---隐藏了过长的物品列表--- '
-                outputStr += ','.join([f' {item.name}*{item.storage[0].amount}' for item in levelOwnItems])
+                    outputStr += ' ---隐藏了过长的物品列表--- \n'
+                    continue
+                outputStr += ','.join([f' {item.name}*{item.storage[0].amount}' for item in levelOwnItems]) + '\n'
+        outputStr = outputStr[:-1]
     # 展示指定等级的物品
     else:
         ownItem = [item for item in itemStorageList if item.storage]
         if ownItem:
             outputStr += f'{itemRareDescribe[level]}({len(ownItem)}/{len(itemStorageList)}):'
-            pageSize, offset = 100, 0
+            pageSize, offset = 50, 0
             while True:
                 displayItems = ownItem[offset: min(offset + pageSize, len(ownItem))]
                 outputStr += ','.join([f' {item.name}*{item.storage[0].amount}' for item in displayItems])
@@ -371,18 +339,19 @@ async def _(session: CommandSession):
     outputStr = ""
     # 展示全部等级的物品
     if level is None:
-        itemDict = groupby(itemList, key=lambda x: x.rareRank)
-        for i in range(3, -1, -1):
-            levelItems = itemDict.get(i)
+        groupedData = groupby(itemList, key=lambda x: x.rareRank)
+        for level, levelItemIterator in groupedData:
+            levelItems = list(levelItemIterator)
             if levelItems:
-                outputStr += f'{itemRareDescribe[i]}:'
-                if levelItems > drawConfig['itemHideAmount'] * 1.25:
-                    outputStr += ' ---隐藏了过长的自制物品列表--- '
-                outputStr += ','.join([f' {item.name}' for item in levelItems])
+                outputStr += f'{itemRareDescribe[level]}:'
+                if len(levelItems) > drawConfig['itemHideAmount']:
+                    outputStr += ' ---隐藏了过长的自制物品列表--- \n'
+                outputStr += ','.join([f' {item.name}' for item in levelItems]) + '\n'
+        outputStr = outputStr[:-1]
     # 展示指定等级的物品
     else:
         outputStr += f'{itemRareDescribe[level]}:'
-        pageSize, offset = 100, 0
+        pageSize, offset = 20, 0
         while True:
             displayItems = itemList[offset: min(offset + pageSize, len(itemList))]
             outputStr += ','.join([f' {item.name}' for item in displayItems])
@@ -416,6 +385,6 @@ def getLevelAndPoolName(strippedArg):
             poolName, levelStr = argList
         else:
             return None, None
-    level = itemRareDescribe.index(levelStr)
+    level = itemRareList.index(levelStr.lower())
 
     return level, poolName
