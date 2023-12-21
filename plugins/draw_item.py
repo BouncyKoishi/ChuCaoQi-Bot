@@ -386,5 +386,5 @@ def getLevelAndPoolName(strippedArg):
         else:
             return None, None
     level = itemRareList.index(levelStr.lower())
-
+    poolName = poolName if await drawItemDB.isPoolNameExist(poolName) else None
     return level, poolName

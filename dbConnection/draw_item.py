@@ -93,6 +93,11 @@ async def setItemStorage(qqNum, itemId):
         await DrawItemStorage.create(qq=qqNum, item=item, amount=1)
 
 
+async def isPoolNameExist(poolName):
+    poolItemsCount = await DrawItemList.filter(pool=poolName).count()
+    return poolItemsCount > 0
+
+
 def getRareRankAndPoolFilter(rareRank, poolName):
     if rareRank is not None and poolName:
         return DrawItemList.filter(rareRank=rareRank, pool=poolName)

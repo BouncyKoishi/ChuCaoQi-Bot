@@ -12,7 +12,11 @@ systemRandom = random.SystemRandom()
 
 
 @on_command(name='生草', only_to_me=False)
-async def kusa_born(session: CommandSession):
+async def _(session: CommandSession):
+    await plantKusa(session)
+
+
+async def plantKusa(session: CommandSession):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
     if field.kusaIsGrowing:
@@ -107,6 +111,9 @@ async def _(session: CommandSession):
         return
     await fieldDB.kusaStopGrowing(userId, True)
     await session.send('除草成功^ ^')
+
+    if await baseDB.getFlagValue(userId, '除草后自动生草'):
+        await plantKusa(session)
 
 
 @on_command(name='百草园', only_to_me=False)
