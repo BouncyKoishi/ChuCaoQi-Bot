@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import re
 import math
@@ -16,6 +14,7 @@ import dbConnection.kusa_item as itemDB
 import dbConnection.g_value as gValueDB
 
 G_PIC = 'gPic'
+systemRandom = random.SystemRandom()
 
 
 @on_command(name='测G', only_to_me=False)
@@ -210,7 +209,7 @@ async def G_change():
 
 
 def getNewG(oldG: float, changeRange: float):
-    rank = changeRange * (random.random() - 0.498)
+    rank = changeRange * (systemRandom.random() - 0.498)
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
@@ -236,7 +235,7 @@ async def G_reset():
         gCreatorStable = await itemDB.getItemAmount(user.qq, '扭秤稳定理论')
         if gCreatorAmount:
             schoolName = random.choice(['东', '南', '北', '珠', '深'])
-            singleCreatorG = 50 + random.random() * 450
+            singleCreatorG = 50 + systemRandom.random() * 450
             createGAmount = int(gCreatorAmount * singleCreatorG)
             if gCreatorStable:
                 createGAmount *= (areaStartValue('深') / areaStartValue(schoolName))

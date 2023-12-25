@@ -41,6 +41,7 @@ class KusaHistory(Model):
 class DrawItemList(Model):
     id = IntField(pk=True)
     name = CharField(max_length=64)
+    pool = CharField(max_length=32)
     rareRank = IntField()
     detail = CharField(max_length=1024)
     author = CharField(max_length=12)

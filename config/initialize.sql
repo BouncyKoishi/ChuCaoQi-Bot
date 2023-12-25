@@ -9,8 +9,12 @@ INSERT INTO "kusaitemlist" VALUES ('生草工厂', '生产草的自动化工厂�
 INSERT INTO "kusaitemlist" VALUES ('金坷垃', '高效的肥料，将生草速度加倍的同时还能使草产量翻倍。每块草地每次生草消耗一个金坷垃施肥。', '道具', 0, 1, 1, 1, 1, 0, 4, 3, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('双生法术卷轴', '记录着一种能使草的生长量翻倍的法术。使生草产量永久加倍。', '图纸', 1, 0, 1, 0, 0, 0, 240, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('自动化核心', '储存着一些能量的精密核心，用于建造一些大型建筑。', '道具', 0, 0, 1, 1, 1, 0, 1000, 500, NULL, NULL);
-INSERT INTO "kusaitemlist" VALUES ('量子护盾', '闪耀着蓝光的不稳定护盾。抽奖时使用，被口球的概率降低50%。', '道具', 0, 1, 1, 1, 1, 0, 800, 600, NULL, NULL);
-INSERT INTO "kusaitemlist" VALUES ('十连券', '印着“choujiang”字样的白色票据。允许你进行一次十连抽奖，十连抽奖不会获得口球，除此以外没有保底。', '道具', 0, 1, 1, 1, 1, 0, 32000, 24000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('量子护盾', '闪耀着蓝光的口球护盾，并不完全可靠。抽奖时使用，被口球的概率降低90%。', '道具', 0, 1, 1, 1, 1, 0, 800, 600, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('十连券', '印着“抽奖”字样的白色票据。允许你进行一次十连抽奖，十连抽奖不会获得口球，除此以外没有保底。', '道具', 0, 1, 1, 1, 1, 0, 32000, 24000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('上级十连券', '印着“抽奖”字样的蓝色票据。允许你进行一次十连抽奖，抽奖获得的物品最低为Normal等级。', '道具', 0, 1, 1, 1, 1, 0, 640000, 48000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('特级十连券', '印着“抽奖”字样的金色票据。允许你进行一次十连抽奖，抽奖获得的物品最低为Hard等级。', '道具', 0, 1, 0, 1, 1, 0, NULL, 96000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('天琴十连券', '印着“抽奖”字样，闪耀着七色圣光的票据。允许你进行一次十连抽奖，抽奖获得的物品必定为Lunatic等级。', '道具', 0, 1, 0, 1, 1, 0, NULL, 192000, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('骰子碎片', '重置你的命运。如果抽奖单抽获得的物品是已经拥有的，消耗一个骰子碎片，重新进行抽取。每次抽奖最多消耗50个骰子碎片。', '道具', 0, 1, 1, 1, 1, 0, 3200, 2500, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('核心装配工厂', '自行装配自动化核心的工厂。每天0点生产4~12个自动化核心。', '财产', 0, 0, 1, 0, 0, 0, 250000, NULL, NULL, 15);
 INSERT INTO "kusaitemlist" VALUES ('扭秤装置图纸', '罗俊测G时使用的某种大型装置的图纸。解锁建造“扭秤装置”的能力，可以使用"!扭秤装置"指令。', '图纸', 1, 0, 1, 0, 0, 0, 1000000, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('扭秤装置', '能为你自动测G的大型装置。每次G市重置时，生成50~500个随机校区的G。', '财产', 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, 50);
@@ -34,7 +38,7 @@ INSERT INTO "kusaitemlist" VALUES ('生草质量III', '有概率收获复数个�
 INSERT INTO "kusaitemlist" VALUES ('巨草基因图谱', '允许你生“巨草”。巨草比普通的草大一倍，草产量、生长用时、消耗土地承载力都是普通草的两倍。', '图纸', 1, 0, 1, 0, 0, 0, 800000, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('速草基因图谱', '允许你生“速草”。速草比普通的草小一些，草产量是普通草的3/4，但生长用时只需普通草的一半。', '图纸', 1, 0, 1, 0, 0, 1, 75, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('流动生草工厂', '为特殊贡献者定制的生草工厂，可以根据需要随意移动。在每日草结算与草精炼厂建设中视为一个生草工厂。', '财产', 0, 0, 0, 0, 1, 0, NULL, NULL, NULL, NULL);
-INSERT INTO "kusaitemlist" VALUES ('红茶池', '散发红茶清香的小池子，每天会从异次元补充一些茶水。每天0点生产15个红茶。', '财产', 1, 0, 1, 0, 0, 0, 1919810, NULL, NULL, NULL);
+INSERT INTO "kusaitemlist" VALUES ('红茶池', '散发红茶清香的小池子，每天会从异次元补充一些茶水。每天0点生产15个红茶。', '财产', 0, 0, 1, 0, 0, 0, 1919810, NULL, NULL, 2);
 INSERT INTO "kusaitemlist" VALUES ('生草工厂新型设备I', '从某个工学院引进的先进生产设备，能够有效提升生草工厂的产量。所有生草工厂的产量*2。', '能力', 1, 0, 1, 0, 0, 0, 2000000, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('试做型机器I', '把老旧的生草机器改造成最激进的独立生草单元！所有生草机器的产量*10。', '能力', 1, 0, 1, 0, 0, 1, 25, NULL, NULL, NULL);
 INSERT INTO "kusaitemlist" VALUES ('草精炼厂效率I', '建立了足够的草精炼厂，就可以在生产过程中总结经验了。从你的第八个精炼厂开始，每个精炼厂的产量+1。', '能力', 1, 0, 1, 0, 0, 1, 200, NULL, NULL, NULL);
@@ -61,3 +65,4 @@ INSERT INTO "kusaitemlist" VALUES ('早期符卡对战者', '在符卡对战早�
 
 INSERT INTO "flag" VALUES (1, '生草预估详情展示', 1, 1, '');
 INSERT INTO "flag" VALUES (2, '发送承载力回满信息', 0, 1, NULL);
+INSERT INTO "flag" VALUES (3, '除草后自动生草', 0, 1, NULL);

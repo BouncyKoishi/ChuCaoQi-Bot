@@ -1,7 +1,9 @@
+import re
 import os
 import json
 import openai
 import asyncio
+
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
@@ -144,8 +146,8 @@ async def updateRole(session: CommandSession):
         return
     userId = session.event.user_id
     strippedText = session.current_arg_text.strip()
-    isPublicRole = strippedText.startswith("-p") or strippedText.startswith("-public")
-    strippedText = strippedText.strip("-public").strip("-p").strip()
+    isPublicRole = strippedText.startswith("-p ") or strippedText.startswith("-public ")
+    strippedText = re.sub("^(-p|-public) ", "", strippedText)
     name, detail = nameDetailSplit(strippedText)
     if not name:
         await session.send('至少需要一个角色名称！')
@@ -185,8 +187,19 @@ async def changeModel(session: CommandSession):
     if not await permissionCheck(session, "model"):
         return
     userId = session.event.user_id
-    chatUser = await db.getChatUser(userId)
-    newModel = "gpt-4-1106-preview" if "gpt-3.5-turbo" in chatUser.chosenModel else "gpt-3.5-turbo"
+    strippedText = session.current_arg_text.strip()
+    if strippedText:
+        if strippedText == "gpt-4":
+            newModel = "gpt-4-1106-preview"
+        elif strippedText == "gpt-3.5":
+            newModel = "gpt-3.5-turbo"
+        elif strippedText == "gpt-3.5-old":
+            newModel = "gpt-3.5-turbo-0301"
+        else:
+            newModel = strippedText
+            await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
+    else:
+        newModel = "gpt-3.5-turbo"
     await db.updateUsingModel(userId, newModel)
     output = f"已切换到{newModel}模型"
     output += "\nGPT4 token的价格比普通token高出一个数量级，请勿用于娱乐！" if "gpt-4" in newModel else ""
@@ -214,6 +227,36 @@ async def chatHelp(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='chatpic', only_to_me=False)
+async def chatPic(session: CommandSession):
+    if not await permissionCheck(session, "admin"):
+        return
+
+    text = session.current_arg_text.strip()
+    picInfo = await session.aget(prompt='给出你需要上传的图片')
+    if picInfo is None or not picInfo.startswith('[CQ:image'):
+        await session.send("非图片，取消chat")
+        return
+    await session.send("已开启新对话，等待回复……")
+    picUrl = re.search(r",url=(.+?)]", picInfo).group(1)
+
+    history = [{"role": "user", "content": [
+        {"type": "text", "text": text},
+        {"type": "image_url", "image_url": {"url": picUrl}}
+    ]}]
+
+    try:
+        response = await getResponseAsync("gpt-4-vision-preview", history, 4096)
+        reply = response['choices'][0]['message']['content']
+        usage = response['usage']
+        tokenSign = f"\nTokens(gpt4-pic): {usage['total_tokens']}"
+        await session.send(reply + "\n" + tokenSign)
+        print(response)
+    except Exception as e:
+        await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
+        await session.send("对话出错了，请稍后再试。")
+
+
 async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bool = False):
     chatUser = await db.getChatUser(userId)
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
@@ -236,11 +279,11 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bo
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 else ""
-        gpt4Sign = f"\nModel: GPT-4" if "gpt-4" in model else ""
-        tokenSign = f"\nTokens: {usage['total_tokens']}"
-        return reply + "\n" + roleSign + gpt4Sign + tokenSign
+        gpt4Sign = "(GPT4)" if "gpt-4" in model else ""
+        tokenSign = f"\nTokens{gpt4Sign}: {usage['total_tokens']}"
+        return reply + "\n" + roleSign + tokenSign
     except Exception as e:
-        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{e}")
+        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}")
         return "对话出错了，请稍后再试。"
 
 
@@ -252,18 +295,21 @@ async def undo(userId):
     return latestWord
 
 
-async def getResponseAsync(model, history):
+async def getResponseAsync(model, history, maxTokens=None):
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, getResponse, model, history)
+    return await loop.run_in_executor(None, getResponse, model, history, maxTokens)
 
 
-def getResponse(model, history):
-    return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
+def getResponse(model, history, maxTokens):
+    if maxTokens:
+        return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=180)
+    else:
+        return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
 
 
 async def getNewConversation(roleId):
     role = await db.getChatRoleById(roleId)
-    return [{"role": "system", "content": role.detail}]
+    return [{"role": "system", "content": role.detail}] if role.detail else []
 
 
 async def readOldConversation(userId):

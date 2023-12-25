@@ -13,16 +13,22 @@ async def getItemByName(itemName):
     return await DrawItemList.filter(name=itemName).first()
 
 
-async def getItemListByAuthor(qqNum):
-    return await DrawItemList.filter(author=qqNum).order_by("-rareRank")
+async def getItemListByAuthor(qqNum, rareRank=None, poolName=None):
+    filterQuery = getRareRankAndPoolFilter(rareRank, poolName)
+    return await filterQuery.filter(author=qqNum).order_by("-rareRank")
 
 
-async def getRandomItem(rareRank):
-    rareItemList = await DrawItemList.filter(rareRank=rareRank)
+async def getRandomItem(rareRank, poolName=None):
+    if poolName:
+        rareItemList = await DrawItemList.filter(rareRank=rareRank, pool=poolName)
+    else:
+        rareItemList = await DrawItemList.filter(rareRank=rareRank)
+    if not rareItemList:
+        raise Exception(f"DrawItem Error: 抽奖物品列表为空！")
     return rareItemList[randint(0, len(rareItemList) - 1)]
 
 
-async def searchItem(keyword, limit, offset = 0):
+async def searchItem(keyword, limit, offset=0):
     conn = Tortoise.get_connection('default')
     count = (await conn.execute_query_dict('''
         SELECT
@@ -47,8 +53,8 @@ async def searchItem(keyword, limit, offset = 0):
     return count, rows
 
 
-async def addItem(itemName, itemRare, itemDetail, author):
-    await DrawItemList.create(name=itemName, rareRank=itemRare, detail=itemDetail, author=author)
+async def addItem(itemName, itemRare, poolName, itemDetail, author):
+    await DrawItemList.create(name=itemName, rareRank=itemRare, pool=poolName, detail=itemDetail, author=author)
 
 
 async def deleteItem(item: DrawItemList):
@@ -60,16 +66,11 @@ async def setItemDetail(item: DrawItemList, newItemDetail):
     await item.save()
 
 
-async def getItemsWithStorage(qqNum, rareRank):
-    if rareRank is not None:
-        querySet = await DrawItemList.filter(rareRank=rareRank).prefetch_related(
+async def getItemsWithStorage(qqNum, rareRank=None, poolName=None):
+    filterQuery = getRareRankAndPoolFilter(rareRank, poolName)
+    return await filterQuery.order_by("-rareRank").prefetch_related(
             Prefetch("draw_item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
         )
-    else:
-        querySet = await DrawItemList.all().order_by("-rareRank").prefetch_related(
-            Prefetch("draw_item_storage", queryset=DrawItemStorage.filter(qq=qqNum), to_attr="storage")
-        )
-    return querySet
 
 
 async def getSingleItemStorage(qqNum, itemId):
@@ -90,3 +91,19 @@ async def setItemStorage(qqNum, itemId):
     else:
         item = await getItem(itemId)
         await DrawItemStorage.create(qq=qqNum, item=item, amount=1)
+
+
+async def isPoolNameExist(poolName):
+    poolItemsCount = await DrawItemList.filter(pool=poolName).count()
+    return poolItemsCount > 0
+
+
+def getRareRankAndPoolFilter(rareRank, poolName):
+    if rareRank is not None and poolName:
+        return DrawItemList.filter(rareRank=rareRank, pool=poolName)
+    elif rareRank is None and poolName:
+        return DrawItemList.filter(pool=poolName)
+    elif rareRank is not None and not poolName:
+        return DrawItemList.filter(rareRank=rareRank)
+    else:
+        return DrawItemList.all()
