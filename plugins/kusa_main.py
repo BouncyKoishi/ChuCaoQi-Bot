@@ -369,9 +369,7 @@ async def daily():
         await itemDB.changeItemAmount(user.qq, '自动化核心', addCore)
 
         blackTeaPool = await itemDB.getItemAmount(user.qq, '红茶池')
-        if blackTeaPool:
-            await itemDB.changeItemAmount(user.qq, '红茶', 15)
-            print(f'用户{user.qq}的红茶池已补充')
+        await itemDB.changeItemAmount(user.qq, '红茶', 15 * blackTeaPool)
 
         print(f'用户{user.qq}的每日工厂运作完毕。增加了{addKusa}草，{addCore}个自动化核心，'
               f'{advFactoryInfo.amount if advFactoryInfo else 0}个草之精华。')
@@ -403,7 +401,7 @@ async def dailyReport():
                      f"获得草最多: {userName2}(共{round(maxKusa['sumKusa'] / 1000000, 2)}m草)\n" \
                      f"获得草之精华最多: {userName3}(共{maxAdvKusa['sumAdvKusa']}草精)\n" \
                      f"平均草之精华最多: {userName4}(平均{round(maxAvgAdvKusa['avgAdvKusa'], 2)}草精)\n" \
-                     f"单次草之精华最多: {userName5}({maxOneceAdvKusa['maxAdvKusa']}草精)"
+                     f"单次草之精华最多: {userName5}({maxOnceAdvKusa['maxAdvKusa']}草精)"
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
 
 

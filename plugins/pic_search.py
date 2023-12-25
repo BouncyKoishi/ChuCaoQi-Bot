@@ -51,7 +51,7 @@ async def _(session: CommandSession):
         for index in args:
             url = resultDict["info"][index - 1]["url"]
             msg += f"{index} - {url}\n"
-        await session.send(msg)
+        await session.send(msg[:-1] if msg else "未找到对应图片链接")
     except (IndexError, ValueError):
         return
 

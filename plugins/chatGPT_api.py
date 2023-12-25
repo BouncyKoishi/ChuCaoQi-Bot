@@ -246,11 +246,12 @@ async def chatPic(session: CommandSession):
     ]}]
 
     try:
-        response = await getResponseAsync("gpt-4-vision-preview", history)
+        response = await getResponseAsync("gpt-4-vision-preview", history, 4096)
         reply = response['choices'][0]['message']['content']
         usage = response['usage']
         tokenSign = f"\nTokens(gpt4-pic): {usage['total_tokens']}"
         await session.send(reply + "\n" + tokenSign)
+        print(response)
     except Exception as e:
         await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
         await session.send("对话出错了，请稍后再试。")
@@ -294,13 +295,16 @@ async def undo(userId):
     return latestWord
 
 
-async def getResponseAsync(model, history):
+async def getResponseAsync(model, history, maxTokens=None):
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, getResponse, model, history)
+    return await loop.run_in_executor(None, getResponse, model, history, maxTokens)
 
 
-def getResponse(model, history):
-    return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
+def getResponse(model, history, maxTokens):
+    if maxTokens:
+        return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=180)
+    else:
+        return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
 
 
 async def getNewConversation(roleId):

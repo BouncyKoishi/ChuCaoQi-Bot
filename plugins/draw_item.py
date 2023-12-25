@@ -1,4 +1,3 @@
-import re
 import random
 import nonebot
 from nonebot import on_command, CommandSession
@@ -55,7 +54,7 @@ async def itemDraw10(session: CommandSession):
         return
 
     strippedArg = session.current_arg_text.strip()
-    baseLevel, poolName = getLevelAndPoolName(strippedArg)
+    baseLevel, poolName = await getLevelAndPoolName(strippedArg)
     baseLevel = baseLevel if baseLevel is not None else 0
     
     ticketName = ['十连券', '上级十连券', '特级十连券', '天琴十连券'][baseLevel]
@@ -89,7 +88,8 @@ async def ban(groupNum, userId):
     await bot.send_group_msg(group_id=groupNum, message=msg)
 
 
-async def getItem(groupNum, userId, poolName=None):
+async def getItem(groupNum, userId, strippedArg):
+    _, poolName = await getLevelAndPoolName(strippedArg)
     redrawDice = await usefulItemDB.getItemStorageInfo(userId, '骰子碎片')
     if not redrawDice or not redrawDice.allowUse:
         drawLimit = 1
@@ -180,13 +180,16 @@ async def addItem(session, rare):
         await session.send('此物品名已经存在!')
         return
 
+    # 暂时为纯老师写死
+    poolName = "宝可梦" if userId == 285698619 else "默认"
+
     user = await baseDB.getUser(userId)
     costKusa = 1000 * (8 ** rare)
     if not user.kusa >= costKusa:
         await session.send('你不够草^_^')
         return
     await baseDB.changeKusa(userId, -costKusa)
-    await drawItemDB.addItem(itemName, rare, "默认", itemDetail, userId)
+    await drawItemDB.addItem(itemName, rare, poolName, itemDetail, userId)
 
     output = "添加成功！"
     output += "注意：你添加的物品没有简介。" if not itemDetail else ""
@@ -197,7 +200,7 @@ async def addItem(session, rare):
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     arg = session.current_arg_text.strip()
-    level, poolName = getLevelAndPoolName(arg)
+    level, poolName = await getLevelAndPoolName(arg)
     itemStorageList = await drawItemDB.getItemsWithStorage(qqNum=userId, rareRank=level, poolName=poolName)
     if not itemStorageList:
         poolInfo = f'{poolName}奖池' if poolName else ''
@@ -209,11 +212,11 @@ async def _(session: CommandSession):
     # 展示全部等级的物品
     if level is None:
         groupedData = groupby(itemStorageList, key=lambda x: x.rareRank)
-        for level, levelItemIterator in groupedData:
+        for nowLevel, levelItemIterator in groupedData:
             levelItems = list(levelItemIterator)
             levelOwnItems = [item for item in levelItems if item.storage]
             if levelOwnItems:
-                outputStr += f'{itemRareDescribe[level]}({len(levelOwnItems)}/{len(levelItems)}):'
+                outputStr += f'{itemRareDescribe[nowLevel]}({len(levelOwnItems)}/{len(levelItems)}):'
                 if len(levelOwnItems) > drawConfig['itemHideAmount']:
                     outputStr += ' ---隐藏了过长的物品列表--- \n'
                     continue
@@ -237,7 +240,11 @@ async def _(session: CommandSession):
                 if confirm.lower() != 'next':
                     break
 
-    outputStr = outputStr if outputStr else '抽奖物品仓库为空^ ^'
+    if not outputStr:
+        argExistInfo = '在' if level is not None or poolName else ''
+        poolInfo = f'{poolName}奖池' if poolName else ''
+        levelInfo = f'{itemRareDescribe[level]}等级' if level is not None else ''
+        outputStr = f'{argExistInfo}{poolInfo}{levelInfo}暂未抽到任何物品^ ^'
     await session.send(outputStr)
 
 
@@ -329,21 +336,23 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     strippedArg = session.current_arg_text.strip()
-    level, _ = getLevelAndPoolName(strippedArg)
-    itemList = await drawItemDB.getItemListByAuthor(userId, level)
+    level, poolName = await getLevelAndPoolName(strippedArg)
+    itemList = await drawItemDB.getItemListByAuthor(userId, level, poolName)
     if not itemList:
-        levelInfo = f'在{itemRareDescribe[level]}等级' if level is not None else ''
-        await session.send(f'{levelInfo}暂未添加任何物品^ ^^ ^')
+        argExistInfo = '在' if level is not None or poolName else ''
+        poolInfo = f'{poolName}奖池' if poolName else ''
+        levelInfo = f'{itemRareDescribe[level]}等级' if level is not None else ''
+        await session.send(f'{argExistInfo}{poolInfo}{levelInfo}暂未添加任何物品^ ^')
         return
 
     outputStr = ""
     # 展示全部等级的物品
     if level is None:
         groupedData = groupby(itemList, key=lambda x: x.rareRank)
-        for level, levelItemIterator in groupedData:
+        for nowLevel, levelItemIterator in groupedData:
             levelItems = list(levelItemIterator)
             if levelItems:
-                outputStr += f'{itemRareDescribe[level]}:'
+                outputStr += f'{itemRareDescribe[nowLevel]}:'
                 if len(levelItems) > drawConfig['itemHideAmount']:
                     outputStr += ' ---隐藏了过长的自制物品列表--- \n'
                 outputStr += ','.join([f' {item.name}' for item in levelItems]) + '\n'
@@ -367,7 +376,7 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-def getLevelAndPoolName(strippedArg):
+async def getLevelAndPoolName(strippedArg):
     if not strippedArg:
         return None, None
 
@@ -385,6 +394,6 @@ def getLevelAndPoolName(strippedArg):
             poolName, levelStr = argList
         else:
             return None, None
-    level = itemRareList.index(levelStr.lower())
+    level = itemRareList.index(levelStr.lower()) if levelStr else None
     poolName = poolName if await drawItemDB.isPoolNameExist(poolName) else None
     return level, poolName

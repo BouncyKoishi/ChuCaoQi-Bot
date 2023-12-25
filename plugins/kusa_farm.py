@@ -43,7 +43,8 @@ async def plantKusa(session: CommandSession):
 
     soilSaver = await itemDB.getItemStorageInfo(userId, '土壤保护装置')
     if soilSaver and soilSaver.allowUse and field.soilCapacity <= 10:
-        await session.send(f'当前承载力为{field.soilCapacity}，强制土壤保护启用中，不允许生草。\n如果需要强制生草，请先禁用土壤保护装置。')
+        await session.send(
+            f'当前承载力为{field.soilCapacity}，强制土壤保护启用中，不允许生草。\n如果需要强制生草，请先禁用土壤保护装置。')
         return
 
     growTime = 40 + int(40 * systemRandom.random())
@@ -73,8 +74,10 @@ async def plantKusa(session: CommandSession):
             kusaType = ""
     juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
     seniorPrescient = await itemDB.getItemStorageInfo(userId, '生草预知')
-    weedCosting = 2 if juniorPrescient and juniorPrescient.allowUse else 0
-    isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (seniorPrescient and seniorPrescient.allowUse) else False
+    weedCosting = 2 if juniorPrescient and juniorPrescient.allowUse and not (
+                seniorPrescient and seniorPrescient.allowUse) else 0
+    isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
+                seniorPrescient and seniorPrescient.allowUse) else False
     await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient)
 
     newField = await fieldDB.getKusaField(userId)
@@ -87,13 +90,13 @@ async def plantKusa(session: CommandSession):
     outputStr = f"开始生{kusaTypeName}。剩余时间：{growTime}min\n"
     predictTime = datetime.now() + timedelta(minutes=growTime + 1)
     outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+    doubleInfo = '(*2)' if kusaType == '灵草' else ''
     if isPrescient:
-        outputStr += f"预知：生草量为{finalKusaNum}"
-        outputStr += f"，草之精华获取量为{finalAdvKusaNum}" if finalAdvKusaNum else ""
+        outputStr += f"预知：生草量为{finalKusaNum}{doubleInfo}"
+        outputStr += f"，草之精华获取量为{finalAdvKusaNum}{doubleInfo}" if finalAdvKusaNum else ""
     else:
         minPredict, maxPredict = await getKusaPredict(newField)
-        outputStr += f"预估生草量：{minPredict} ~ {maxPredict}"
-    outputStr += f' (*2)' if newField.kusaType == '灵草' else ''
+        outputStr += f"预估生草量：{minPredict}{doubleInfo} ~ {maxPredict}{doubleInfo}"
     outputStr += f'\n当前承载力低！目前承载力：{newField.soilCapacity}' if newField.soilCapacity <= 12 else ""
     await session.send(outputStr)
 
@@ -127,13 +130,13 @@ async def _(session: CommandSession):
         st += f'距离{kusaTypeName}长成还有{field.kusaRestTime}min\n'
         predictTime = datetime.now() + timedelta(minutes=field.kusaRestTime + 1)
         st += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+        doubleInfo = '(*2)' if field.kusaType == '灵草' else ''
         if field.isPrescient:
-            st += f"预知：生草量为{field.kusaResult}"
-            st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
+            st += f"预知：生草量为{field.kusaResult}{doubleInfo}"
+            st += f"，草之精华获取量为{field.advKusaResult}{doubleInfo}" if field.advKusaResult else ""
         else:
             minPredict, maxPredict = await getKusaPredict(field)
-            st += f'预估生草量：{minPredict} ~ {maxPredict}'
-        st += f' (*2)' if field.kusaType == '灵草' else ''
+            st += f'预估生草量：{minPredict}{doubleInfo} ~ {maxPredict}{doubleInfo}'
         st += '\n\n'
     else:
         st += f'当前没有生草。\n'
@@ -193,8 +196,8 @@ async def _(session: CommandSession):
         await session.send('最近24小时未生出草！')
         return
     await session.send(f'最近24小时共生草{row["count"]}次\n'
-        f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
-        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
+                       f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
+                       f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
 
 @on_command(name='生草日报', only_to_me=False)
@@ -206,8 +209,8 @@ async def _(session: CommandSession):
         await session.send('昨日未生出草！')
         return
     await session.send(f'昨日共生草{row["count"]}次\n'
-        f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
-        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
+                       f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
+                       f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
 
 @on_command(name='生草周报', only_to_me=False)
@@ -219,8 +222,8 @@ async def _(session: CommandSession):
         await session.send('上周未生出草！')
         return
     await session.send(f'上周共生草{row["count"]}次\n'
-        f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
-        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
+                       f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
+                       f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
 
 # 生草结算
@@ -231,12 +234,13 @@ async def save():
         if field.kusaRestTime <= 1:
             await baseDB.changeKusa(field.qq, field.kusaResult)
             await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
-            outputMsg = f'你的草生了出来！获得草*{field.kusaResult}'
-            outputMsg += f'草之精华*{field.advKusaResult}' if field.advKusaResult else ''
+            kusaType = field.kusaType if field.kusaType else '草'
+            doubleInfo = '(*2)' if field.kusaType == '灵草' else ''
+            outputMsg = f'你的{kusaType}生了出来！获得了{field.kusaResult}{doubleInfo}草。'
+            outputMsg += f'额外获得{field.advKusaResult}{doubleInfo}草之精华！' if field.advKusaResult else ''
             if field.kusaType == '灵草':
                 await baseDB.changeKusa(field.qq, field.kusaResult)
                 await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
-                outputMsg += f'\n额外收获了草的灵体，以上草/草之精华获取两次！'
             try:
                 bot = nonebot.get_bot()
                 await bot.send_private_msg(user_id=field.qq, message=outputMsg)
@@ -353,8 +357,8 @@ async def goodNewsReport(field):
         quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
         quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
         if quality3 or quality2:
-            maxlen = 30 if quality3 else 40
-            history = await fieldDB.noKusaAdvHistory(field.qq, maxlen)
+            maxLen = 30 if quality3 else 40
+            history = await fieldDB.noKusaAdvHistory(field.qq, maxLen)
             cnt = 0
             for i in range(len(history)):
                 if history[i].advKusaResult > 0:
