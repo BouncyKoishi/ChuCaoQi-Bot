@@ -27,6 +27,9 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
 
 
 async def changeItemAmount(qqNum, itemName, increaseAmount):
+    if increaseAmount == 0:
+        return True
+
     item = await getItem(itemName)
     if item:
         itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
