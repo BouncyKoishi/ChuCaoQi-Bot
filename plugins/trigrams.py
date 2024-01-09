@@ -1,12 +1,20 @@
 import time
 import random
+from nonebot import scheduler
 from nonebot import on_command, CommandSession
+from plugins.chatGPT_api import getResponseAsync
+
+gptUseRecord = {}
 
 
 @on_command(name='起卦', only_to_me=False)
 async def _(session: CommandSession):
+    global gptUseRecord
     userId = session.ctx['user_id']
     strippedArg = session.current_arg_text.strip()
+    if len(strippedArg) > 100:
+        await session.send('暂不支持过长的起卦内容^ ^')
+        return
     hashingStr = strippedArg + str(userId) + str(time.strftime("%Y-%m-%d %H", time.localtime())) + 'Trigram'
     random.seed(hash(hashingStr))
 
@@ -31,13 +39,32 @@ async def _(session: CommandSession):
 
     trigramName = trigram64['base'].split('：')[0]
     changedTrigramName = changedTrigram64['base'].split('：')[0]
-    outputStr = f'爻：{getSymbolsName(symbols, changeableIndex)}\n'
+    outputStr = f'对【{strippedArg}】的占卜结果为：\n' if strippedArg != '' else '占卜结果为：\n'
+    outputStr += f'爻：{getSymbolsName(symbols, changeableIndex)}\n'
     outputStr += f'内卦：{innerTrigram8["name"]}({innerTrigram8["display"]}) 外卦：{outerTrigram8["name"]}({outerTrigram8["display"]})\n'
     outputStr += f'卦象：{trigramName}之{changedTrigramName}\n' if len(changeableIndex) != 0 else f'卦象：{trigramName}\n'
     outputStr += f'卦辞：{getFinalWords(trigram64, changedTrigram64, changeableIndex)}'
+    outputStr += '\n\n如果你需要进一步解析，请输入“解卦”'
 
-    await session.send(outputStr)
+    confirm = await session.aget(prompt=outputStr)
+    if confirm == '解卦':
+        if gptUseRecord.get(userId, 0) > 10:
+            await session.send('今日解卦次数已达上限，请明日再来。')
+            return
+        gptUseRecord[userId] = gptUseRecord[userId] + 1 if userId in gptUseRecord else 1
+        await session.send('请稍等，正在为你解卦...')
+        chatGPTPrompt = getChatGPTPrompt(strippedArg, getFinalWords(trigram64, changedTrigram64, changeableIndex))
+        response = await getResponseAsync("gpt-3.5-turbo", chatGPTPrompt)
+        reply = response['choices'][0]['message']['content']
+        await session.send(f'{reply}\n\n注：以上解卦内容由AI生成，仅供参考。')
+
     random.seed()
+
+
+@scheduler.scheduled_job('cron', day='*', hour='0', minute='5')
+async def _():
+    global gptUseRecord
+    gptUseRecord = {}
 
 
 # 根据铜钱正反面的结果，获取爻
@@ -100,6 +127,12 @@ def getFinalWords(trigram64, changedTrigram64, changeableIndex):
         else:
             return changedTrigram64['base']
     return '未知'
+
+
+def getChatGPTPrompt(argStr, baseResultStr):
+    content = f'来访者的问题或关键词：{argStr}\n你的初始占卜结果：{baseResultStr}'
+    return [{"role": "system", "content": "你是一位精通易经的占卜师，你正为一位来访者解卦。我将提供来访者所占卜的内容和你的初始占卜结果，你需要结合以上情报，为来访者提供解卦信息。"},
+            {"role": "user", "content": content}]
 
 
 def getTrigram8(linearSymbols):
