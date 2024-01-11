@@ -227,7 +227,7 @@ async def _(session: CommandSession):
         ownItem = [item for item in itemStorageList if item.storage]
         if ownItem:
             outputStr += f'{itemRareDescribe[level]}({len(ownItem)}/{len(itemStorageList)}):'
-            pageSize, offset = 50, 0
+            pageSize, offset = 100, 0
             while True:
                 displayItems = ownItem[offset: min(offset + pageSize, len(ownItem))]
                 outputStr += ','.join([f' {item.name}*{item.storage[0].amount}' for item in displayItems])
@@ -353,14 +353,15 @@ async def _(session: CommandSession):
             levelItems = list(levelItemIterator)
             if levelItems:
                 outputStr += f'{itemRareDescribe[nowLevel]}:'
-                if len(levelItems) > drawConfig['itemHideAmount']:
+                if len(levelItems) > drawConfig['itemHideAmount'] * 2:
                     outputStr += ' ---隐藏了过长的自制物品列表--- \n'
+                    continue
                 outputStr += ','.join([f' {item.name}' for item in levelItems]) + '\n'
         outputStr = outputStr[:-1]
     # 展示指定等级的物品
     else:
         outputStr += f'{itemRareDescribe[level]}:'
-        pageSize, offset = 20, 0
+        pageSize, offset = 150, 0
         while True:
             displayItems = itemList[offset: min(offset + pageSize, len(itemList))]
             outputStr += ','.join([f' {item.name}' for item in displayItems])
