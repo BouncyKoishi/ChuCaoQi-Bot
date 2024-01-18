@@ -1,5 +1,6 @@
 import math
 import random
+import re
 import nonebot
 import dbConnection.db as baseDB
 import dbConnection.kusa_field as fieldDB
@@ -246,6 +247,18 @@ async def save():
                 await bot.send_private_msg(user_id=field.qq, message=outputMsg)
             except:
                 print(f'错误：sendmsg api not available，qq={field.qq}')
+            # 在有草精炼厂的情况下，检查连号奖励
+            if (await itemDB.getItemStorageInfo(field.qq, '草精炼厂')).amount:
+                chains = tuple(
+                    (int(x[0]), len(x))
+                    for x in
+                    re.findall(r'0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,}', str(field.kusaResult))
+                )
+                for chainNumber, chainLength in chains:
+                    chainBonus = chainNumber * (2 ** (chainLength - 2))
+                    await baseDB.changeAdvKusa(field.qq, chainBonus)
+                    field.advKusaResult += chainBonus
+                    outputMsg += f'\n{"零一二三四五六七八九十"[chainLength] if chainLength <= 10 else chainLength}连！你额外获得了{chainBonus}个草之精华！'
             await goodNewsReport(field)
             await fieldDB.kusaHistoryAdd(field.qq)
             await fieldDB.kusaStopGrowing(field.qq, False)
