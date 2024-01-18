@@ -271,19 +271,37 @@ async def save():
                 await bot.send_private_msg(user_id=field.qq, message=outputMsg)
             except:
                 print(f'错误：sendmsg api not available，qq={field.qq}')
-            # 在有草精炼厂的情况下，检查连号奖励
-            if (await itemDB.getItemAmount(field.qq, '草精炼厂')):
+            await goodNewsReport(field)
+            user = await baseDB.getUser(field.qq)
+            userName = user.name if user.name else user.qq
+            if (await itemDB.getItemAmount(field.qq, '生草质量EX')) and user.vipLevel >= 6:
                 chains = tuple(
                     (int(x[0]), len(x))
                     for x in
                     re.findall(r'0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,}', str(field.kusaResult))
                 )
+                chainBonusTotal = 0
                 for chainNumber, chainLength in chains:
                     chainBonus = chainNumber * (2 ** (chainLength - 2))
-                    await baseDB.changeAdvKusa(field.qq, chainBonus)
-                    field.advKusaResult += chainBonus
-                    outputMsg += f'\n{"零一二三四五六七八九十"[chainLength] if chainLength <= 10 else chainLength}连！你额外获得了{chainBonus}个草之精华！'
-            await goodNewsReport(field)
+                    chainBonusTotal += chainBonus
+                    outputMsg += f'\n{"零一二三四五六七八九十"[chainLength] if chainLength <= 10 else chainLength}连{"！" * chainLength}你额外获得了{chainBonus}个草之精华！'
+                await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
+                field.advKusaResult += chainBonusTotal
+                chainLengthMax = max(chainLength for chainNumber, chainLength in chains)
+                if chainLengthMax >= 4:
+                    try:
+                        bot = nonebot.get_bot()
+                        await bot.send_group_msg(
+                            group_id=config['group']['main'],
+                            message=(
+                                f"喜报\n"
+                                f"[CQ:face,id=144]玩家 {userName} "
+                                f"单次生{kusaType}触发{'零一二三四五六七八九十'[chainLengthMax] if chainLengthMax <= 10 else chainLengthMax}连，额外获得了{chainBonusTotal}个草之精华！"
+                            )
+                        )
+                    except:
+                        print('错误：sendmsg api not available')
+
             await fieldDB.kusaHistoryAdd(field.qq)
             await fieldDB.kusaStopGrowing(field.qq, False)
         else:
@@ -379,21 +397,7 @@ async def goodNewsReport(field):
         isDoubleType = (field.kusaType == "灵草" or field.kusaType == "巨草")
         quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
         quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
-        if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
-            user = await baseDB.getUser(field.qq)
-            userName = user.name if user.name else user.qq
-            kusaType = field.kusaType if field.kusaType else "普通草"
-            try:
-                bot = nonebot.get_bot()
-                await bot.send_group_msg(group_id=config['group']['main'],
-                                         message=f"喜报\n"
-                                                 f"[CQ:face,id=144]玩家 {userName} "
-                                                 f"单次生{kusaType}获得了{advKusa}个草之精华！"
-                                                 f"大家快来围殴他吧！[CQ:face,id=144]")
-            except:
-                print('错误：sendmsg api not available')
-            await activateRobbing(field, 60)
-        elif quality3 or quality2:
+        if quality3 or quality2:
             maxLen = 30 if quality3 else 40
             history = await fieldDB.noKusaAdvHistory(field.qq, maxLen)
             cnt = 0
@@ -414,6 +418,20 @@ async def goodNewsReport(field):
                                                      f"[CQ:face,id=144]")
                 except:
                     print('错误：sendmsg api not available')
+        if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
+            user = await baseDB.getUser(field.qq)
+            userName = user.name if user.name else user.qq
+            kusaType = field.kusaType if field.kusaType else "普通草"
+            try:
+                bot = nonebot.get_bot()
+                await bot.send_group_msg(group_id=config['group']['main'],
+                                         message=f"喜报\n"
+                                                 f"[CQ:face,id=144]玩家 {userName} "
+                                                 f"单次生{kusaType}获得了{advKusa}个草之精华！"
+                                                 f"大家快来围殴他吧！[CQ:face,id=144]")
+            except:
+                print('错误：sendmsg api not available')
+            await activateRobbing(field, 60)
 
 
 async def activateRobbing(field, duration: int):
