@@ -1,3 +1,4 @@
+import asyncio
 import math
 import random
 import re
@@ -11,6 +12,10 @@ from kusa_base import config
 
 systemRandom = random.SystemRandom()
 
+robTarget = 0
+robParticipant = set()
+robCount = 0
+robLimit = 0
 
 @on_command(name='生草', only_to_me=False)
 async def _(session: CommandSession):
@@ -227,6 +232,25 @@ async def _(session: CommandSession):
                        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
 
+@on_command(name='围殴', only_to_me=False)
+async def _(session: CommandSession):
+    global robCount
+    userId = session.ctx['user_id']
+    if not robTarget:
+        return
+    if userId in robParticipant:
+        await session.send('你已经围殴过了！')
+        return
+    kusaRobbed = random.randint(1, round(robLimit * .1))
+    await baseDB.changeKusa(userId, kusaRobbed)
+    await baseDB.changeKusa(robTarget, -kusaRobbed)
+    robCount += kusaRobbed
+    robParticipant.add(userId)
+    await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
+    if robCount >= robLimit:
+        await stopRobbing()
+
+
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
@@ -248,7 +272,7 @@ async def save():
             except:
                 print(f'错误：sendmsg api not available，qq={field.qq}')
             # 在有草精炼厂的情况下，检查连号奖励
-            if (await itemDB.getItemStorageInfo(field.qq, '草精炼厂')).amount:
+            if (await itemDB.getItemAmount(field.qq, '草精炼厂')):
                 chains = tuple(
                     (int(x[0]), len(x))
                     for x in
@@ -353,6 +377,8 @@ async def goodNewsReport(field):
     if field.advKusaResult > 0:
         advKusa = field.advKusaResult if field.kusaType != "灵草" else field.advKusaResult * 2
         isDoubleType = (field.kusaType == "灵草" or field.kusaType == "巨草")
+        quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
+        quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
         if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
             user = await baseDB.getUser(field.qq)
             userName = user.name if user.name else user.qq
@@ -366,10 +392,8 @@ async def goodNewsReport(field):
                                                  f"大家快来围殴他吧！[CQ:face,id=144]")
             except:
                 print('错误：sendmsg api not available')
-
-        quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
-        quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
-        if quality3 or quality2:
+            await activateRobbing(field, 60)
+        elif quality3 or quality2:
             maxLen = 30 if quality3 else 40
             history = await fieldDB.noKusaAdvHistory(field.qq, maxLen)
             cnt = 0
@@ -390,3 +414,26 @@ async def goodNewsReport(field):
                                                      f"[CQ:face,id=144]")
                 except:
                     print('错误：sendmsg api not available')
+
+
+async def activateRobbing(field, duration: int):
+    global robTarget, robLimit, robCount
+    robTarget = field.qq
+    robParticipant.clear()
+    robLimit = field.kusaResult
+    robCount = 0
+    await asyncio.sleep(duration)
+    await stopRobbing()
+
+
+async def stopRobbing():
+    if not robTarget:
+        return
+    user = await baseDB.getUser(robTarget)
+    userName = user.name if user.name else user.qq
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_group_msg(group_id=config['group']['main'], message=f'本次围殴结束，玩家 {userName} 一共损失{robCount}草！')
+    except:
+        print('错误：sendmsg api not available')
+    robTarget = 0
