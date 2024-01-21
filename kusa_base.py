@@ -66,6 +66,23 @@ async def selling(qqNum, itemNameSelling, itemAmountSelling, totalPrice, isUsing
     return True
 
 
+async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAmountCost) -> bool:
+    user = await baseDB.getUser(qqNum)
+    itemGain = await itemDB.getItem(itemNameGain)
+    itemCost = await itemDB.getItem(itemNameCost)
+    if itemAmountGain < 0 or itemAmountCost < 0:
+        return False
+    if user is None or itemGain is None or itemCost is None:
+        return False
+    itemCostNowAmount = await itemDB.getItemAmount(qqNum, itemNameCost)
+    if itemCostNowAmount < itemAmountCost:
+        return False
+
+    await itemDB.changeItemAmount(qqNum, itemNameGain, itemAmountGain)
+    await itemDB.changeItemAmount(qqNum, itemNameCost, -itemAmountCost)
+    return True
+
+
 # Group logger
 async def sendLog(message):
     bot = nonebot.get_bot()

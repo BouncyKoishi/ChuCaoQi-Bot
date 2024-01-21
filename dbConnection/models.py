@@ -57,16 +57,14 @@ class KusaItemList(Model):
     name = CharField(max_length=64, pk=True)
     detail = CharField(max_length=1024, null=True)
     type = CharField(max_length=32, null=True)
-    isSingle = BooleanField(default=True)
-    isInShop = BooleanField(default=True)
-    isSellable = BooleanField(default=True)
     isControllable = BooleanField(default=True)
     isTransferable = BooleanField(default=True)
-    isUsingAdvKusa = BooleanField(default=False)
     shopPrice = IntField(null=True)
     sellingPrice = IntField(null=True)
     priceRate = FloatField(null=True)
+    priceType = CharField(max_length=32, null=True)
     amountLimit = IntField(null=True)
+    shopPreItems = CharField(max_length=128, null=True)
 
 
 class KusaItemStorage(Model):

@@ -47,34 +47,6 @@ async def getCheapLevelByItem(userId):
     return cheapLevel
 
 
-@on_command(name='扭秤装置', only_to_me=False)
-async def _(session: CommandSession):
-    userId = session.ctx['user_id']
-    bluePrintExist = await itemDB.getItemAmount(userId, '扭秤装置图纸')
-    if bluePrintExist == 0:
-        await session.send('你没有图纸，不知道如何建设扭秤装置^ ^')
-        return
-
-    argText = session.current_arg_text.strip()
-    if not argText:
-        await session.send('建设每个扭秤装置需要消耗250个自动化核心，装置的上限为50个。输入“!扭秤装置 [数量]”来建设扭秤装置。')
-        return
-    oldMachineAmount = await itemDB.getItemAmount(userId, '扭秤装置')
-    newMachineAmount = int(argText)
-    if oldMachineAmount >= 50:
-        await session.send('你的扭秤装置数量已到达上限！')
-        return
-    newMachineAmount = min(newMachineAmount, 50 - oldMachineAmount)
-    needCoreAmount = newMachineAmount * 250
-    coreAmount = await itemDB.getItemAmount(userId, '自动化核心')
-    if coreAmount >= needCoreAmount:
-        await itemDB.changeItemAmount(userId, '扭秤装置', newMachineAmount)
-        await itemDB.changeItemAmount(userId, '自动化核心', -needCoreAmount)
-        await session.send(f'{newMachineAmount}个扭秤装置建造成功！消耗了{needCoreAmount}个自动化核心。')
-    else:
-        await session.send(f"你不够核心^ ^")
-
-
 @on_command(name='草精炼厂', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
@@ -107,6 +79,11 @@ async def _(session: CommandSession):
         await session.send(f'{newAdvFactoryAmount}个草精炼厂建造成功！消耗了{needCoreAmount}个自动化核心。')
     else:
         await session.send(f"你不够核心^ ^")
+
+
+@on_command(name='扭秤装置', only_to_me=False)
+async def _(session: CommandSession):
+    await session.send('本物品已集成到建筑商店，请使用“!购买 扭秤装置 [数量]进行购买。”')
 
 
 @on_command(name='草压缩基地', only_to_me=False)

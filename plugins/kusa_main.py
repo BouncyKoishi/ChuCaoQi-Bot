@@ -60,11 +60,11 @@ async def getWarehouseInfoStr(user):
     for item in itemsWorth:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.isSingle else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, ' if item.amountLimit != 1 else f'{item.name}, '
     for item in itemsG:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.isSingle else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, ' if not item.amountLimit != 1 else f'{item.name}, '
     output = output[:-2]
 
     output += '\n\n当前道具：\n'
@@ -72,11 +72,18 @@ async def getWarehouseInfoStr(user):
     for item in itemsUse:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.isSingle else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, ' if item.amountLimit != 1 else f'{item.name}, '
     if output.endswith("当前道具：\n"):
         output = output[:-6]
 
     return output[:-2]
+
+
+async def getItemAmountStr(userId, item):
+    itemAmount = await itemDB.getItemAmount(userId, item.name)
+    if itemAmount != 0:
+        return f'{item.name} * {itemAmount}, ' if itemAmount != 1 else f'{item.name}, '
+    return ''
 
 
 @on_command(name='能力', only_to_me=False)

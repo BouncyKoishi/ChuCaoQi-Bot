@@ -61,8 +61,8 @@ async def changeItemAllowUse(qqNum, itemName, allowUse):
     return False
 
 
-async def getShopItemList(isAdvItem: bool):
-    return await KusaItemList.filter(isInShop=True, isUsingAdvKusa=isAdvItem).order_by('shopPrice').all()
+async def getShopItemList(priceType):
+    return await KusaItemList.filter(shopPrice__not_isnull=True, priceType=priceType).order_by('shopPrice').all()
 
 
 async def getStoragesOrderByAmountDesc(itemName):
