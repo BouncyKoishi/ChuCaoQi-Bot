@@ -238,6 +238,9 @@ async def _(session: CommandSession):
     userId = session.ctx['user_id']
     if not robTarget:
         return
+    if userId == robTarget:
+        await session.send('不能围殴自己^ ^')
+        return
     if userId in robParticipant:
         await session.send('你已经围殴过了！')
         return
