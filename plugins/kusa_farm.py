@@ -1,5 +1,7 @@
+import asyncio
 import math
 import random
+import re
 import nonebot
 import dbConnection.db as baseDB
 import dbConnection.kusa_field as fieldDB
@@ -10,6 +12,10 @@ from kusa_base import config
 
 systemRandom = random.SystemRandom()
 
+robTarget = 0
+robParticipant = set()
+robCount = 0
+robLimit = 0
 
 @on_command(name='生草', only_to_me=False)
 async def _(session: CommandSession):
@@ -226,6 +232,28 @@ async def _(session: CommandSession):
                        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
 
 
+@on_command(name='围殴', only_to_me=False)
+async def _(session: CommandSession):
+    global robCount
+    userId = session.ctx['user_id']
+    if not robTarget:
+        return
+    if userId == robTarget:
+        await session.send('不能围殴自己^ ^')
+        return
+    if userId in robParticipant:
+        await session.send('你已经围殴过了！')
+        return
+    kusaRobbed = random.randint(1, round(robLimit * .1))
+    await baseDB.changeKusa(userId, kusaRobbed)
+    await baseDB.changeKusa(robTarget, -kusaRobbed)
+    robCount += kusaRobbed
+    robParticipant.add(userId)
+    await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
+    if robCount >= robLimit:
+        await stopRobbing()
+
+
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
@@ -247,6 +275,36 @@ async def save():
             except:
                 print(f'错误：sendmsg api not available，qq={field.qq}')
             await goodNewsReport(field)
+            user = await baseDB.getUser(field.qq)
+            userName = user.name if user.name else user.qq
+            if (await itemDB.getItemAmount(field.qq, '生草质量EX')) and user.vipLevel >= 6:
+                chains = tuple(
+                    (int(x[0]), len(x))
+                    for x in
+                    re.findall(r'0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,}', str(field.kusaResult))
+                )
+                chainBonusTotal = 0
+                for chainNumber, chainLength in chains:
+                    chainBonus = chainNumber * (2 ** (chainLength - 2))
+                    chainBonusTotal += chainBonus
+                    outputMsg += f'\n{"零一二三四五六七八九十"[chainLength] if chainLength <= 10 else chainLength}连{"！" * chainLength}你额外获得了{chainBonus}个草之精华！'
+                await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
+                field.advKusaResult += chainBonusTotal
+                chainLengthMax = max(chainLength for chainNumber, chainLength in chains)
+                if chainLengthMax >= 4:
+                    try:
+                        bot = nonebot.get_bot()
+                        await bot.send_group_msg(
+                            group_id=config['group']['main'],
+                            message=(
+                                f"喜报\n"
+                                f"[CQ:face,id=144]玩家 {userName} "
+                                f"单次生{kusaType}触发{'零一二三四五六七八九十'[chainLengthMax] if chainLengthMax <= 10 else chainLengthMax}连，额外获得了{chainBonusTotal}个草之精华！"
+                            )
+                        )
+                    except:
+                        print('错误：sendmsg api not available')
+
             await fieldDB.kusaHistoryAdd(field.qq)
             await fieldDB.kusaStopGrowing(field.qq, False)
         else:
@@ -340,20 +398,6 @@ async def goodNewsReport(field):
     if field.advKusaResult > 0:
         advKusa = field.advKusaResult if field.kusaType != "灵草" else field.advKusaResult * 2
         isDoubleType = (field.kusaType == "灵草" or field.kusaType == "巨草")
-        if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
-            user = await baseDB.getUser(field.qq)
-            userName = user.name if user.name else user.qq
-            kusaType = field.kusaType if field.kusaType else "普通草"
-            try:
-                bot = nonebot.get_bot()
-                await bot.send_group_msg(group_id=config['group']['main'],
-                                         message=f"喜报\n"
-                                                 f"[CQ:face,id=144]玩家 {userName} "
-                                                 f"单次生{kusaType}获得了{advKusa}个草之精华！"
-                                                 f"大家快来围殴他吧！[CQ:face,id=144]")
-            except:
-                print('错误：sendmsg api not available')
-
         quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
         quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
         if quality3 or quality2:
@@ -377,3 +421,40 @@ async def goodNewsReport(field):
                                                      f"[CQ:face,id=144]")
                 except:
                     print('错误：sendmsg api not available')
+        if (isDoubleType and advKusa >= 16) or (not isDoubleType and advKusa >= 8):
+            user = await baseDB.getUser(field.qq)
+            userName = user.name if user.name else user.qq
+            kusaType = field.kusaType if field.kusaType else "普通草"
+            try:
+                bot = nonebot.get_bot()
+                await bot.send_group_msg(group_id=config['group']['main'],
+                                         message=f"喜报\n"
+                                                 f"[CQ:face,id=144]玩家 {userName} "
+                                                 f"单次生{kusaType}获得了{advKusa}个草之精华！"
+                                                 f"大家快来围殴他吧！[CQ:face,id=144]")
+            except:
+                print('错误：sendmsg api not available')
+            await activateRobbing(field, 60)
+
+
+async def activateRobbing(field, duration: int):
+    global robTarget, robLimit, robCount
+    robTarget = field.qq
+    robParticipant.clear()
+    robLimit = field.kusaResult
+    robCount = 0
+    await asyncio.sleep(duration)
+    await stopRobbing()
+
+
+async def stopRobbing():
+    if not robTarget:
+        return
+    user = await baseDB.getUser(robTarget)
+    userName = user.name if user.name else user.qq
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_group_msg(group_id=config['group']['main'], message=f'本次围殴结束，玩家 {userName} 一共损失{robCount}草！')
+    except:
+        print('错误：sendmsg api not available')
+    robTarget = 0
