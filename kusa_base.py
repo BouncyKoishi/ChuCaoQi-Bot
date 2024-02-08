@@ -85,5 +85,20 @@ async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAm
 
 # Group logger
 async def sendLog(message):
-    bot = nonebot.get_bot()
-    await bot.send_group_msg(group_id=config['group']['log'], message=message)
+    await sendGroupMsg(config['group']['log'], message)
+
+
+async def sendGroupMsg(groupId, message):
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_group_msg(group_id=groupId, message=message)
+    except Exception as e:
+        print(f'对群聊{groupId}发送GroupMsg失败：' + str(e))
+
+
+async def sendPrivateMsg(userId, message):
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_private_msg(user_id=userId, message=message)
+    except Exception as e:
+        print(f'对用户{userId}发送PrivateMsg失败：' + str(e))

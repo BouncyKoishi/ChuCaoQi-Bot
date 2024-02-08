@@ -2,6 +2,7 @@ import re
 import codecs
 from nonebot import on_command, CommandSession
 from kusa_base import buying, selling, itemCharging, isUserExist
+from plugins.kusa_industrial import buyingKusaFactory, buyingAdvFactory, getNextFactoryCost
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 
@@ -16,7 +17,7 @@ async def _(session: CommandSession):
     await shop(session, '草之精华')
 
 
-@on_command(name='建筑商店', only_to_me=False)
+@on_command(name='建筑商店', aliases='核心商店', only_to_me=False)
 async def _(session: CommandSession):
     await shop(session, '自动化核心')
 
@@ -35,6 +36,8 @@ async def shop(session: CommandSession, priceType):
                 continue
         itemPriceDict[item.name] = getItemPrice(item, itemCount)
     print(itemPriceDict)
+    if priceType == '自动化核心':
+        itemPriceDict['生草工厂'] = await getNextFactoryCost(session.ctx['user_id'])
     sortedPriceDict = sorted(itemPriceDict.items(), key=lambda x: x[1])
     if not sortedPriceDict:
         await session.send('当前商店暂无你可以购买的物品！')
@@ -52,7 +55,7 @@ async def shopHelp(session: CommandSession):
         await session.send(f.read().strip())
 
 
-@on_command(name='查询', only_to_me=False)
+@on_command(name='查询', aliases='道具详情', only_to_me=False)
 async def usefulItemQuery(session: CommandSession):
     itemName = session.current_arg_text.strip()
     item = await itemDB.getItem(itemName)
@@ -61,11 +64,14 @@ async def usefulItemQuery(session: CommandSession):
         return
     ownItemAmount = await itemDB.getItemAmount(session.ctx['user_id'], itemName)
     output = f'{item.name}\n'
-    output += f'拥有数量：{ownItemAmount}\n'
-    output += f'最大数量限制：{item.amountLimit}\n' if item.amountLimit else ''
-    output += f'基础价格：{item.shopPrice}{item.priceType}\n' if item.shopPrice else '不可从商店购买\n'
-    output += f'价格倍率：{item.priceRate}\n' if item.priceRate else ''
-    output += f'商店售价：{item.sellingPrice}{item.priceType}\n' if item.sellingPrice else ''
+    output += f'拥有数量：{ownItemAmount} / {item.amountLimit}\n' if item.amountLimit else f'拥有数量：{ownItemAmount}\n'
+    output += f'前置购买条件：{getPreItemStr(item)}\n' if item.shopPreItems else ''
+    if itemName == '生草工厂':
+        output += f'下一个工厂的建造成本：{await getNextFactoryCost(session.ctx["user_id"])}自动化核心\n'
+    else:
+        output += f'基础价格：{item.shopPrice}{item.priceType}\n' if item.shopPrice else '不可从商店购买\n'
+        output += f'价格倍率：{item.priceRate}\n' if item.priceRate else ''
+        output += f'商店售价：{item.sellingPrice}{item.priceType}\n' if item.sellingPrice else ''
     output += '不可转让 ' if not item.isTransferable else ''
     output += '不可禁用 ' if not item.isControllable else ''
     output += '\n'
@@ -82,6 +88,12 @@ async def shopBuy(session: CommandSession):
     getNameSuccess, itemName, buyingAmount = getItemNameAndAmount(argText)
     if not getNameSuccess:
         await session.send('需要物品名！')
+        return
+    if itemName == '生草工厂':
+        await buyingKusaFactory(session, buyingAmount)
+        return
+    if itemName == '草精炼厂':
+        await buyingAdvFactory(session, buyingAmount)
         return
 
     item = await itemDB.getItem(itemName)
@@ -101,7 +113,7 @@ async def shopBuy(session: CommandSession):
         await session.send('暂不支持大量购买浮动价格物品!')
         return
     if not await preItemCheck(item, userId):
-        await session.send('你不满足购买此物品的前置条件!')
+        await session.send(f'你不满足购买此物品的前置条件！\n购买此物品需要：{getPreItemStr(item)}')
         return
 
     totalPrice = getMultiItemPrice(item, nowAmount, buyingAmount)
@@ -113,7 +125,7 @@ async def shopBuy(session: CommandSession):
 
     buyingSuccess = await buyingByCostType(userId, itemName, buyingAmount, totalPrice, item.priceType)
     if buyingSuccess:
-        await session.send(f'购买成功！购买了{buyingAmount}个{itemName}。')
+        await session.send(f'购买成功！购买了{buyingAmount}个{itemName}。' if item.amountLimit != 1 else f'购买成功！购买了{itemName}。')
     else:
         output = f'你不够{item.priceType}^ ^'
         await session.send(output)
@@ -165,7 +177,7 @@ async def sellingByCostType(userId, itemName, buyingAmount, totalPrice, priceTyp
         return False
 
 
-@on_command(name='道具转让', aliases='物品转让', only_to_me=False)
+@on_command(name='转让', aliases='道具转让', only_to_me=False)
 async def usefulItemTransfer(session: CommandSession):
     userId = session.ctx['user_id']
     argText = session.current_arg_text.strip()
@@ -233,6 +245,32 @@ async def usefulItemEnableOrDisable(session: CommandSession, enable: bool):
     await session.send(f'已{"启用" if enable else "禁用"}你的 {itemName}')
 
 
+@on_command(name='合成', only_to_me=False)
+async def _(session: CommandSession):
+    # 后续可拓展为通用功能？维护一个基准合成列表
+    userId = session.ctx['user_id']
+    machineExist = await itemDB.getItemAmount(userId, '奖券合成机')
+    if machineExist == 0:
+        await session.send('你没有奖券合成机，无法进行奖券合成^ ^')
+        return
+
+    composeList = {'上级十连券': '十连券', '特级十连券': '上级十连券', '天琴十连券': '特级十连券'}
+    argText = session.current_arg_text.strip()
+    getNameSuccess, itemName, amount = getItemNameAndAmount(argText)
+    if not getNameSuccess:
+        await session.send('需要待合成物品名！')
+        return
+    if itemName not in composeList:
+        await session.send('此物品无法进行合成！')
+        return
+
+    success = await itemCharging(userId, itemName, amount, composeList[itemName], amount * 10)
+    if success:
+        await session.send(f'合成成功！合成了{amount}个{itemName}。')
+    else:
+        await session.send(f'你不够{composeList[itemName]}^ ^')
+
+
 def getItemNameAndAmount(argText: str):
     # 名字匹配中文字符
     itemNameResult = re.search(r'[\u4e00-\u9fa5G]+[IVX]*', argText)
@@ -263,6 +301,19 @@ async def preItemCheck(item, userId):
         if not await itemDB.getItemAmount(userId, preItemName):
             return False
     return True
+
+
+def getPreItemStr(item):
+    if not item.shopPreItems:
+        return ''
+    preItemNames = item.shopPreItems.split(',')
+    preItemStr = ''
+    for preItemName in preItemNames:
+        if preItemName.startswith('Lv'):
+            preItemStr += f'信息员Lv{preItemName[2:]}，'
+            continue
+        preItemStr += f'{preItemName}，'
+    return preItemStr[:-1]
 
 
 def getMultiItemPrice(item, ownItemAmount, newItemAmount):

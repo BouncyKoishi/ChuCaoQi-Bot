@@ -45,29 +45,25 @@ async def updateDefaultKusaType(qqNum, kusaType):
         await kusaField.save()
 
 
-async def kusaStopGrowing(qqNum, force=False):
-    kusaField = await getKusaField(qqNum)
-    if kusaField:
-        if force:
-            kusaField.soilCapacity -= kusaField.weedCosting
-        kusaField.weedCosting = 0
-        kusaField.kusaIsGrowing = False
-        kusaField.kusaRestTime = 0
-        kusaField.isUsingKela = False
-        kusaField.isPrescient = False
-        kusaField.biogasEffect = 1.0
-        kusaField.kusaResult = 0
-        kusaField.advKusaResult = 0
-        kusaField.kusaType = ""
-        kusaField.lastUseTime = datetime.datetime.now()
-        await kusaField.save()
+async def kusaStopGrowing(field: KusaField, force=False):
+    if force:
+        field.soilCapacity -= field.weedCosting
+    field.weedCosting = 0
+    field.kusaIsGrowing = False
+    field.kusaRestTime = 0
+    field.isUsingKela = False
+    field.isPrescient = False
+    field.biogasEffect = 1.0
+    field.kusaResult = 0
+    field.advKusaResult = 0
+    field.kusaType = ""
+    field.lastUseTime = datetime.datetime.now()
+    await field.save()
 
 
-async def kusaTimePass(qqNum):
-    kusaField = await getKusaField(qqNum)
-    if kusaField:
-        kusaField.kusaRestTime -= 1
-        await kusaField.save()
+async def kusaTimePass(kusaField: KusaField):
+    kusaField.kusaRestTime -= 1
+    await kusaField.save()
 
 
 async def kusaSoilRecover(qqNum):
@@ -80,12 +76,8 @@ async def kusaSoilRecover(qqNum):
     return False
 
 
-async def kusaHistoryAdd(qqNum):
-    kusaField = await getKusaField(qqNum)
-    if kusaField:
-        kusa = kusaField.kusaResult * 2 if kusaField.kusaType == '灵草' else kusaField.kusaResult
-        advKusa = kusaField.advKusaResult * 2 if kusaField.kusaType == '灵草' else kusaField.advKusaResult
-        await KusaHistory.create(qq=kusaField.qq, kusaType=kusaField.kusaType, kusaResult=kusa, advKusaResult=advKusa)
+async def kusaHistoryAdd(field: KusaField):
+    await KusaHistory.create(qq=field.qq, kusaType=field.kusaType, kusaResult=field.kusaResult, advKusaResult=field.advKusaResult)
 
 
 async def kusaHistoryReport(qqNum, endTime: datetime.datetime, interval):

@@ -11,6 +11,7 @@ class User(Model):
     vipLevel = IntField(default=0)
     donateAmount = FloatField(default=0)
     isSuperAdmin = BooleanField(default=False)
+    trigger = CharField(max_length=32, null=True)
     lastUseTime = DatetimeField(null=True)
 
 
@@ -26,7 +27,7 @@ class KusaField(Model):
     kusaResult = IntField(default=0)
     advKusaResult = IntField(default=0)
     kusaType = CharField(max_length=8, default="")
-    defaultKusaType = CharField(max_length=8, default="")
+    defaultKusaType = CharField(max_length=8, default="草")
     lastUseTime = DatetimeField(null=True)
 
 
