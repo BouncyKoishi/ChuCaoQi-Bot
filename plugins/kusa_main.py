@@ -9,8 +9,8 @@ from nonebot import on_command, CommandSession
 from kusa_base import isUserExist, config
 from .kusa_statistics import getKusaAdvRank
 
-vipTitleName = ['用户', '信息员', '高级信息员', '特级信息员', '后浪信息员', '天琴信息员', '天琴信息节点', '天琴信息矩阵', '天琴信息网络',
-                '???', '???', '???', '???']
+vipTitleName = ['用户', '信息员', '高级信息员', '特级信息员', '后浪信息员', '天琴信息员', '天琴信息节点',
+                '天琴信息矩阵', '天琴信息网络', '???', '???', '???', '???']
 
 
 @on_command(name='仓库', only_to_me=False)
@@ -60,11 +60,11 @@ async def getWarehouseInfoStr(user):
     for item in itemsWorth:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.isSingle else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, ' if item.amountLimit != 1 else f'{item.name}, '
     for item in itemsG:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.isSingle else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, ' if not item.amountLimit != 1 else f'{item.name}, '
     output = output[:-2]
 
     output += '\n\n当前道具：\n'
@@ -72,11 +72,18 @@ async def getWarehouseInfoStr(user):
     for item in itemsUse:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.isSingle else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, ' if item.amountLimit != 1 else f'{item.name}, '
     if output.endswith("当前道具：\n"):
         output = output[:-6]
 
     return output[:-2]
+
+
+async def getItemAmountStr(userId, item):
+    itemAmount = await itemDB.getItemAmount(userId, item.name)
+    if itemAmount != 0:
+        return f'{item.name} * {itemAmount}, ' if itemAmount != 1 else f'{item.name}, '
+    return ''
 
 
 @on_command(name='能力', only_to_me=False)
@@ -96,7 +103,7 @@ async def _(session: CommandSession):
             if itemAmount != 0:
                 output += f'{item.name}, '
         output = output[:-2]
-        
+
     if itemsDrawing:
         output += '\n\n' if output else ''
         output += f'你当前所拥有的图纸：\n'
@@ -214,11 +221,6 @@ async def kusa_ban(session: CommandSession):
     await session.send(st)
 
 
-@on_command(name='解除口球', only_to_me=False)
-async def _(session: CommandSession):
-    await session.send("本指令已经废弃。使用“!口球 qq=[qq号] sec=0”即可解除任意口球。")
-
-
 @on_command(name='草转让', only_to_me=False)
 async def give(session: CommandSession):
     userId = session.ctx['user_id']
@@ -281,7 +283,8 @@ async def vip_upgrade(session: CommandSession):
     userId = session.ctx['user_id']
     user = await baseDB.getUser(userId)
     if user.vipLevel >= 4:
-        await session.send('你已经是后浪信息员了，不能使用本指令提升信息员等级！如果需要进一步升级，请使用“!进阶信息员升级”。')
+        await session.send(
+            '你已经是后浪信息员了，不能使用本指令提升信息员等级！如果需要进一步升级，请使用“!进阶信息员升级”。')
         return
     newLevel = user.vipLevel + 1
     costKusa = 50 * (10 ** newLevel)
@@ -317,63 +320,38 @@ async def vip_upgrade_2(session: CommandSession):
         await session.send(f'成为{vipTitleName[newLevel]}需要消耗{costAdvPoint}个草之精华，你的草之精华不够^ ^')
 
 
-# 生草工业运作
-@nonebot.scheduler.scheduled_job('cron', hour=0)
-async def daily():
-    bot = nonebot.get_bot()
-    randomKusa = int(4 + 8 * random.random())
-    randomCore = int(4 + 8 * random.random())
-    stKusa = f'生草机器 正在运作中……\n今日生草机器产量:{randomKusa}'
-    stCore = f'核心装配工厂 正在运作中……\n今日核心装配工厂产量:{randomCore}'
-    try:
-        await bot.send_group_msg(group_id=config['group']['main'], message=stKusa)
-        await bot.send_group_msg(group_id=config['group']['main'], message=stCore)
-    except:
-        pass
+# 2024新年特供
+@on_command(name='新年快乐', aliases='新春快乐', only_to_me=False)
+async def newYear(session: CommandSession):
+    userId = session.ctx['user_id']
+    user = await baseDB.getUser(userId)
+    if user.trigger == '2024':
+        await session.send('你已经领取过今天的礼品了^ ^')
+        return
 
+    itemPool = ['草', '金坷垃', '自动化核心', '红茶', '草之精华', '天琴十连券', '生草工厂', '高效草精炼指南']
+    itemPoolWeight = [0.25, 0.2, 0.2, 0.15, 0.15, 0.04, 0.009, 0.001]
+    itemName = random.choices(itemPool, weights=itemPoolWeight, k=1)[0]
+    if itemName == '草':
+        await baseDB.changeKusa(userId, 1)
+    elif itemName == '草之精华':
+        await baseDB.changeAdvKusa(userId, 1)
+    else:
+        await itemDB.changeItemAmount(userId, itemName, 1)
+
+    user = await baseDB.getUser(userId)
+    user.trigger = '2024'
+    await user.save()
+    await session.send(f'新年快乐！你获得了一个{itemName}！')
+
+
+# 2024新年特供-每日重置
+@nonebot.scheduler.scheduled_job('cron', hour=0, minute=5)
+async def newYearGift():
     userList = await baseDB.getAllUser()
     for user in userList:
-        machineAmount = await itemDB.getItemAmount(user.qq, '生草机器')
-        factoryAmount = await itemDB.getItemAmount(user.qq, '生草工厂')
-        mobileFactoryAmount = await itemDB.getItemAmount(user.qq, '流动生草工厂')
-        advFactoryInfo = await itemDB.getItemStorageInfo(user.qq, '草精炼厂')
-        factoryNewDeviceI = await itemDB.getItemAmount(user.qq, '生草工厂新型设备I')
-        factoryAdditionI = await itemDB.getItemAmount(user.qq, '生草工厂效率I')
-        factoryAdditionII = await itemDB.getItemAmount(user.qq, '生草工厂效率II')
-        machineAddition = await itemDB.getItemAmount(user.qq, '试做型机器I')
-        machineAddKusa = randomKusa * machineAmount
-        machineAddKusa *= 10 if machineAddition else 1
-        factoryAddKusa = 640 * (factoryAmount + mobileFactoryAmount)
-        factoryAddKusa *= 2 if factoryNewDeviceI else 1
-        factoryAddKusa *= 2 if factoryAdditionI else 1
-        factoryAddKusa *= 2 if factoryAdditionII else 1
-        advFactoryCostKusa = 5000 * advFactoryInfo.amount if advFactoryInfo and advFactoryInfo.allowUse else 0
-        addKusa = machineAddKusa + factoryAddKusa - advFactoryCostKusa
-        addKusa = math.ceil(addKusa)
-        await baseDB.changeKusa(user.qq, addKusa)
-        if advFactoryInfo and advFactoryInfo.allowUse:
-            advKusaBaseAddition = await itemDB.getItemAmount(user.qq, '高效草精炼指南')
-            sevenPlanetMagic = await itemDB.getItemAmount(user.qq, '七曜精炼术')
-            advKusaAdditionI = await itemDB.getItemAmount(user.qq, '草精炼厂效率I')
-            advKusa = advFactoryInfo.amount
-            advKusa += min(advKusaBaseAddition, advFactoryInfo.amount)
-            advKusa += (advFactoryInfo.amount // 7) * 4 if sevenPlanetMagic else 0
-            advKusa += (advFactoryInfo.amount - 7) if advKusaAdditionI and advFactoryInfo.amount > 7 else 0
-            await baseDB.changeAdvKusa(user.qq, advKusa)
-
-        coreFactoryAmount = await itemDB.getItemAmount(user.qq, '核心装配工厂')
-        coreFactoryAdditionI = await itemDB.getItemAmount(user.qq, '核心工厂效率I')
-        addCore = randomCore * coreFactoryAmount
-        addCore *= 2 if coreFactoryAdditionI else 1
-        addCore = math.ceil(addCore)
-        await itemDB.changeItemAmount(user.qq, '自动化核心', addCore)
-
-        blackTeaPool = await itemDB.getItemAmount(user.qq, '红茶池')
-        await itemDB.changeItemAmount(user.qq, '红茶', 15 * blackTeaPool)
-
-        print(f'用户{user.qq}的每日工厂运作完毕。增加了{addKusa}草，{addCore}个自动化核心，'
-              f'{advFactoryInfo.amount if advFactoryInfo else 0}个草之精华。')
-    print(f'每日生草机器、生草工厂、核心工厂、草精炼厂运作完毕。草随机值为{randomKusa}，核心随机值为{randomCore}。')
+        user.trigger = None
+        await user.save()
 
 
 # 生草日报运作

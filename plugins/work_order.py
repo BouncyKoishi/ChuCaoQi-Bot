@@ -2,7 +2,7 @@ import nonebot
 import dbConnection.db as baseDB
 import dbConnection.work_order as orderDB
 from nonebot import on_command, CommandSession
-from kusa_base import isSuperAdmin
+from kusa_base import isSuperAdmin, sendPrivateMsg
 from utils import nameDetailSplit
 
 
@@ -80,11 +80,7 @@ async def _(session: CommandSession):
     if workOrders:
         for order in workOrders:
             await orderDB.replyWorkOrder(order, "---")
-            try:
-                notifyStr = f"开发者删除了你的工单[{order.title}]！"
-                await nonebot.get_bot().send_private_msg(user_id=order.author, message=notifyStr)
-            except:
-                await session.send(f'错误：sendmsg api not available，qq={order.author}')
+            await sendPrivateMsg(order.author, f"开发者删除了你的工单[{order.title}]！")
         await session.send("已经全部删除^ ^")
     else:
         await session.send("当前没有未回复的工单！")

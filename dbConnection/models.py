@@ -11,6 +11,7 @@ class User(Model):
     vipLevel = IntField(default=0)
     donateAmount = FloatField(default=0)
     isSuperAdmin = BooleanField(default=False)
+    trigger = CharField(max_length=32, null=True)
     lastUseTime = DatetimeField(null=True)
 
 
@@ -26,7 +27,7 @@ class KusaField(Model):
     kusaResult = IntField(default=0)
     advKusaResult = IntField(default=0)
     kusaType = CharField(max_length=8, default="")
-    defaultKusaType = CharField(max_length=8, default="")
+    defaultKusaType = CharField(max_length=8, default="草")
     lastUseTime = DatetimeField(null=True)
 
 
@@ -57,16 +58,14 @@ class KusaItemList(Model):
     name = CharField(max_length=64, pk=True)
     detail = CharField(max_length=1024, null=True)
     type = CharField(max_length=32, null=True)
-    isSingle = BooleanField(default=True)
-    isInShop = BooleanField(default=True)
-    isSellable = BooleanField(default=True)
     isControllable = BooleanField(default=True)
     isTransferable = BooleanField(default=True)
-    isUsingAdvKusa = BooleanField(default=False)
     shopPrice = IntField(null=True)
     sellingPrice = IntField(null=True)
     priceRate = FloatField(null=True)
+    priceType = CharField(max_length=32, null=True)
     amountLimit = IntField(null=True)
+    shopPreItems = CharField(max_length=128, null=True)
 
 
 class KusaItemStorage(Model):

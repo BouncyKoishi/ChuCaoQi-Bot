@@ -66,7 +66,39 @@ async def selling(qqNum, itemNameSelling, itemAmountSelling, totalPrice, isUsing
     return True
 
 
+async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAmountCost) -> bool:
+    user = await baseDB.getUser(qqNum)
+    itemGain = await itemDB.getItem(itemNameGain)
+    itemCost = await itemDB.getItem(itemNameCost)
+    if itemAmountGain < 0 or itemAmountCost < 0:
+        return False
+    if user is None or itemGain is None or itemCost is None:
+        return False
+    itemCostNowAmount = await itemDB.getItemAmount(qqNum, itemNameCost)
+    if itemCostNowAmount < itemAmountCost:
+        return False
+
+    await itemDB.changeItemAmount(qqNum, itemNameGain, itemAmountGain)
+    await itemDB.changeItemAmount(qqNum, itemNameCost, -itemAmountCost)
+    return True
+
+
 # Group logger
 async def sendLog(message):
-    bot = nonebot.get_bot()
-    await bot.send_group_msg(group_id=config['group']['log'], message=message)
+    await sendGroupMsg(config['group']['log'], message)
+
+
+async def sendGroupMsg(groupId, message):
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_group_msg(group_id=groupId, message=message)
+    except Exception as e:
+        print(f'对群聊{groupId}发送GroupMsg失败：' + str(e))
+
+
+async def sendPrivateMsg(userId, message):
+    try:
+        bot = nonebot.get_bot()
+        await bot.send_private_msg(user_id=userId, message=message)
+    except Exception as e:
+        print(f'对用户{userId}发送PrivateMsg失败：' + str(e))
