@@ -72,7 +72,7 @@ async def _(session: CommandSession):
         output += '感谢您对生草系统的支援！\n'
         output += f"您的捐助金额为：{selfDonate.donateAmount}元\n\n"
 
-    output += '感谢所有生草系统的资助者！\n篇幅所限，暂未展示10元以下。\n'
+    output += '感谢所有生草系统的资助者！\n篇幅所限，仅展示部分捐助信息。\n'
     for row in donateList:
         displayName = row.name if row.name else row.qq
         output += f'{displayName}：{row.donateAmount}元\n'

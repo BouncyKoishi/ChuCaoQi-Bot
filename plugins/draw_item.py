@@ -57,7 +57,7 @@ async def itemDraw10(session: CommandSession):
     baseLevel, poolName = await getLevelAndPoolName(strippedArg)
     baseLevel = baseLevel if baseLevel is not None else 0
     
-    ticketName = ['十连券', '上级十连券', '特级十连券', '天琴十连券'][baseLevel]
+    ticketName = ['十连券', '高级十连券', '特级十连券', '天琴十连券'][baseLevel]
     drawTenTicketInfo = await usefulItemDB.getItemStorageInfo(userId, ticketName)
     if not drawTenTicketInfo or not drawTenTicketInfo.allowUse:
         await session.send(f'你缺少{ticketName}，无法十连抽^ ^')

@@ -64,7 +64,7 @@ async def getWarehouseInfoStr(user):
     for item in itemsG:
         itemAmount = await itemDB.getItemAmount(userId, item.name)
         if itemAmount != 0:
-            output += f'{item.name} * {itemAmount}, ' if not item.amountLimit != 1 else f'{item.name}, '
+            output += f'{item.name} * {itemAmount}, '
     output = output[:-2]
 
     output += '\n\n当前道具：\n'
@@ -318,40 +318,6 @@ async def vip_upgrade_2(session: CommandSession):
         await session.send(f'获取成功！你成为了{vipTitleName[newLevel]}！')
     else:
         await session.send(f'成为{vipTitleName[newLevel]}需要消耗{costAdvPoint}个草之精华，你的草之精华不够^ ^')
-
-
-# 2024新年特供
-@on_command(name='新年快乐', aliases='新春快乐', only_to_me=False)
-async def newYear(session: CommandSession):
-    userId = session.ctx['user_id']
-    user = await baseDB.getUser(userId)
-    if user.trigger == '2024':
-        await session.send('你已经领取过今天的礼品了^ ^')
-        return
-
-    itemPool = ['草', '金坷垃', '自动化核心', '红茶', '草之精华', '天琴十连券', '生草工厂', '高效草精炼指南']
-    itemPoolWeight = [0.25, 0.2, 0.2, 0.15, 0.15, 0.04, 0.009, 0.001]
-    itemName = random.choices(itemPool, weights=itemPoolWeight, k=1)[0]
-    if itemName == '草':
-        await baseDB.changeKusa(userId, 1)
-    elif itemName == '草之精华':
-        await baseDB.changeAdvKusa(userId, 1)
-    else:
-        await itemDB.changeItemAmount(userId, itemName, 1)
-
-    user = await baseDB.getUser(userId)
-    user.trigger = '2024'
-    await user.save()
-    await session.send(f'新年快乐！你获得了一个{itemName}！')
-
-
-# 2024新年特供-每日重置
-@nonebot.scheduler.scheduled_job('cron', hour=0, minute=5)
-async def newYearGift():
-    userList = await baseDB.getAllUser()
-    for user in userList:
-        user.trigger = None
-        await user.save()
 
 
 # 生草日报运作

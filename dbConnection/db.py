@@ -17,7 +17,7 @@ async def createUser(qqNum):
 
 
 async def getUserListOrderByDonate():
-    return await User.filter(donateAmount__gte=10).order_by('-donateAmount')
+    return await User.filter(donateAmount__gte=10).order_by('-donateAmount').limit(25)
 
 
 async def getUser(qqNum) -> User:
