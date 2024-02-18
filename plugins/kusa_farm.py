@@ -51,6 +51,10 @@ async def plantKusa(session: CommandSession):
         await session.send(
             f'当前承载力为{field.soilCapacity}，强制土壤保护启用中，不允许生草。\n如果需要强制生草，请先禁用土壤保护装置。')
         return
+    if field.soilCapacity <= 0:
+        await session.send(
+            f'当前承载力为{field.soilCapacity}，不允许生草。')
+        return
 
     growTime = 40 + int(40 * systemRandom.random())
     isUsingKela = False
@@ -267,7 +271,7 @@ async def save():
                 )
                 chainBonusTotal = 0
                 for chainNumber, chainLength in chains:
-                    chainBonus = int((chainNumber // 2 + 1) * (2 ** (chainLength - 1)))
+                    chainBonus = int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
                     chainBonusTotal += chainBonus
                     await sendPrivateMsg(field.qq, f'{getChainStr(chainLength)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
                     if chainLength >= 4:
@@ -297,7 +301,7 @@ async def soilCapacityIncreaseBase():
             await sendFieldRecoverInfo(field.qq)
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=60)
+@nonebot.scheduler.scheduled_job('cron', minute=33)
 async def soilCapacityIncreaseForInactive():
     badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
     for field in badSoilFields:

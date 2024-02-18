@@ -40,14 +40,8 @@ async def _(session: CommandSession):
 
 @on_command(name='KUSA_RANK', only_to_me=False)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        userId = session.ctx['user_id']
-        amount = await itemDB.getItemAmount(userId, "侦察凭证")
-        if amount >= 10:
-            await itemDB.changeItemAmount(userId, '侦察凭证', -10)
-        else:
-            await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
-            return
+    if not await permissionCheck(session):
+        return
 
     userList = await baseDB.getAllUser()
     userList = sorted(userList, key=lambda x: x.kusa, reverse=True)
@@ -63,14 +57,8 @@ async def _(session: CommandSession):
 
 @on_command(name='FACTORY_RANK', only_to_me=False)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        userId = session.ctx['user_id']
-        amount = await itemDB.getItemAmount(userId, "侦察凭证")
-        if amount >= 10:
-            await itemDB.changeItemAmount(userId, '侦察凭证', -10)
-        else:
-            await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
-            return
+    if not await permissionCheck(session):
+        return
 
     factoryList = await itemDB.getStoragesOrderByAmountDesc("生草工厂")
     outputStr = "工厂数排行榜：\n"
@@ -90,12 +78,13 @@ async def _(session: CommandSession):
         return
 
     qqNum = session.current_arg_text.strip()
+    qqNum = session.ctx['user_id'] if not qqNum else qqNum
     user = await baseDB.getUser(qqNum)
     if not user:
         await session.send("用户不存在")
         return
 
-    advShopItemList = await itemDB.getShopItemList(isAdvItem=True)
+    advShopItemList = await itemDB.getShopItemList(priceType="草之精华")
     total, now, title, item = await getKusaAdv(user, advShopItemList)
     outputStr = f"{user.qq}草精情况：\n现有 {now}\n信息员等级消费 {title}\n道具消费 {item}\n总计 {total}"
     await session.send(outputStr)
@@ -103,20 +92,28 @@ async def _(session: CommandSession):
 
 @on_command(name='KUSA_ADV_RANK', only_to_me=False)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        userId = session.ctx['user_id']
-        amount = await itemDB.getItemAmount(userId, "侦察凭证")
-        if amount >= 10:
-            await itemDB.changeItemAmount(userId, '侦察凭证', -10)
-        else:
-            await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
-            return
+    if not await permissionCheck(session):
+        return
     outputStr = await getKusaAdvRank()
     await session.send(outputStr)
 
+
+async def permissionCheck(session: CommandSession) -> bool:
+    userId = session.ctx['user_id']
+    if await isSuperAdmin(userId):
+        return True
+    amount = await itemDB.getItemAmount(userId, "侦察凭证")
+    if amount >= 10:
+        await itemDB.changeItemAmount(userId, '侦察凭证', -10)
+        return True
+    else:
+        await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
+        return False
+
+
 async def getKusaAdvRank():
     userList = await baseDB.getAllUser()
-    advShopItemList = await itemDB.getShopItemList(isAdvItem=True)
+    advShopItemList = await itemDB.getShopItemList(priceType="草之精华")
     userAdvKusaDict = {}
     for user in userList:
         bluePrintExist = await itemDB.getItemAmount(user.qq, '生草工业园区蓝图')

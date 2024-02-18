@@ -254,7 +254,7 @@ async def _(session: CommandSession):
         await session.send('你没有奖券合成机，无法进行奖券合成^ ^')
         return
 
-    composeList = {'上级十连券': '十连券', '特级十连券': '上级十连券', '天琴十连券': '特级十连券'}
+    composeList = {'高级十连券': '十连券', '特级十连券': '高级十连券', '天琴十连券': '特级十连券'}
     argText = session.current_arg_text.strip()
     getNameSuccess, itemName, amount = getItemNameAndAmount(argText)
     if not getNameSuccess:
