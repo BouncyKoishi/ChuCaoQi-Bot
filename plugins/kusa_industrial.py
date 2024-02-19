@@ -139,13 +139,19 @@ async def getDailyKusaNum(userId, machineRandInt):
     factoryNewDeviceI = await itemDB.getItemAmount(userId, '生草工厂新型设备I')
     factoryAdditionI = await itemDB.getItemAmount(userId, '生草工厂效率I')
     factoryAdditionII = await itemDB.getItemAmount(userId, '生草工厂效率II')
-    machineAddition = await itemDB.getItemAmount(userId, '试做型机器I')
+    factoryAdditionIII = await itemDB.getItemAmount(userId, '生草工厂效率III')
+    factoryAdditionIV = await itemDB.getItemAmount(userId, '生草工厂效率IV')
+    machineAdditionI = await itemDB.getItemAmount(userId, '试做型机器I')
+    machineAdditionII = await itemDB.getItemAmount(userId, '试做型机器II')
     machineAddKusa = machineRandInt * machineAmount
-    machineAddKusa *= 10 if machineAddition else 1
+    machineAddKusa *= 8 if machineAdditionI else 1
+    machineAddKusa *= 5 if machineAdditionII else 1
     factoryAddKusa = 640 * (factoryAmount + mobileFactoryAmount)
     factoryAddKusa *= 2 if factoryNewDeviceI else 1
     factoryAddKusa *= 2 if factoryAdditionI else 1
     factoryAddKusa *= 2 if factoryAdditionII else 1
+    factoryAddKusa *= 2 if factoryAdditionIII else 1
+    factoryAddKusa *= 2 if factoryAdditionIV else 1
     advFactoryCostKusa = 5000 * advFactoryInfo.amount if advFactoryInfo and advFactoryInfo.allowUse else 0
     return math.ceil(machineAddKusa + factoryAddKusa - advFactoryCostKusa)
 
@@ -172,8 +178,14 @@ async def getDailyAdvKusaNum(userId):
 async def getDailyCoreNum(userId, coreFactoryRandInt):
     coreFactoryAmount = await itemDB.getItemAmount(userId, '核心装配工厂')
     coreFactoryAdditionI = await itemDB.getItemAmount(userId, '核心工厂效率I')
+    coreFactoryAdditionII = await itemDB.getItemAmount(userId, '核心工厂效率II')
+    coreFactoryAdditionIII = await itemDB.getItemAmount(userId, '核心工厂效率III')
+    coreFactoryAdditionIV = await itemDB.getItemAmount(userId, '核心工厂效率IV')
     addCore = coreFactoryRandInt * coreFactoryAmount
     addCore *= 2 if coreFactoryAdditionI else 1
+    addCore *= 2 if coreFactoryAdditionII else 1
+    addCore *= 2 if coreFactoryAdditionIII else 1
+    addCore *= 2 if coreFactoryAdditionIV else 1
     addCore = math.ceil(addCore)
     return addCore
 
