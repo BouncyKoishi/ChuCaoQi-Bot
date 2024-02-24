@@ -185,7 +185,7 @@ async def getDailyCoreNum(userId, coreFactoryRandInt):
     addCore *= 2 if coreFactoryAdditionI else 1
     addCore *= 2 if coreFactoryAdditionII else 1
     addCore *= 2 if coreFactoryAdditionIII else 1
-    addCore *= 2 if coreFactoryAdditionIV else 1
+    addCore *= 1.5 if coreFactoryAdditionIV else 1
     addCore = math.ceil(addCore)
     return addCore
 
