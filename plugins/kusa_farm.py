@@ -151,7 +151,7 @@ async def _(session: CommandSession):
         kusaOffset = 0.5 * (2 ** (user.vipLevel - 1)) if user.vipLevel >= 1 else 0
         fieldAmount = await itemDB.getItemAmount(field.qq, '草地')
         doubleMagic = await itemDB.getItemAmount(field.qq, '双生法术卷轴')
-        kusaAmountGrowthI = await itemDB.getItemAmount(field.qq, '生草数量I')
+        kusaTechEffect = await getKusaTechEffect(field.qq)
         soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
         kusaTypeEffectMap = {'巨草': 2, '灵草': 2, '速草': 0.75}
         kusaTypeEffect = kusaTypeEffectMap[field.kusaType] if field.kusaType in kusaTypeEffectMap else 1
@@ -162,7 +162,7 @@ async def _(session: CommandSession):
         st += f'施用金坷垃 * 2\n' if field.isUsingKela else ''
         st += f'沼气影响 * {field.biogasEffect}\n' if field.biogasEffect != 1 else ''
         st += f'已掌握双生法术 * 2\n' if doubleMagic else ''
-        st += f'已掌握生草数量I * 2.5\n' if kusaAmountGrowthI else ''
+        st += f'生草科技影响 * {kusaTechEffect}\n' if kusaTechEffect != 1 else ''
         st += f'当前草种影响 * {kusaTypeEffect}\n' if kusaTypeEffect != 1 else ''
         st += f'土壤承载力影响 * {soilEffect}\n' if soilEffect != 1 else ''
 
@@ -226,28 +226,6 @@ async def _(session: CommandSession):
     await session.send(f'上周共生草{row["count"]}次\n'
                        f'收获{row["sumKusa"]}草，平均每次{round(row["avgKusa"], 2)}草\n'
                        f'收获{row["sumAdvKusa"]}草之精华，平均每次{round(row["avgAdvKusa"], 2)}草之精华')
-
-
-# @on_command(name='围殴', only_to_me=False)
-# async def _(session: CommandSession):
-#     global robCount
-#     userId = session.ctx['user_id']
-#     if not robTarget:
-#         return
-#     if str(userId) == robTarget:
-#         await session.send('不能围殴自己^ ^')
-#         return
-#     if str(userId) in robParticipant:
-#         await session.send('你已经围殴过了！')
-#         return
-#     kusaRobbed = random.randint(1, round(robLimit * .1))
-#     await baseDB.changeKusa(userId, kusaRobbed)
-#     await baseDB.changeKusa(robTarget, -kusaRobbed)
-#     robCount += kusaRobbed
-#     robParticipant.add(str(userId))
-#     await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
-#     if robCount >= robLimit:
-#         await stopRobbing()
 
 
 # 生草结算
@@ -329,19 +307,19 @@ async def getCreateKusaNum(field, baseKusa):
     user = await baseDB.getUser(field.qq)
     fieldAmount = await itemDB.getItemAmount(field.qq, '草地')
     doubleMagic = await itemDB.getItemAmount(field.qq, '双生法术卷轴')
-    kusaAmountGrowthI = await itemDB.getItemAmount(field.qq, '生草数量I')
+    kusaTechEffect = await getKusaTechEffect(field.qq)
     soilCapacity = field.soilCapacity
     soilEffect = 1 - 0.1 * (10 - soilCapacity) if soilCapacity <= 10 else 1
     kusaNum = baseKusa
     kusaNum += 0.5 * (2 ** (user.vipLevel - 1)) if user.vipLevel > 0 else 0
     kusaNum *= 2 if field.isUsingKela else 1
     kusaNum *= 2 if doubleMagic else 1
-    kusaNum *= 2.5 if kusaAmountGrowthI else 1
     kusaNum *= 2 if field.kusaType == "巨草" or field.kusaType == "灵草" else 1
     kusaNum *= 0.75 if field.kusaType == "速草" else 1
     kusaNum *= field.biogasEffect
     kusaNum *= fieldAmount
     kusaNum *= soilEffect
+    kusaNum *= kusaTechEffect
     kusaNum = math.ceil(kusaNum)
     return kusaNum
 
@@ -352,10 +330,12 @@ async def getCreateAdvKusaNum(field):
     advKusaCreateI = await itemDB.getItemAmount(field.qq, '生草质量I')
     advKusaCreateII = await itemDB.getItemAmount(field.qq, '生草质量II')
     advKusaCreateIII = await itemDB.getItemAmount(field.qq, '生草质量III')
+    advKusaCreateIV = await itemDB.getItemAmount(field.qq, '生草质量IV')
     soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
     advKusaGetRisk += 0.1 if advKusaCreateI else 0
     advKusaGetRisk += 0.3 if advKusaCreateII else 0
     advKusaGetRisk += 0.1 if advKusaCreateIII else 0
+    advKusaGetRisk += 0.1 if advKusaCreateIV else 0
     advKusaGetRisk *= soilEffect
 
     if advKusaCreateIII:
@@ -366,8 +346,27 @@ async def getCreateAdvKusaNum(field):
     else:
         if systemRandom.random() < advKusaGetRisk:
             advKusaNum = 1
+
+    mustGrowAdv = await itemDB.getItemAmount(field.qq, '生草控制论')
+    if mustGrowAdv and advKusaNum == 0:
+        advKusaNum = 1
+
     advKusaNum *= 2 if field.kusaType == "巨草" or field.kusaType == "灵草" else 1
+
     return advKusaNum
+
+
+async def getKusaTechEffect(userId):
+    kusaAmountGrowthI = await itemDB.getItemAmount(userId, '生草数量I')
+    kusaAmountGrowthII = await itemDB.getItemAmount(userId, '生草数量II')
+    kusaAmountGrowthIII = await itemDB.getItemAmount(userId, '生草数量III')
+    kusaAmountGrowthIV = await itemDB.getItemAmount(userId, '生草数量IV')
+    effect = 1
+    effect *= 2.5 if kusaAmountGrowthI else 1
+    effect *= 1.6 if kusaAmountGrowthII else 1
+    effect *= 1.5 if kusaAmountGrowthIII else 1
+    effect *= 1.4 if kusaAmountGrowthIV else 1
+    return effect
 
 
 async def goodNewsReport(field):
@@ -399,6 +398,28 @@ async def goodNewsReport(field):
             reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
             await sendGroupMsg(config['group']['main'], reportStr)
             # await activateRobbing(field, 60)
+
+
+# @on_command(name='围殴', only_to_me=False)
+# async def _(session: CommandSession):
+#     global robCount
+#     userId = session.ctx['user_id']
+#     if not robTarget:
+#         return
+#     if str(userId) == robTarget:
+#         await session.send('不能围殴自己^ ^')
+#         return
+#     if str(userId) in robParticipant:
+#         await session.send('你已经围殴过了！')
+#         return
+#     kusaRobbed = random.randint(1, round(robLimit * .1))
+#     await baseDB.changeKusa(userId, kusaRobbed)
+#     await baseDB.changeKusa(robTarget, -kusaRobbed)
+#     robCount += kusaRobbed
+#     robParticipant.add(str(userId))
+#     await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
+#     if robCount >= robLimit:
+#         await stopRobbing()
 
 
 # async def activateRobbing(field, duration: int):

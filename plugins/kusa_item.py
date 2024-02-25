@@ -67,9 +67,10 @@ async def usefulItemQuery(session: CommandSession):
     output += f'拥有数量：{ownItemAmount} / {item.amountLimit}\n' if item.amountLimit else f'拥有数量：{ownItemAmount}\n'
     output += f'前置购买条件：{getPreItemStr(item)}\n' if item.shopPreItems else ''
     if itemName == '生草工厂':
-        output += f'下一个工厂的建造成本：{await getNextFactoryCost(session.ctx["user_id"])}自动化核心\n'
+        output += f'当前价格：{await getNextFactoryCost(session.ctx["user_id"])}自动化核心\n'
     else:
         output += f'基础价格：{item.shopPrice}{item.priceType}\n' if item.shopPrice else '不可从商店购买\n'
+        output += f'当前价格：{getItemPrice(item, ownItemAmount)}{item.priceType}\n' if item.priceRate else ''
         output += f'价格倍率：{item.priceRate}\n' if item.priceRate else ''
         output += f'商店售价：{item.sellingPrice}{item.priceType}\n' if item.sellingPrice else ''
     output += '不可转让 ' if not item.isTransferable else ''
