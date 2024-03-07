@@ -37,6 +37,17 @@ async def chatNewWithoutRole(session: CommandSession):
     await session.send(reply)
 
 
+@on_command(name='chatn4', only_to_me=False)
+async def chatNewWithoutRoleGPT4(session: CommandSession):
+    if not await permissionCheck(session, 'model'):
+        return
+    userId = session.event.user_id
+    content = session.current_arg_text.strip()
+    await session.send("已开启新对话，等待回复……")
+    reply = await chat(userId, content, True, True, "gpt-4-turbo-preview")
+    await session.send(reply)
+
+
 @on_command(name='chatc', only_to_me=False)
 async def chatContinue(session: CommandSession):
     if not await permissionCheck(session, 'chatc'):
@@ -45,6 +56,19 @@ async def chatContinue(session: CommandSession):
     content = session.current_arg_text.strip()
     await session.send("继续进行对话，等待回复……")
     reply = await chat(userId, content, False)
+    await session.send(reply)
+
+
+@on_command(name='chatc4', only_to_me=False)
+async def chatContinueGPT4(session: CommandSession):
+    if not await permissionCheck(session, 'chatc'):
+        return
+    if not await permissionCheck(session, 'model'):
+        return
+    userId = session.event.user_id
+    content = session.current_arg_text.strip()
+    await session.send("继续进行对话，等待回复……")
+    reply = await chat(userId, content, False, False, "gpt-4-turbo-preview")
     await session.send(reply)
 
 
@@ -189,11 +213,11 @@ async def changeModel(session: CommandSession):
     userId = session.event.user_id
     strippedText = session.current_arg_text.strip()
     if strippedText:
-        if strippedText == "gpt-4":
-            newModel = "gpt-4-1106-preview"
-        elif strippedText == "gpt-3.5":
+        if strippedText == "gpt-4" or strippedText == "gpt4":
+            newModel = "gpt-4-turbo-preview"
+        elif strippedText == "gpt-3.5" or strippedText == "gpt3.5":
             newModel = "gpt-3.5-turbo"
-        elif strippedText == "gpt-3.5-old":
+        elif strippedText == "gpt-3.5-old" or strippedText == "gpt3.5-old":
             newModel = "gpt-3.5-turbo-0301"
         else:
             newModel = strippedText
@@ -202,7 +226,6 @@ async def changeModel(session: CommandSession):
         newModel = "gpt-3.5-turbo"
     await db.updateUsingModel(userId, newModel)
     output = f"已切换到{newModel}模型"
-    output += "\nGPT4 token的价格比普通token高出一个数量级，请勿用于娱乐！" if "gpt-4" in newModel else ""
     await session.send(output)
 
 
@@ -246,53 +269,44 @@ async def chatPic(session: CommandSession):
     ]}]
 
     try:
-        response = await getResponseAsync("gpt-4-vision-preview", history, 4096)
-        reply = response['choices'][0]['message']['content']
-        usage = response['usage']
-        tokenSign = f"\nTokens(gpt4-pic): {usage['total_tokens']}"
+        reply, tokenUsage = await getChatReply("gpt-4-vision-preview", history, 4096)
+        tokenSign = f"\nTokens(gpt4-pic): {tokenUsage['total_tokens']}"
         await session.send(reply + "\n" + tokenSign)
-        print(response)
     except Exception as e:
         await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
         await session.send("对话出错了，请稍后再试。")
 
 
-async def chat(userId, content: str, isNewConversation: bool, useDefaultRole: bool = False):
+async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=False, modelName=None):
     chatUser = await db.getChatUser(userId)
+    model = modelName if modelName else chatUser.chosenModel
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
     role = await db.getChatRoleById(roleId)
-    model = chatUser.chosenModel
-    if isNewConversation:
-        history = await getNewConversation(roleId)
-    else:
-        history = await readOldConversation(userId)
-
+    history = await getNewConversation(roleId) if isNewConversation else await readOldConversation(userId)
     history.append({"role": "user", "content": content})
 
     try:
-        response = await getResponseAsync(model, history)
-        reply = response['choices'][0]['message']['content']
-        usage = response['usage']
-
+        reply, tokenUsage = await getChatReply(model, history)
         history.append({"role": "assistant", "content": reply})
-        await db.addTokenUsage(chatUser, usage['total_tokens'])
+        await db.addTokenUsage(chatUser, model, tokenUsage)
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 else ""
         gpt4Sign = "(GPT4)" if "gpt-4" in model else ""
-        tokenSign = f"\nTokens{gpt4Sign}: {usage['total_tokens']}"
+        tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
         await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}")
         return "对话出错了，请稍后再试。"
 
 
-async def undo(userId):
-    history = await readOldConversation(userId)
-    history.pop()
-    latestWord = history.pop()
-    saveConversation(userId, history)
-    return latestWord
+async def getChatReply(model, history, maxTokens=None):
+    response = await getResponseAsync(model, history, maxTokens)
+    print(response)
+    reply = response['choices'][0]['message']['content']
+    tokenUsage = response['usage']['total_tokens']
+    history.append({"role": "assistant", "content": reply})
+    return reply, tokenUsage
 
 
 async def getResponseAsync(model, history, maxTokens=None):
@@ -305,6 +319,14 @@ def getResponse(model, history, maxTokens):
         return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=180)
     else:
         return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
+
+
+async def undo(userId):
+    history = await readOldConversation(userId)
+    history.pop()
+    latestWord = history.pop()
+    saveConversation(userId, history)
+    return latestWord
 
 
 async def getNewConversation(roleId):
