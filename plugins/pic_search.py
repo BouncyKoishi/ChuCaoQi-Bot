@@ -27,7 +27,7 @@ generalHeader = {
 async def _(session: CommandSession):
     imgCq = await session.aget(prompt='已启用图片搜索，请发送图片')
     if imgCq is None or not imgCq.startswith('[CQ:image'):
-        await session.send("非图片，取消saucenao搜索")
+        await session.send("非图片，取消搜图")
         return
     await session.send("正在搜索……")
     imgUrl = extract_image_urls(imgCq)[0]
@@ -40,7 +40,7 @@ async def _(session: CommandSession):
         await session.send('没有搜索到结果^ ^')
         return
     await session.send(getImgBase64('picsearch.jpg'))
-    imgNum = await session.aget(prompt="若需要提取图片链接，请在60s内发送对应结果的序号\n注: danbooru等敏感网站链接直接发送会被吞，请自行图片转文字提取")
+    imgNum = await session.aget(prompt="若需要提取图片链接，请在60s内发送对应结果的序号(如:1 2 3)")
     try:
         args = list(map(int, str(imgNum).split()))
         args = list(set(args))
