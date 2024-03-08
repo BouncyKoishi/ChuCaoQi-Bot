@@ -302,10 +302,12 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=Fal
 
 async def getChatReply(model, history, maxTokens=None):
     response = await getResponseAsync(model, history, maxTokens)
-    print(response)
     reply = response['choices'][0]['message']['content']
+    finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
     history.append({"role": "assistant", "content": reply})
+    if finishReason != "stop":
+        print(response)
     return reply, tokenUsage
 
 
