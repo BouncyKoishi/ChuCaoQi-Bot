@@ -270,7 +270,7 @@ async def chatPic(session: CommandSession):
 
     try:
         reply, tokenUsage = await getChatReply("gpt-4-vision-preview", history, 4096)
-        tokenSign = f"\nTokens(gpt4-pic): {tokenUsage['total_tokens']}"
+        tokenSign = f"\nTokens(gpt4-pic): {tokenUsage}"
         await session.send(reply + "\n" + tokenSign)
     except Exception as e:
         await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
@@ -287,11 +287,10 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=Fal
 
     try:
         reply, tokenUsage = await getChatReply(model, history)
-        history.append({"role": "assistant", "content": reply})
         await db.addTokenUsage(chatUser, model, tokenUsage)
         saveConversation(userId, history)
 
-        roleSign = f"\nRole: {role.name}" if role.id != 0 else ""
+        roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
         gpt4Sign = "(GPT4)" if "gpt-4" in model else ""
         tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
