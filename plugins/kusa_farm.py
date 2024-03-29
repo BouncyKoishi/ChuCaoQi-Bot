@@ -11,10 +11,10 @@ from datetime import datetime, timedelta, date, time
 from kusa_base import config, sendGroupMsg, sendPrivateMsg
 
 systemRandom = random.SystemRandom()
-# robTarget = ""
-# robParticipant = set()
-# robCount = 0
-# robLimit = 0
+robTarget = ""
+robParticipant = set()
+robCount = 0
+robLimit = 0
 
 
 @on_command(name='生草', only_to_me=False)
@@ -397,50 +397,52 @@ async def goodNewsReport(field):
             kusaType = field.kusaType if field.kusaType else "普通草"
             reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
             await sendGroupMsg(config['group']['main'], reportStr)
-            # await activateRobbing(field, 60)
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, activateRobbing, field, 60)
+        print('喜报流程执行完毕！')
 
 
-# @on_command(name='围殴', only_to_me=False)
-# async def _(session: CommandSession):
-#     global robCount
-#     userId = session.ctx['user_id']
-#     if not robTarget:
-#         return
-#     if str(userId) == robTarget:
-#         await session.send('不能围殴自己^ ^')
-#         return
-#     if str(userId) in robParticipant:
-#         await session.send('你已经围殴过了！')
-#         return
-#     kusaRobbed = random.randint(1, round(robLimit * .1))
-#     await baseDB.changeKusa(userId, kusaRobbed)
-#     await baseDB.changeKusa(robTarget, -kusaRobbed)
-#     robCount += kusaRobbed
-#     robParticipant.add(str(userId))
-#     await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
-#     if robCount >= robLimit:
-#         await stopRobbing()
+@on_command(name='围殴', only_to_me=False)
+async def _(session: CommandSession):
+    global robCount
+    userId = session.ctx['user_id']
+    if not robTarget:
+        return
+    if str(userId) == robTarget:
+        await session.send('不能围殴自己^ ^')
+        return
+    if str(userId) in robParticipant:
+        await session.send('你已经围殴过了！')
+        return
+    kusaRobbed = random.randint(1, round(robLimit * .4))
+    await baseDB.changeKusa(userId, kusaRobbed)
+    await baseDB.changeKusa(robTarget, -kusaRobbed)
+    robCount += kusaRobbed
+    robParticipant.add(str(userId))
+    await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
+    if robCount >= robLimit:
+        await stopRobbing()
 
 
-# async def activateRobbing(field, duration: int):
-#     global robTarget, robLimit, robCount
-#     robTarget = field.qq
-#     robParticipant.clear()
-#     robLimit = field.kusaResult
-#     await asyncio.create_task(stopRobbingTimer(duration))
-#     print('robName:', robTarget, 'robLimit:', robLimit)
-#
-#
-# async def stopRobbingTimer(duration: int):
-#     await asyncio.sleep(duration)
-#     await stopRobbing()
-#
-#
-# async def stopRobbing():
-#     global robTarget
-#     if not robTarget:
-#         return
-#     user = await baseDB.getUser(robTarget)
-#     userName = user.name if user.name else user.qq
-#     await sendGroupMsg(config['group']['main'], f'本次围殴结束，玩家 {userName} 一共损失{robCount}草！')
-#     robTarget = ""
+def activateRobbing(field, duration: int):
+    global robTarget, robLimit, robCount
+    robTarget = field.qq
+    robParticipant.clear()
+    robLimit = field.kusaResult
+    asyncio.create_task(stopRobbingTimer(duration))
+    print('robName:', robTarget, 'robLimit:', robLimit)
+
+
+def stopRobbingTimer(duration: int):
+    asyncio.sleep(duration)
+    asyncio.create_task(stopRobbing())
+
+
+async def stopRobbing():
+    global robTarget
+    if not robTarget:
+        return
+    user = await baseDB.getUser(robTarget)
+    userName = user.name if user.name else user.qq
+    await sendGroupMsg(config['group']['main'], f'本次围殴结束，玩家 {userName} 一共损失{robCount}草！')
+    robTarget = ""
