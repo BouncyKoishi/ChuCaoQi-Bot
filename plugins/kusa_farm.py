@@ -397,8 +397,7 @@ async def goodNewsReport(field):
             kusaType = field.kusaType if field.kusaType else "普通草"
             reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
             await sendGroupMsg(config['group']['main'], reportStr)
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, activateRobbing, field, 60)
+            await activateRobbing(field, 60)
         print('喜报流程执行完毕！')
 
 
@@ -424,18 +423,18 @@ async def _(session: CommandSession):
         await stopRobbing()
 
 
-def activateRobbing(field, duration: int):
+async def activateRobbing(field, duration: int):
     global robTarget, robLimit, robCount
     robTarget = field.qq
     robParticipant.clear()
     robLimit = field.kusaResult
-    asyncio.create_task(stopRobbingTimer(duration))
-    print('robName:', robTarget, 'robLimit:', robLimit)
+    task = asyncio.create_task(stopRobbingTimer(duration))
+    print('robName:', robTarget, 'robLimit:', robLimit, 'task:', task)
 
 
-def stopRobbingTimer(duration: int):
-    asyncio.sleep(duration)
-    asyncio.create_task(stopRobbing())
+async def stopRobbingTimer(duration: int):
+    await asyncio.sleep(duration)
+    await stopRobbing()
 
 
 async def stopRobbing():
