@@ -136,25 +136,25 @@ async def getItemFromDB(startRareRank=0, poolName=None):
     return await getItemFromDB(startRareRank, poolName)
 
 
-@on_command(name='添加-Easy', aliases='物品添加-Easy', only_to_me=False)
+@on_command(name='添加-Easy', aliases='奖品添加-Easy', only_to_me=False)
 @CQ_injection_check_command
 async def addItemEasy(session: CommandSession):
     await addItem(session, 0)
 
 
-@on_command(name='添加-Normal', aliases='物品添加-Normal', only_to_me=False)
+@on_command(name='添加-Normal', aliases='奖品添加-Normal', only_to_me=False)
 @CQ_injection_check_command
 async def addItemNormal(session: CommandSession):
     await addItem(session, 1)
 
 
-@on_command(name='添加-Hard', aliases='物品添加-Hard', only_to_me=False)
+@on_command(name='添加-Hard', aliases='奖品添加-Hard', only_to_me=False)
 @CQ_injection_check_command
 async def addItemHard(session: CommandSession):
     await addItem(session, 2)
 
 
-@on_command(name='添加-Lunatic', aliases='物品添加-Lunatic', only_to_me=False)
+@on_command(name='添加-Lunatic', aliases='奖品添加-Lunatic', only_to_me=False)
 @CQ_injection_check_command
 async def addItemLunatic(session: CommandSession):
     await addItem(session, 3)
@@ -180,8 +180,8 @@ async def addItem(session, rare):
         await session.send('此物品名已经存在!')
         return
 
-    # 暂时为纯老师写死
-    poolName = "宝可梦" if userId == 285698619 else "默认"
+    userPool = drawConfig['userPool']
+    poolName = userPool[userId] if userId in userPool else '默认'
 
     user = await baseDB.getUser(userId)
     costKusa = 1000 * (8 ** rare)
@@ -196,7 +196,7 @@ async def addItem(session, rare):
     await session.send(output)
 
 
-@on_command(name='物品仓库', only_to_me=False)
+@on_command(name='奖品仓库', aliases='物品仓库', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     arg = session.current_arg_text.strip()
@@ -248,7 +248,7 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-@on_command(name='物品详情', only_to_me=False)
+@on_command(name='奖品详情', aliases='物品详情', only_to_me=False)
 async def _(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
@@ -263,14 +263,14 @@ async def _(session: CommandSession):
         outputStr += f'\n创作者：{sender_infor["nickname"]}({item.author})'
     except:
         outputStr += f'\n创作者：{item.author}'
-
+    outputStr += f'\n所属奖池：{item.pool}'
     personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
     outputStr += f'\n抽到该物品的人数：{personCount}\n被抽到的总次数：{numberCount}' if personCount else '\n还没有人抽到这个物品= ='
 
     await session.send(outputStr)
 
 
-@on_command(name='物品搜索', only_to_me=False)
+@on_command(name='奖品搜索', aliases='物品搜索', only_to_me=False)
 async def _(session: CommandSession):
     await itemSearch(session)
 
@@ -299,7 +299,7 @@ async def itemSearch(session: CommandSession):
             return
 
 
-@on_command(name='物品修改', only_to_me=False)
+@on_command(name='奖品修改', aliases='物品修改', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     stripped_arg = session.current_arg_text.strip()
@@ -332,7 +332,7 @@ async def _(session: CommandSession):
     await session.send('删除成功！')
 
 
-@on_command(name='自制物品列表', only_to_me=False)
+@on_command(name='自制奖品列表', aliases='自制物品列表', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     strippedArg = session.current_arg_text.strip()
@@ -375,6 +375,34 @@ async def _(session: CommandSession):
                 break
 
     await session.send(outputStr)
+
+
+@on_command(name='奖池列表', aliases='物品池列表', only_to_me=False)
+async def _(session: CommandSession):
+    poolList = await drawItemDB.getPoolList()
+    if not poolList:
+        await session.send('暂无任何奖池^ ^')
+        return
+
+    outputStr = '当前奖池列表：'
+    outputStr += '，'.join(poolList)
+    await session.send(outputStr)
+
+
+@on_command(name='最新奖品', aliases='最新物品', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    prescientAmount = await usefulItemDB.getItemAmount(userId, '侦察凭证')
+    if not prescientAmount:
+        await session.send('你没有侦察凭证，无法查看最新奖品^ ^')
+        return
+    await usefulItemDB.changeItemAmount(userId, '侦察凭证', -1)
+
+    latestItems = await drawItemDB.getLatestItems(5)
+    outputStr = '当前的最新奖品（倒序）：\n'
+    for item in latestItems:
+        outputStr += f'[{itemRareDescribe[item.rareRank]}]{item.name}\n'
+    await session.send(outputStr[:-1])
 
 
 async def getLevelAndPoolName(strippedArg):

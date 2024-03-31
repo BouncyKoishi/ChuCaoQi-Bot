@@ -28,6 +28,14 @@ async def getRandomItem(rareRank, poolName=None):
     return rareItemList[randint(0, len(rareItemList) - 1)]
 
 
+async def getLatestItems(limit):
+    return await DrawItemList.all().order_by("-id").limit(limit)
+
+
+async def getPoolList():
+    return await DrawItemList.all().distinct().values_list('pool', flat=True)
+
+
 async def searchItem(keyword, limit, offset=0):
     conn = Tortoise.get_connection('default')
     count = (await conn.execute_query_dict('''

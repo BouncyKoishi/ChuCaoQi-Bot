@@ -241,7 +241,7 @@ async def chatHelp(session: CommandSession):
         output += "\nchatc: 继续上一轮对话\nchatb: 撤回上一轮对话\nchatr: 撤回上一轮对话并重新生成"
     if chatUser.allowRole:
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
-        output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 更新角色描述信息(-g)\nrole_delete: 删除角色"
+        output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
         output += "\nmodel_change: 切换语言模型（gpt3.5/gpt4）"
     if await isSuperAdmin(session.event.user_id):
