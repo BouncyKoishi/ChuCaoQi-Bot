@@ -414,6 +414,9 @@ async def _(session: CommandSession):
     if str(userId) in robParticipant:
         await session.send('你已经围殴过了！')
         return
+    if "group_id" not in session.ctx:
+        await session.send('群聊中才能进行围殴！')
+
     kusaRobbed = random.randint(1, round(robLimit * .4))
     await baseDB.changeKusa(userId, kusaRobbed)
     await baseDB.changeKusa(robTarget, -kusaRobbed)
@@ -439,10 +442,10 @@ def stopRobbingTimer(duration: int):
 
 
 async def stopRobbing():
-    global robTarget
+    global robTarget, robLimit, robCount
     if not robTarget:
         return
     user = await baseDB.getUser(robTarget)
     userName = user.name if user.name else user.qq
     await sendGroupMsg(config['group']['main'], f'本次围殴结束，玩家 {userName} 一共损失{robCount}草！')
-    robTarget = ""
+    robTarget, robLimit, robCount = "", 0, 0
