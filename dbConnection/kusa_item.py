@@ -1,4 +1,5 @@
 from .models import KusaItemList, KusaItemStorage
+from utils import romanNumToInt
 
 
 async def getItem(itemName) -> KusaItemList:
@@ -24,6 +25,15 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
         return await KusaItemStorage.filter(qq=qqNum, item=item).first()
     else:
         raise ValueError("Item not found")
+
+
+async def getTechLevel(qqNum, techNamePrefix) -> int:
+    techList = await KusaItemStorage.filter(qq=qqNum, item__contains=techNamePrefix).all()
+    print(techList)
+    if not techList:
+        return 0
+    techLevelList = [romanNumToInt(tech.name[len(techNamePrefix):]) for tech in techList]
+    return max(techLevelList) if techLevelList else 0
 
 
 async def changeItemAmount(qqNum, itemName, increaseAmount):

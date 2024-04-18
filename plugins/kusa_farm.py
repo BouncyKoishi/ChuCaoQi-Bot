@@ -11,13 +11,14 @@ import dbConnection.kusa_item as itemDB
 from nonebot import on_command, CommandSession
 from datetime import datetime, timedelta, date, time
 from kusa_base import config, sendGroupMsg, sendPrivateMsg
-
+from utils import intToRomanNum
 
 class RobInfo(typing.NamedTuple):
     targetId: str
     participantIds: set
     robCount: int
     robLimit: int
+    extraKusaAdv: bool = False
 
 
 systemRandom = random.SystemRandom()
@@ -248,6 +249,7 @@ async def save():
             await sendPrivateMsg(field.qq, outputMsg)
             await goodNewsReport(field)
 
+            # 连号与连号喜报逻辑
             if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
                 chains = tuple(
                     (int(x[0]), len(x))
@@ -406,7 +408,26 @@ async def goodNewsReport(field):
             reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
             await sendGroupMsg(config['group']['main'], reportStr)
             await activateRobbing(field)
-        print('喜报流程执行完毕！')
+
+
+async def sendReportMsg(field, reportType, sadNewsCount=0, chainLength=0, chainBonus=0):
+    user = await baseDB.getUser(field.qq)
+    userName = user.name if user.name else user.qq
+    reportStr = ""
+    if reportType == '悲报':
+        qualityLevel = await itemDB.getTechLevel(field.qq, '生草质量')
+        itemName = "生草质量" + intToRomanNum(qualityLevel)
+        reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {itemName} 在连续{sadNewsCount}次生草中未获得草之精华！[CQ:face,id=144]"
+    if reportType == '喜报':
+        kusaType = field.kusaType if field.kusaType else "普通草"
+        reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
+    if reportType == '连号喜报':
+        reportStr = f"喜报\n魔法少女纯酱为生{field.kusaType}达成{getChainStr(chainLength)}的玩家 {userName} 召唤了额外的{chainBonus}草之精华喵(*^▽^)/★*☆"
+
+    if reportStr:
+        await sendGroupMsg(config['group']['main'], reportStr)
+    if '喜报' in reportType:
+        await activateRobbing(field)
 
 
 @on_command(name='围殴', only_to_me=False)
