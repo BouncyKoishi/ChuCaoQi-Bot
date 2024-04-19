@@ -43,10 +43,7 @@ async def getNextFactoryCost(userId):
 
 async def getFactoryVipLevel(userId):
     user = await baseDB.getUser(userId)
-    cheapLevel = user.vipLevel
-    cheapLevel += await itemDB.getItemAmount(userId, '生草工厂自动工艺I')
-    cheapLevel += await itemDB.getItemAmount(userId, '生草工厂自动工艺II')
-    return cheapLevel
+    return user.vipLevel + await itemDB.getTechLevel(userId, '生草工厂自动工艺')
 
 
 async def buyingAdvFactory(session: CommandSession, increaseAmount: int):
@@ -133,26 +130,21 @@ async def daily():
 
 async def getDailyKusaNum(userId, machineRandInt):
     machineAmount = await itemDB.getItemAmount(userId, '生草机器')
+    machineTechLevel = await itemDB.getTechLevel(userId, '试做型机器')
+    machineAddKusa = machineRandInt * machineAmount
+    machineAddKusa *= {0: 1, 1: 8, 2: 40}.get(machineTechLevel)
+
     factoryAmount = await itemDB.getItemAmount(userId, '生草工厂')
     mobileFactoryAmount = await itemDB.getItemAmount(userId, '流动生草工厂')
-    advFactoryInfo = await itemDB.getItemStorageInfo(userId, '草精炼厂')
-    factoryNewDeviceI = await itemDB.getItemAmount(userId, '生草工厂新型设备I')
-    factoryAdditionI = await itemDB.getItemAmount(userId, '生草工厂效率I')
-    factoryAdditionII = await itemDB.getItemAmount(userId, '生草工厂效率II')
-    factoryAdditionIII = await itemDB.getItemAmount(userId, '生草工厂效率III')
-    factoryAdditionIV = await itemDB.getItemAmount(userId, '生草工厂效率IV')
-    machineAdditionI = await itemDB.getItemAmount(userId, '试做型机器I')
-    machineAdditionII = await itemDB.getItemAmount(userId, '试做型机器II')
-    machineAddKusa = machineRandInt * machineAmount
-    machineAddKusa *= 8 if machineAdditionI else 1
-    machineAddKusa *= 5 if machineAdditionII else 1
+    factoryNewDevice = await itemDB.getItemAmount(userId, '生草工厂新型设备I')
+    factoryTechLevel = await itemDB.getTechLevel(userId, '生草工厂效率')
     factoryAddKusa = 640 * (factoryAmount + mobileFactoryAmount)
-    factoryAddKusa *= 2 if factoryNewDeviceI else 1
-    factoryAddKusa *= 2 if factoryAdditionI else 1
-    factoryAddKusa *= 2 if factoryAdditionII else 1
-    factoryAddKusa *= 2 if factoryAdditionIII else 1
-    factoryAddKusa *= 2 if factoryAdditionIV else 1
+    factoryAddKusa *= 2 if factoryNewDevice else 1
+    factoryAddKusa *= (2 ** factoryTechLevel)
+
+    advFactoryInfo = await itemDB.getItemStorageInfo(userId, '草精炼厂')
     advFactoryCostKusa = 5000 * advFactoryInfo.amount if advFactoryInfo and advFactoryInfo.allowUse else 0
+
     return math.ceil(machineAddKusa + factoryAddKusa - advFactoryCostKusa)
 
 
@@ -177,17 +169,10 @@ async def getDailyAdvKusaNum(userId):
 
 async def getDailyCoreNum(userId, coreFactoryRandInt):
     coreFactoryAmount = await itemDB.getItemAmount(userId, '核心装配工厂')
-    coreFactoryAdditionI = await itemDB.getItemAmount(userId, '核心工厂效率I')
-    coreFactoryAdditionII = await itemDB.getItemAmount(userId, '核心工厂效率II')
-    coreFactoryAdditionIII = await itemDB.getItemAmount(userId, '核心工厂效率III')
-    coreFactoryAdditionIV = await itemDB.getItemAmount(userId, '核心工厂效率IV')
+    coreTechLevel = await itemDB.getTechLevel(userId, '核心工厂效率')
     addCore = coreFactoryRandInt * coreFactoryAmount
-    addCore *= 2 if coreFactoryAdditionI else 1
-    addCore *= 2 if coreFactoryAdditionII else 1
-    addCore *= 2 if coreFactoryAdditionIII else 1
-    addCore *= 1.5 if coreFactoryAdditionIV else 1
-    addCore = math.ceil(addCore)
-    return addCore
+    addCore *= {0: 1, 1: 2, 2: 4, 3: 8, 4: 12}.get(coreTechLevel)
+    return math.ceil(addCore)
 
 
 async def getDailyBlackTeaNum(userId):
