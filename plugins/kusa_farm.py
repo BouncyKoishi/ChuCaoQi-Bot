@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import math
 import random
 import re
@@ -14,7 +15,8 @@ from kusa_base import config, sendGroupMsg, sendPrivateMsg
 from utils import intToRomanNum
 
 
-class RobInfo(typing.NamedTuple):
+@dataclasses.dataclass
+class RobInfo:
     targetId: str
     participantIds: set
     robCount: int
@@ -23,7 +25,7 @@ class RobInfo(typing.NamedTuple):
 
 
 systemRandom = random.SystemRandom()
-robList: typing.Dict[str, RobInfo] = {}
+robDict: typing.Dict[str, RobInfo] = {}
 advKusaProbabilityDict = {0: 0, 1: 0.1, 2: 0.4, 3: 0.5, 4: 0.6}
 
 
@@ -366,7 +368,8 @@ async def getChainBonus(field):
     for chainStr in chains:
         chainBonus = getChainBonusAmount(chainStr)
         chainBonusTotal += chainBonus
-        await sendPrivateMsg(field.qq, f'{getChainLengthStr(chainStr)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
+        await sendPrivateMsg(field.qq,
+                             f'{getChainLengthStr(chainStr)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
         if len(chainStr) >= 4:
             await sendReportMsg(field, '连号喜报', chainStr=chainStr)
     await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
@@ -387,12 +390,21 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
     if reportType == '连号喜报':
         chainBonus = getChainBonusAmount(chainStr)
         reportStr = f"喜报\n魔法少女纯酱为生{field.kusaType}达成{getChainLengthStr(chainStr)}的玩家 {userName} 召唤了额外的{chainBonus}草之精华喵(*^▽^)/★*☆"
+    if not reportStr:
+        return
 
-    if reportStr:
-        await sendGroupMsg(config['group']['main'], reportStr)
+    # 群聊喜报发送
+    await sendGroupMsg(config['group']['main'], reportStr)
+    # 小礼炮通知发送
+    cannonUserList = await baseDB.getUserListByItem('小礼炮')
+    for user in cannonUserList:
+        if user.qq == field.qq:
+            continue
+        await itemDB.changeItemAmount(user.qq, '小礼炮', -1)
+        await sendPrivateMsg(user.qq, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+    # 分享魔法额外奖励效果
     if '喜报' in reportType:
         await activateRobbing(field)
-        # 分享魔法效果：其它玩家产生喜报时获取额外奖励
         shareUserList = await baseDB.getUserListByItem('除草器的共享魔法')
         for user in shareUserList:
             if reportType == '喜报':
@@ -414,17 +426,18 @@ def getChainBonusAmount(chainStr: str):
 
 @on_command(name='围殴', only_to_me=False)
 async def _(session: CommandSession):
-    global robList
+    global robDict
     userId = session.ctx['user_id']
     if "group_id" not in session.ctx:
         await session.send('只能在群聊中进行围殴^ ^')
         return
-    if not robList:
+    if not robDict:
         await session.send('当前没有可围殴对象^ ^')
         return
 
     selfRobFlag, hasRobbedFlag, robRecords = False, False, []
-    for robId, robInfo in robList:
+    for robId, robInfo in robDict.items():
+        print(robId, robInfo)
         if str(userId) == robInfo.targetId:
             selfRobFlag = True
             continue
@@ -455,7 +468,7 @@ async def _(session: CommandSession):
 
 
 async def activateRobbing(field):
-    global robList
+    global robDict
     duration = random.randint(60, 300)
     shareMagic = await itemDB.getItemAmount(field.qq, '除草器的共享魔法')
     shareMagicExist = True if shareMagic else False
@@ -464,7 +477,7 @@ async def activateRobbing(field):
     robId = field.qq + "_" + ''.join(random.choice(string.ascii_letters) for _ in range(8))
     stopTask = asyncio.create_task(stopRobbingTimer(duration, robId))
     print(f'robInfo: {robInfo}, taskDuration: {duration}s, stopTask: {stopTask}')
-    robList[robId] = robInfo
+    robDict[robId] = robInfo
 
 
 async def stopRobbingTimer(duration: int, robId: str):
@@ -473,10 +486,10 @@ async def stopRobbingTimer(duration: int, robId: str):
 
 
 async def stopRobbing(robId: str):
-    global robList
-    if robId not in robList:
+    global robDict
+    if robId not in robDict:
         return
-    robInfo = robList.pop(robId)
+    robInfo = robDict.pop(robId)
     user = await baseDB.getUser(robInfo.targetId)
     userName = user.name if user.name else user.qq
     await sendGroupMsg(config['group']['main'], f'本次围殴结束，玩家 {userName} 一共损失{robInfo.robCount}草！')

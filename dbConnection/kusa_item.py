@@ -30,16 +30,16 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
 async def getItemStorageList(itemName):
     item = await getItem(itemName)
     if item:
-        return await KusaItemStorage.filter(item=item, amount__gt=0).all()
+        return await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
     return []
 
 
 async def getTechLevel(qqNum, techNamePrefix) -> int:
-    techList = await KusaItemStorage.filter(qq=qqNum, item__contains=techNamePrefix).all()
-    print(techList)
+    techList = await KusaItemStorage.filter(qq=qqNum, item__name__contains=techNamePrefix).all()
     if not techList:
         return 0
-    techLevelList = [romanNumToInt(tech.name[len(techNamePrefix):]) for tech in techList]
+    techItemList = [await tech.item.all() for tech in techList]
+    techLevelList = [romanNumToInt(techItem.name[len(techNamePrefix):]) for techItem in techItemList]
     return max(techLevelList) if techLevelList else 0
 
 
