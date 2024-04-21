@@ -1,7 +1,10 @@
 import asyncio
+import dataclasses
 import math
 import random
 import re
+import string
+import typing
 import nonebot
 import dbConnection.db as baseDB
 import dbConnection.kusa_field as fieldDB
@@ -9,12 +12,21 @@ import dbConnection.kusa_item as itemDB
 from nonebot import on_command, CommandSession
 from datetime import datetime, timedelta, date, time
 from kusa_base import config, sendGroupMsg, sendPrivateMsg
+from utils import intToRomanNum
+
+
+@dataclasses.dataclass
+class RobInfo:
+    targetId: str
+    participantIds: set
+    robCount: int
+    robLimit: int
+    extraKusaAdv: bool = False
+
 
 systemRandom = random.SystemRandom()
-robTarget = ""
-robParticipant = set()
-robCount = 0
-robLimit = 0
+robDict: typing.Dict[str, RobInfo] = {}
+advKusaProbabilityDict = {0: 0, 1: 0.1, 2: 0.4, 3: 0.5, 4: 0.6}
 
 
 @on_command(name='生草', only_to_me=False)
@@ -81,9 +93,9 @@ async def plantKusa(session: CommandSession):
     juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
     seniorPrescient = await itemDB.getItemStorageInfo(userId, '生草预知')
     weedCosting = 2 if juniorPrescient and juniorPrescient.allowUse and not (
-                seniorPrescient and seniorPrescient.allowUse) else 0
+            seniorPrescient and seniorPrescient.allowUse) else 0
     isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
-                seniorPrescient and seniorPrescient.allowUse) else False
+            seniorPrescient and seniorPrescient.allowUse) else False
     kusaType = "草" if not kusaType else kusaType
     await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient)
 
@@ -239,35 +251,14 @@ async def save():
             outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
             outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
             await sendPrivateMsg(field.qq, outputMsg)
-            await goodNewsReport(field)
-
+            if field.advKusaResult > 0:
+                await goodNewsReport(field)
             if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
-                chains = tuple(
-                    (int(x[0]), len(x))
-                    for x in
-                    re.findall(r'0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,}', str(field.kusaResult))
-                )
-                chainBonusTotal = 0
-                for chainNumber, chainLength in chains:
-                    chainBonus = int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
-                    chainBonusTotal += chainBonus
-                    await sendPrivateMsg(field.qq, f'{getChainStr(chainLength)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
-                    if chainLength >= 4:
-                        user = await baseDB.getUser(field.qq)
-                        userName = user.name if user.name else user.qq
-                        reportMsg = f"喜报\n魔法少女纯酱为生{field.kusaType}达成{getChainStr(chainLength)}的玩家 {userName} 召唤了额外的{chainBonus}草之精华喵(*^▽^)/★*☆"
-                        await sendGroupMsg(config['group']['main'], reportMsg)
-                await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
-                field.advKusaResult += chainBonusTotal
-
+                await getChainBonus(field)
             await fieldDB.kusaHistoryAdd(field)
             await fieldDB.kusaStopGrowing(field, False)
         else:
             await fieldDB.kusaTimePass(field)
-
-
-def getChainStr(chainLength: int):
-    return "零一二三四五六七八九十"[chainLength] + "连" if chainLength <= 10 else chainLength
 
 
 @nonebot.scheduler.scheduled_job('interval', minutes=90)
@@ -325,123 +316,180 @@ async def getCreateKusaNum(field, baseKusa):
 
 
 async def getCreateAdvKusaNum(field):
-    advKusaNum = 0
-    advKusaGetRisk = 0
-    advKusaCreateI = await itemDB.getItemAmount(field.qq, '生草质量I')
-    advKusaCreateII = await itemDB.getItemAmount(field.qq, '生草质量II')
-    advKusaCreateIII = await itemDB.getItemAmount(field.qq, '生草质量III')
-    advKusaCreateIV = await itemDB.getItemAmount(field.qq, '生草质量IV')
+    advKusaTechLevel = await itemDB.getTechLevel(field.qq, '生草质量')
     soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
-    advKusaGetRisk += 0.1 if advKusaCreateI else 0
-    advKusaGetRisk += 0.3 if advKusaCreateII else 0
-    advKusaGetRisk += 0.1 if advKusaCreateIII else 0
-    advKusaGetRisk += 0.1 if advKusaCreateIV else 0
-    advKusaGetRisk *= soilEffect
+    advKusaProbability = advKusaProbabilityDict[advKusaTechLevel]
+    advKusaProbability *= soilEffect
 
-    if advKusaCreateIII:
-        newRandom = systemRandom.random()
-        while newRandom < advKusaGetRisk:
+    advKusaNum = 0
+    if advKusaTechLevel >= 3:
+        while systemRandom.random() < advKusaProbability:
             advKusaNum += 1
-            newRandom = systemRandom.random()
     else:
-        if systemRandom.random() < advKusaGetRisk:
+        if systemRandom.random() < advKusaProbability:
             advKusaNum = 1
 
     mustGrowAdv = await itemDB.getItemAmount(field.qq, '生草控制论')
-    if mustGrowAdv and advKusaNum == 0:
-        advKusaNum = 1
-
+    advKusaNum = 1 if mustGrowAdv and advKusaNum == 0 else advKusaNum
     advKusaNum *= 2 if field.kusaType == "巨草" or field.kusaType == "灵草" else 1
 
     return advKusaNum
 
 
 async def getKusaTechEffect(userId):
-    kusaAmountGrowthI = await itemDB.getItemAmount(userId, '生草数量I')
-    kusaAmountGrowthII = await itemDB.getItemAmount(userId, '生草数量II')
-    kusaAmountGrowthIII = await itemDB.getItemAmount(userId, '生草数量III')
-    kusaAmountGrowthIV = await itemDB.getItemAmount(userId, '生草数量IV')
-    effect = 1
-    effect *= 2.5 if kusaAmountGrowthI else 1
-    effect *= 1.6 if kusaAmountGrowthII else 1
-    effect *= 1.5 if kusaAmountGrowthIII else 1
-    effect *= 1.4 if kusaAmountGrowthIV else 1
-    return effect
+    # 数量1 *2.5，数量2 *1.6，数量3 *1.5，数量4 *1.4
+    levelEffectDict = {0: 1, 1: 2.5, 2: 4, 3: 6, 4: 8.4}
+    kusaTechLevel = await itemDB.getTechLevel(userId, '生草数量')
+    return levelEffectDict[kusaTechLevel]
 
 
 async def goodNewsReport(field):
-    if field.advKusaResult > 0:
-        # 悲报：连续X次生草未获得草之精华
-        quality3 = await itemDB.getItemAmount(field.qq, "生草质量III")
-        quality2 = await itemDB.getItemAmount(field.qq, "生草质量II")
-        if quality3 or quality2:
-            maxLen = 30 if quality3 else 40
-            history = await fieldDB.noKusaAdvHistory(field.qq, maxLen)
-            cnt = 0
-            for i in range(len(history)):
-                if history[i].advKusaResult > 0:
-                    break
-                cnt += 1
-            if (quality3 and cnt >= 8) or cnt >= 11:
-                user = await baseDB.getUser(field.qq)
-                userName = user.name if user.name else user.qq
-                itemName = "生草质量III" if quality3 else "生草质量II"
-                reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {itemName} 在连续{cnt}次生草中未获得草之精华！[CQ:face,id=144]"
-                await sendGroupMsg(config['group']['main'], reportStr)
-        # 喜报：基础草精大于等于X
+    qualityLevel = await itemDB.getTechLevel(field.qq, '生草质量')
+    # 悲报：连续X次生草未获得草之精华
+    if qualityLevel >= 2:
+        history = await fieldDB.noKusaAdvHistory(field.qq, 40)
+        noKusaAdvCount = next((i for i, h in enumerate(history) if h.advKusaResult > 0), len(history))
+        countThresholds = math.log(1 / 200, 1 - advKusaProbabilityDict[qualityLevel])  # 质量2为11，质量3为8，质量4为6
+        if noKusaAdvCount > countThresholds:
+            await sendReportMsg(field, '悲报', sadNewsCount=noKusaAdvCount)
+    # 喜报：基础草精大于等于X
+    if qualityLevel >= 3:
         advKusaMultiple = (field.kusaType == "巨草" or field.kusaType == "灵草")
         baseAdvKusa = field.advKusaResult / 2 if advKusaMultiple else field.advKusaResult
-        if baseAdvKusa >= 8:
-            user = await baseDB.getUser(field.qq)
-            userName = user.name if user.name else user.qq
-            kusaType = field.kusaType if field.kusaType else "普通草"
-            reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
-            await sendGroupMsg(config['group']['main'], reportStr)
-            await activateRobbing(field, 60)
-        print('喜报流程执行完毕！')
+        advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
+        if baseAdvKusa >= advKusaThresholds:
+            await sendReportMsg(field, '喜报')
+
+
+async def getChainBonus(field):
+    # 连号与连号喜报逻辑
+    chains = re.findall(r'0{3,}|1{3,}|2{3,}|3{3,}|4{3,}|5{3,}|6{3,}|7{3,}|8{3,}|9{3,}', str(field.kusaResult))
+    chainBonusTotal = 0
+    for chainStr in chains:
+        chainBonus = getChainBonusAmount(chainStr)
+        chainBonusTotal += chainBonus
+        await sendPrivateMsg(field.qq,
+                             f'{getChainLengthStr(chainStr)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
+        if len(chainStr) >= 4:
+            await sendReportMsg(field, '连号喜报', chainStr=chainStr)
+    await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
+    field.advKusaResult += chainBonusTotal
+
+
+async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
+    user = await baseDB.getUser(field.qq)
+    userName = user.name if user.name else user.qq
+    reportStr = ""
+    if reportType == '悲报':
+        qualityLevel = await itemDB.getTechLevel(field.qq, '生草质量')
+        itemName = "生草质量" + intToRomanNum(qualityLevel)
+        reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {itemName} 在连续{sadNewsCount}次生草中未获得草之精华！[CQ:face,id=144]"
+    if reportType == '喜报':
+        kusaType = field.kusaType if field.kusaType else "普通草"
+        reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
+    if reportType == '连号喜报':
+        chainBonus = getChainBonusAmount(chainStr)
+        reportStr = f"喜报\n魔法少女纯酱为生{field.kusaType}达成{getChainLengthStr(chainStr)}的玩家 {userName} 召唤了额外的{chainBonus}草之精华喵(*^▽^)/★*☆"
+    if not reportStr:
+        return
+
+    # 群聊喜报发送
+    await sendGroupMsg(config['group']['main'], reportStr)
+    # 小礼炮通知发送
+    cannonUserList = await baseDB.getUserListByItem('小礼炮')
+    for user in cannonUserList:
+        if user.qq == field.qq:
+            continue
+        await itemDB.changeItemAmount(user.qq, '小礼炮', -1)
+        await sendPrivateMsg(user.qq, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+    # 分享魔法额外奖励效果
+    if '喜报' in reportType:
+        await activateRobbing(field)
+        shareUserList = await baseDB.getUserListByItem('除草器的共享魔法')
+        for user in shareUserList:
+            if reportType == '喜报':
+                await baseDB.changeAdvKusa(user.qq, 1)
+            if reportType == '连号喜报':
+                await baseDB.changeKusa(user.qq, int(chainStr))
+
+
+def getChainLengthStr(chainStr: str):
+    chainLength = len(chainStr)
+    return "零一二三四五六七八九十"[chainLength] + "连" if chainLength <= 10 else f"{chainLength}连"
+
+
+def getChainBonusAmount(chainStr: str):
+    chainNumber = int(chainStr[0])
+    chainLength = len(chainStr)
+    return int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
 
 
 @on_command(name='围殴', only_to_me=False)
 async def _(session: CommandSession):
-    global robCount
+    global robDict
     userId = session.ctx['user_id']
-    if not robTarget:
+    if "group_id" not in session.ctx:
+        await session.send('只能在群聊中进行围殴^ ^')
         return
-    if str(userId) == robTarget:
+    if not robDict:
+        await session.send('当前没有可围殴对象^ ^')
+        return
+
+    selfRobFlag, hasRobbedFlag, robRecords = False, False, []
+    for robId, robInfo in robDict.items():
+        print(robId, robInfo)
+        if str(userId) == robInfo.targetId:
+            selfRobFlag = True
+            continue
+        if str(userId) in robInfo.participantIds:
+            hasRobbedFlag = True
+            continue
+        kusaRobbed = random.randint(round(robInfo.robLimit * .05), round(robInfo.robLimit * .3))
+        await baseDB.changeKusa(userId, kusaRobbed)
+        await baseDB.changeKusa(robInfo.targetId, -kusaRobbed)
+        robInfo.robCount += kusaRobbed
+        robInfo.participantIds.add(str(userId))
+        user = await baseDB.getUser(robInfo.targetId)
+        userName = user.name if user.name else user.qq
+        record = f'围殴 {userName} 成功！你获得了{kusaRobbed}草！'
+        if robInfo.extraKusaAdv and user.vipLevel >= 5:
+            await baseDB.changeAdvKusa(userId, 1)
+            record += '额外获得了1草之精华！'
+        robRecords.append(record)
+        if robInfo.robCount >= robInfo.robLimit:
+            await stopRobbing(robId)
+
+    if robRecords:
+        await session.send('\n'.join(robRecords))
+    elif hasRobbedFlag:
+        await session.send('你已经围殴过了^ ^')
+    elif selfRobFlag:
         await session.send('不能围殴自己^ ^')
-        return
-    if str(userId) in robParticipant:
-        await session.send('你已经围殴过了！')
-        return
-    kusaRobbed = random.randint(1, round(robLimit * .4))
-    await baseDB.changeKusa(userId, kusaRobbed)
-    await baseDB.changeKusa(robTarget, -kusaRobbed)
-    robCount += kusaRobbed
-    robParticipant.add(str(userId))
-    await session.send(f'围殴成功！你获得了{kusaRobbed}草！')
-    if robCount >= robLimit:
-        await stopRobbing()
 
 
-async def activateRobbing(field, duration: int):
-    global robTarget, robLimit, robCount
-    robTarget = field.qq
-    robParticipant.clear()
-    robLimit = field.kusaResult
-    task = asyncio.create_task(stopRobbingTimer(duration))
-    print('robName:', robTarget, 'robLimit:', robLimit, 'task:', task)
+async def activateRobbing(field):
+    global robDict
+    duration = random.randint(60, 300)
+    shareMagic = await itemDB.getItemAmount(field.qq, '除草器的共享魔法')
+    shareMagicExist = True if shareMagic else False
+    robInfo = RobInfo(targetId=field.qq, participantIds=set(),
+                      robCount=0, robLimit=field.kusaResult, extraKusaAdv=shareMagicExist)
+    robId = field.qq + "_" + ''.join(random.choice(string.ascii_letters) for _ in range(8))
+    stopTask = asyncio.create_task(stopRobbingTimer(duration, robId))
+    print(f'robInfo: {robInfo}, taskDuration: {duration}s, stopTask: {stopTask}')
+    robDict[robId] = robInfo
 
 
-async def stopRobbingTimer(duration: int):
+async def stopRobbingTimer(duration: int, robId: str):
     await asyncio.sleep(duration)
-    await stopRobbing()
+    await stopRobbing(robId)
 
 
-async def stopRobbing():
-    global robTarget
-    if not robTarget:
+async def stopRobbing(robId: str):
+    global robDict
+    if robId not in robDict:
         return
-    user = await baseDB.getUser(robTarget)
+    robInfo = robDict.pop(robId)
+    user = await baseDB.getUser(robInfo.targetId)
     userName = user.name if user.name else user.qq
-    await sendGroupMsg(config['group']['main'], f'本次围殴结束，玩家 {userName} 一共损失{robCount}草！')
-    robTarget = ""
+    await sendGroupMsg(config['group']['main'], f'本次围殴结束，玩家 {userName} 一共损失{robInfo.robCount}草！')

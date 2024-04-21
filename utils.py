@@ -51,3 +51,15 @@ def nameDetailSplit(strippedText):
         return strippedText.split('：', 1)
     # 没有冒号
     return strippedText, ""
+
+
+# 当前仅支持10以内的罗马数字和Int互转
+def romanNumToInt(romanNum):
+    romanNum = romanNum.upper()
+    romanNumList = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+    return romanNumList.index(romanNum) + 1 if romanNum in romanNumList else 0
+
+
+def intToRomanNum(intNum):
+    romanNumList = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+    return romanNumList[intNum - 1] if 0 < intNum <= 10 else ""
