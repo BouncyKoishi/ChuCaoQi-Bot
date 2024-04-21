@@ -5,6 +5,7 @@ from datetime import datetime
 from kusa_base import config
 from nonebot import on_command, CommandSession
 
+
 class SysuNetworkReport(typing.NamedTuple):
     title: str
     time: datetime
@@ -18,7 +19,9 @@ class SysuNetworkReport(typing.NamedTuple):
             self.content,
         ))
 
+
 latestReport: SysuNetworkReport = None
+
 
 @nonebot.scheduler.scheduled_job('cron', minute='0', hour='8-23')
 async def _():
@@ -41,13 +44,16 @@ async def _():
             await bot.send_group_msg(group_id=config['group']['main'], message=str(x))
     latestReport = max(d, key=lambda x: x.time)
 
+
 @on_command(name='校园网', only_to_me=False)
 async def _(session: CommandSession):
     if latestReport is None:
         return
     await session.send(str(latestReport))
 
+
 @nonebot.scheduler.scheduled_job('cron', minute='0', hour='23', day='7-15/4', month='1,7')
 async def _():
     bot = nonebot.get_bot()
-    await bot.send_group_msg(group_id=config['group']['main'], message='给网费按个暂停键！\n寒暑假将至，可以前往 https://netpay.sysu.edu.cn/ 自助办理个人网络服务的暂停和恢复。')
+    await bot.send_group_msg(group_id=config['group']['main'],
+                             message='给网费按个暂停键！\n寒暑假将至，可以前往 https://netpay.sysu.edu.cn/ 自助办理个人网络服务的暂停和恢复。')
