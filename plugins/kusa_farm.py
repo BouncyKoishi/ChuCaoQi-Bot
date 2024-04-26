@@ -435,7 +435,7 @@ async def _(session: CommandSession):
         await session.send('当前没有可围殴对象^ ^')
         return
 
-    selfRobFlag, hasRobbedFlag, robRecords = False, False, []
+    selfRobFlag, hasRobbedFlag, robRecords, stopRobbingIds = False, False, [], []
     for robId, robInfo in robDict.items():
         print(robId, robInfo)
         if str(userId) == robInfo.targetId:
@@ -457,7 +457,7 @@ async def _(session: CommandSession):
             record += '额外获得了1草之精华！'
         robRecords.append(record)
         if robInfo.robCount >= robInfo.robLimit:
-            await stopRobbing(robId)
+            stopRobbingIds.append(robId)
 
     if robRecords:
         await session.send('\n'.join(robRecords))
@@ -465,6 +465,9 @@ async def _(session: CommandSession):
         await session.send('你已经围殴过了^ ^')
     elif selfRobFlag:
         await session.send('不能围殴自己^ ^')
+
+    for robId in stopRobbingIds:
+        await stopRobbing(robId)
 
 
 async def activateRobbing(field):

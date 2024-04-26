@@ -41,7 +41,7 @@ async def _():
     bot = nonebot.get_bot()
     if latestReport is not None:
         for x in filter(lambda x: x.time > latestReport.time, d):
-            await bot.send_group_msg(group_id=config['group']['main'], message=str(x))
+            await bot.send_group_msg(group_id=config['group']['sysu'], message=str(x))
     latestReport = max(d, key=lambda x: x.time)
 
 
@@ -55,5 +55,5 @@ async def _(session: CommandSession):
 @nonebot.scheduler.scheduled_job('cron', minute='0', hour='23', day='7-15/4', month='1,7')
 async def _():
     bot = nonebot.get_bot()
-    await bot.send_group_msg(group_id=config['group']['main'],
+    await bot.send_group_msg(group_id=config['group']['sysu'],
                              message='给网费按个暂停键！\n寒暑假将至，可以前往 https://netpay.sysu.edu.cn/ 自助办理个人网络服务的暂停和恢复。')
