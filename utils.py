@@ -1,3 +1,4 @@
+import re
 import base64
 import nonebot
 from nonebot import MessageSegment as ms
@@ -63,3 +64,21 @@ def romanNumToInt(romanNum):
 def intToRomanNum(intNum):
     romanNumList = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
     return romanNumList[intNum - 1] if 0 < intNum <= 10 else ""
+
+
+# 支持k,m,b单位的数字字符串转换为int
+def convertNumStrToInt(numStr):
+    match = re.search(r'(\d+)([kmbKMB]?)', numStr)
+    if match:
+        number_part = int(match.group(1))
+        unit = match.group(2)
+        if unit == 'k' or unit == 'K':
+            return number_part * 1_000
+        elif unit == 'm' or unit == 'M':
+            return number_part * 1_000_000
+        elif unit == 'b' or unit == 'B':
+            return number_part * 1_000_000_000
+        else:
+            return number_part
+    else:
+        return None

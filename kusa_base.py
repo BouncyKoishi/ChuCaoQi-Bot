@@ -92,13 +92,17 @@ async def sendGroupMsg(groupId, message):
     try:
         bot = nonebot.get_bot()
         await bot.send_group_msg(group_id=groupId, message=message)
+        return True
     except Exception as e:
         print(f'对群聊{groupId}发送GroupMsg失败：' + str(e))
+        return False
 
 
 async def sendPrivateMsg(userId, message):
     try:
         bot = nonebot.get_bot()
         await bot.send_private_msg(user_id=userId, message=message)
+        return True
     except Exception as e:
         print(f'对用户{userId}发送PrivateMsg失败：' + str(e))
+        return False

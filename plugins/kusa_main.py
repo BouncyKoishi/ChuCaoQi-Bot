@@ -1,12 +1,11 @@
 import re
-import math
-import random
 import nonebot
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
+from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession
-from kusa_base import isUserExist, config
+from kusa_base import config, isUserExist, sendPrivateMsg
 from .kusa_statistics import getKusaAdvRank
 
 vipTitleName = ['用户', '信息员', '高级信息员', '特级信息员', '后浪信息员', '天琴信息员', '天琴信息节点',
@@ -225,36 +224,34 @@ async def kusa_ban(session: CommandSession):
 async def give(session: CommandSession):
     userId = session.ctx['user_id']
 
-    st = '转让成功！'
     stripped_arg = session.current_arg_text.strip()
-    receiverQQ = re.search(r'(?<=(QQ|qq)=)\d+', stripped_arg)
-    transferKusa = re.search(r'(?<=(kusa|Kusa|KUSA)=)\d+', stripped_arg)
-    if receiverQQ and transferKusa:
-        receiverQQ = int(receiverQQ.group(0))
-        transferKusa = int(transferKusa.group(0))
+    qqNumberList = re.search(r'(?<=(QQ|qq)=)\d+', stripped_arg)
+    transferKusaStr = re.search(r'(?<=(kusa|Kusa|KUSA)=)\d+[kmbKMB]?', stripped_arg)
 
-        if transferKusa == 0:
-            return
-        if await isUserExist(receiverQQ):
-            user = await baseDB.getUser(userId)
-            if user.kusa >= transferKusa:
-                await baseDB.changeKusa(receiverQQ, transferKusa)
-                await baseDB.changeKusa(userId, -transferKusa)
+    receiverQQ = qqNumberList.group(0) if qqNumberList else None
+    transferKusa = convertNumStrToInt(transferKusaStr.group(0)) if transferKusaStr else 0
+    if not receiverQQ:
+        await session.send('需要被转让人的QQ号！')
+        return
+    if not transferKusa:
+        await session.send('待转让的草数不合法！')
+        return
+    if not await isUserExist(receiverQQ):
+        await session.send('你想转让的对象并没有生草账户！')
+        return
 
-                bot = nonebot.get_bot()
-                nickname = session.ctx['sender']['nickname']
-                announce = f'{nickname}({userId})转让了{transferKusa}个草给你！'
-                if transferKusa >= 10000:
-                    try:
-                        await bot.send_private_msg(user_id=receiverQQ, message=announce)
-                    except:
-                        st += '（未能私聊通知被转让者）'
-            else:
-                st = '你不够草^ ^'
-        else:
-            st = '你想转让的对象并没有生草账户！'
-    else:
-        st = '参数不正确^ ^'
+    user = await baseDB.getUser(userId)
+    if user.kusa < transferKusa:
+        await session.send('你不够草^ ^')
+        return
+    await baseDB.changeKusa(receiverQQ, transferKusa)
+    await baseDB.changeKusa(userId, -transferKusa)
+
+    nickname = session.ctx['sender']['nickname']
+    announce = f'{nickname}({userId})转让了{transferKusa}个草给你！'
+    hasSendPrivate = sendPrivateMsg(receiverQQ, announce) if transferKusa >= 10000 else False
+    st = '转让成功！' if hasSendPrivate else '转让成功！(未私聊通知被转让者)'
+
     await session.send(st)
 
 
