@@ -26,6 +26,17 @@ async def chatNew(session: CommandSession):
     await session.send(reply)
 
 
+@on_command(name='chat4', only_to_me=False)
+async def chatNewGPT4(session: CommandSession):
+    if not await permissionCheck(session, 'model'):
+        return
+    userId = session.event.user_id
+    content = session.current_arg_text.strip()
+    await session.send("已开启新对话，等待回复……")
+    reply = await chat(userId, content, True, False, "gpt-4-turbo-preview")
+    await session.send(reply)
+
+
 @on_command(name='chatn', only_to_me=False)
 async def chatNewWithoutRole(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
@@ -131,7 +142,10 @@ async def chatUserUpdate(session: CommandSession):
         return
     # get number from text as userId, get params after -
     strippedText = session.current_arg_text.strip()
-    userId = int(''.join(filter(str.isdigit, strippedText)))
+    if strippedText is None or strippedText == "":
+        await session.send('需要指定用户qq号！')
+        return
+    userId = int(''.join([c for c in strippedText if c.isdigit()]))
     params = strippedText.split('-')[1] if '-' in strippedText else ""
     await db.updateChatUser(userId, params)
     await session.send(f"已更新{userId}的chat权限")
@@ -277,7 +291,7 @@ async def chatPic(session: CommandSession):
         await session.send("对话出错了，请稍后再试。")
 
 
-async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=False, modelName=None):
+async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=False, modelName=None, retryCount=0):
     chatUser = await db.getChatUser(userId)
     model = modelName if modelName else chatUser.chosenModel
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
@@ -295,8 +309,11 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=Fal
         tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
-        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}")
-        return "对话出错了，请稍后再试。"
+        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}\nRetry次数：{retryCount}")
+        if retryCount < 1:
+            return await chat(userId, content, isNewConversation, useDefaultRole, modelName, retryCount + 1)
+        else:
+            return "对话出错了，请稍后再试。"
 
 
 async def getChatReply(model, history, maxTokens=None):
