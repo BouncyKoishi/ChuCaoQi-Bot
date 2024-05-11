@@ -73,6 +73,7 @@ class KusaItemStorage(Model):
     item = ForeignKeyField("models.KusaItemList", on_delete=CASCADE, related_name="kusa_item_storage")
     amount = IntField()
     allowUse = BooleanField(default=True)
+    timeLimitTs = DatetimeField(null=True)
 
 
 class GValue(Model):

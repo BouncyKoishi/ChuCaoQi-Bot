@@ -1,7 +1,7 @@
 import re
 import codecs
 from utils import convertNumStrToInt
-from nonebot import on_command, CommandSession
+from nonebot import on_command, CommandSession, scheduler
 from kusa_base import buying, selling, itemCharging, isUserExist
 from plugins.kusa_industrial import buyingKusaFactory, buyingAdvFactory, getNextFactoryCost
 import dbConnection.db as baseDB
@@ -326,3 +326,8 @@ def getItemPrice(item, itemAmount):
     if not item.priceRate:
         return item.shopPrice
     return int(item.shopPrice * (item.priceRate ** itemAmount))
+
+
+@scheduler.scheduled_job('cron', second='1')
+async def cleanTimeLimitedItem():
+    await itemDB.cleanTimeLimitedItem()

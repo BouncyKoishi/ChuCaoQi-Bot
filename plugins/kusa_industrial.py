@@ -3,6 +3,7 @@ import random
 import nonebot
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
+import dbConnection.kusa_field as fieldDB
 from nonebot import on_command, CommandSession
 from kusa_base import config, sendGroupMsg
 
@@ -98,13 +99,23 @@ async def dailyStatistics(session: CommandSession):
     userId = session.ctx['user_id']
     user = await baseDB.getUser(userId)
     userName = user.name if user.name else user.qq
-    outputStr = f'{userName}的每日工业期望产量：'
-    outputStr += f'{await getDailyKusaNum(userId, 8)}草，'
-    newAdvKusaAmount = await getDailyAdvKusaNum(userId)
+    newKusaAmount = await getDailyKusaNum(userId, 8)
+    newAdvKusaAmount = await getDailyAdvKusaNum(user.qq)
+    newCoreAmount = await getDailyCoreNum(user.qq, 8)
+    outputStr = f'{userName}的每日工业期望产量：{newKusaAmount}草，'
     outputStr += f'{newAdvKusaAmount}草之精华，' if newAdvKusaAmount else ''
-    newCoreAmount = await getDailyCoreNum(userId, 8)
     outputStr += f'{newCoreAmount}自动化核心，' if newCoreAmount else ''
-    await session.send(outputStr[:-1])
+    outputStr = outputStr[:-1]
+    remiProductionInfo = await itemDB.getItemStorageInfo(user.qq, '蕾米球的生产魔法')
+    if remiProductionInfo and remiProductionInfo.allowUse:
+        kusaField = await fieldDB.getKusaField(user.qq)
+        extraMagnification = 0.04 * (kusaField.soilCapacity - 20)
+        if extraMagnification > 0:
+            outputStr += f'\n由于蕾米球的生产魔法，你将额外获得：{math.ceil(newKusaAmount * extraMagnification)}草，'
+            outputStr += f'{math.ceil(newAdvKusaAmount * extraMagnification)}草之精华，' if newAdvKusaAmount else ''
+            outputStr += f'{math.ceil(newCoreAmount * extraMagnification)}自动化核心，' if newCoreAmount else ''
+            outputStr = outputStr[:-1]
+    await session.send(outputStr)
 
 
 # 生草工业运作
@@ -118,12 +129,22 @@ async def daily():
     userList = await baseDB.getAllUser()
     for user in userList:
         newKusaAmount = await getDailyKusaNum(user.qq, kusaRandInt)
-        await baseDB.changeKusa(user.qq, newKusaAmount)
         newAdvKusaAmount = await getDailyAdvKusaNum(user.qq)
-        await baseDB.changeAdvKusa(user.qq, newAdvKusaAmount)
         newCoreAmount = await getDailyCoreNum(user.qq, coreRandInt)
-        await itemDB.changeItemAmount(user.qq, '自动化核心', newCoreAmount)
         newBlackTeaAmount = await getDailyBlackTeaNum(user.qq)
+        remiProductionInfo = await itemDB.getItemStorageInfo(user.qq, '蕾米球的生产魔法')
+        if remiProductionInfo and remiProductionInfo.allowUse:
+            kusaField = await fieldDB.getKusaField(user.qq)
+            extraMagnification = max(0.04 * (kusaField.soilCapacity - 20), 0)
+            newKusaAmount = math.ceil(newKusaAmount * (1 + extraMagnification))
+            newAdvKusaAmount = math.ceil(newAdvKusaAmount * (1 + extraMagnification))
+            newCoreAmount = math.ceil(newAdvKusaAmount * (1 + extraMagnification))
+            newBlackTeaAmount = math.ceil(newAdvKusaAmount * (1 + extraMagnification))
+            await itemDB.updateTimeLimitedItem(user.qq, '过载标记', 12 * 3600)
+            await fieldDB.kusaSoilUseUp(user.qq)
+        await baseDB.changeKusa(user.qq, newKusaAmount)
+        await baseDB.changeAdvKusa(user.qq, newAdvKusaAmount)
+        await itemDB.changeItemAmount(user.qq, '自动化核心', newCoreAmount)
         await itemDB.changeItemAmount(user.qq, '红茶', newBlackTeaAmount)
         await createLotteryTicket(user.qq)
 

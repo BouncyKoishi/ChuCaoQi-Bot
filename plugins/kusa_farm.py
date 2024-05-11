@@ -34,6 +34,25 @@ async def _(session: CommandSession):
     await plantKusa(session)
 
 
+@on_command(name='过载生草', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    overloadMagic = await itemDB.getItemAmount(userId, '奈奈的过载魔法')
+    if not overloadMagic:
+        await session.send('你未学会过载魔法，无法进行过载生草^ ^')
+        return
+    await plantKusa(session)
+
+    # 添加过载效果
+    newField = await fieldDB.getKusaField(userId)
+    distinctDigitsCount = len(set(str(newField.kusaResult)))
+    advKusaNum = newField.advKusaResult + distinctDigitsCount * 2
+    overLoadTimeSec = 3 * distinctDigitsCount * 3600
+    await fieldDB.updateKusaResult(userId, newField.kusaResult, advKusaNum)
+    await itemDB.updateTimeLimitedItem(userId, '过载标记', overLoadTimeSec)
+    await session.send(f'注意：你的草地进入了过载状态。本次生草将额外获得{distinctDigitsCount * 2}个草之精华！')
+
+
 async def plantKusa(session: CommandSession):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
@@ -44,19 +63,10 @@ async def plantKusa(session: CommandSession):
         await session.send(outputStr)
         return
 
-    kusaType = session.current_arg_text.strip()
-    if kusaType:
-        kusaTypeName = kusaType + "基因图谱"
-        kusaItemExist = await itemDB.getItem(kusaTypeName)
-        if not kusaItemExist:
-            await session.send('你选择的草种类不存在^ ^')
-            return
-        kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
-        if not kusaItemAmount:
-            await session.send('你无法种植这种类型的草^ ^')
-            return
-    else:
-        kusaType = field.defaultKusaType
+    overload = await itemDB.getItemAmount(userId, '过载标记')
+    if overload:
+        await session.send('你的百草园处于过载状态，无法生草^ ^')
+        return
 
     soilSaver = await itemDB.getItemStorageInfo(userId, '土壤保护装置')
     if soilSaver and soilSaver.allowUse and field.soilCapacity <= 10:
@@ -66,6 +76,11 @@ async def plantKusa(session: CommandSession):
     if field.soilCapacity <= 0:
         await session.send(
             f'当前承载力为{field.soilCapacity}，不允许生草。')
+        return
+
+    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text, field.defaultKusaType)
+    if not success:
+        await session.send(errMsg)
         return
 
     growTime = 40 + int(40 * systemRandom.random())
@@ -184,22 +199,28 @@ async def _(session: CommandSession):
 @on_command(name='默认草种', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    kusaType = session.current_arg_text.strip()
-    if kusaType:
-        kusaTypeName = kusaType + "基因图谱"
-        kusaItemExist = await itemDB.getItem(kusaTypeName)
-        if not kusaItemExist:
-            await session.send('你选择的草种类不存在^ ^')
-            return
-        kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
-        if not kusaItemAmount:
-            await session.send('你无法种植这种类型的草^ ^')
-            return
-    else:
-        kusaType = '草'
+    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text)
+    if not success:
+        await session.send(errMsg)
+        return
     await fieldDB.updateDefaultKusaType(userId, kusaType)
     output = f'你的生草默认草种已经设置为{kusaType}' if kusaType else '你的生草默认草种已经设置为普通草'
     await session.send(output)
+
+
+async def getKusaType(userId, strippedArg, defaultType=None):
+    if not strippedArg:
+        return defaultType, True, None
+
+    kusaTypeName = strippedArg + "基因图谱"
+    kusaItemExist = await itemDB.getItem(kusaTypeName)
+    if not kusaItemExist:
+        return '', False, '你选择的草种类不存在^ ^'
+    kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
+    if not kusaItemAmount:
+        return '', False, '你无法种植这种类型的草^ ^'
+
+    return strippedArg, True, None
 
 
 @on_command(name='生草简报', only_to_me=False)
@@ -270,11 +291,14 @@ async def soilCapacityIncreaseBase():
             await sendFieldRecoverInfo(field.qq)
 
 
-@nonebot.scheduler.scheduled_job('cron', minute=33)
+@nonebot.scheduler.scheduled_job('cron', minute=33, second=33)
 async def soilCapacityIncreaseForInactive():
     badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
     for field in badSoilFields:
         if field.kusaIsGrowing:
+            continue
+        overload = await itemDB.getItemAmount(field.qq, '过载标记')
+        if overload:
             continue
         recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
         if recoverToFull:
