@@ -50,7 +50,15 @@ async def _(session: CommandSession):
     overLoadTimeSec = 3 * distinctDigitsCount * 3600
     await fieldDB.updateKusaResult(userId, newField.kusaResult, advKusaNum)
     await itemDB.updateTimeLimitedItem(userId, '过载标记', overLoadTimeSec)
-    await session.send(f'注意：你的草地进入了过载状态。本次生草将额外获得{distinctDigitsCount * 2}个草之精华！')
+
+    juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
+    seniorPrescient = await itemDB.getItemStorageInfo(userId, '生草预知')
+    isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
+            seniorPrescient and seniorPrescient.allowUse) else False
+    output = f'注意：你的草地进入了过载状态。'
+    if isPrescient:
+        output += f'本次生草将额外获得{distinctDigitsCount * 2}个草之精华！'
+    await session.send(output)
 
 
 async def plantKusa(session: CommandSession):
@@ -65,7 +73,7 @@ async def plantKusa(session: CommandSession):
 
     overload = await itemDB.getItemAmount(userId, '过载标记')
     if overload:
-        await session.send('你的百草园处于过载状态，无法生草^ ^')
+        await session.send('你的草地处于过载状态，无法生草^ ^')
         return
 
     soilSaver = await itemDB.getItemStorageInfo(userId, '土壤保护装置')
@@ -102,6 +110,10 @@ async def plantKusa(session: CommandSession):
 
     growTime = growTime * 2 if kusaType == "巨草" else growTime
     growTime = math.ceil(growTime / 2) if kusaType == "速草" else growTime
+    kusaSpeedMagic = await itemDB.getItemAmount(userId, '奈奈的时光魔法')
+    magicQuick = kusaSpeedMagic and random.random() < 0.07
+    if magicQuick:
+        growTime = math.ceil(growTime * (1 - 0.777))
     if kusaType == "半灵草":
         kusaType = "灵草" if systemRandom.random() < 0.5 else ""
 
@@ -120,7 +132,14 @@ async def plantKusa(session: CommandSession):
     finalAdvKusaNum = await getCreateAdvKusaNum(newField)
     await fieldDB.updateKusaResult(userId, finalKusaNum, finalAdvKusaNum)
 
-    outputStr = f"开始生{kusaType}。剩余时间：{growTime}min\n"
+    magicImmediate = kusaSpeedMagic and random.random() < 0.007
+    if magicImmediate:
+        await session.send('奈奈的时光魔法生效！本次的生草立即完成！')
+        await kusaHarvest(newField)
+        return
+
+    outputStr = f"开始生{kusaType}。剩余时间：{growTime}min"
+    outputStr += "(时光魔法已触发)\n" if magicQuick else "\n"
     predictTime = datetime.now() + timedelta(minutes=growTime + 1)
     outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
     if isPrescient:
@@ -169,7 +188,8 @@ async def _(session: CommandSession):
             st += f'预估生草量：{minPredict} ~ {maxPredict}'
         st += '\n\n'
     else:
-        st += f'当前没有生草。\n'
+        overload = await itemDB.getItemAmount(userId, '过载标记')
+        st += '当前没有生草。你的草地处在过载状态，无法生草。\n' if overload else '当前没有生草。\n'
     st += f'你选择的默认草种为：{field.defaultKusaType}\n' if field.defaultKusaType else '草'
     st += f'当前的土壤承载力为：{field.soilCapacity}\n'
 
@@ -267,19 +287,25 @@ async def save():
     activeFields = await fieldDB.getAllKusaField(onlyGrowing=True)
     for field in activeFields:
         if field.kusaRestTime <= 1:
-            await baseDB.changeKusa(field.qq, field.kusaResult)
-            await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
-            outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
-            outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
-            await sendPrivateMsg(field.qq, outputMsg)
-            if field.advKusaResult > 0:
-                await goodNewsReport(field)
-            if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
-                await getChainBonus(field)
-            await fieldDB.kusaHistoryAdd(field)
-            await fieldDB.kusaStopGrowing(field, False)
+            await kusaHarvest(field)
         else:
             await fieldDB.kusaTimePass(field)
+
+
+async def kusaHarvest(field):
+    if not field.kusaIsGrowing:
+        return
+    await baseDB.changeKusa(field.qq, field.kusaResult)
+    await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
+    outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
+    outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
+    await sendPrivateMsg(field.qq, outputMsg)
+    if field.advKusaResult > 0:
+        await goodNewsReport(field)
+    if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
+        await getChainBonus(field)
+    await fieldDB.kusaHistoryAdd(field)
+    await fieldDB.kusaStopGrowing(field, False)
 
 
 @nonebot.scheduler.scheduled_job('interval', minutes=90)
