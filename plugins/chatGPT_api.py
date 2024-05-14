@@ -33,7 +33,7 @@ async def chatNewGPT4(session: CommandSession):
     userId = session.event.user_id
     content = session.current_arg_text.strip()
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, True, False, "gpt-4-turbo-preview")
+    reply = await chat(userId, content, True, False, "gpt-4o")
     await session.send(reply)
 
 
@@ -55,7 +55,7 @@ async def chatNewWithoutRoleGPT4(session: CommandSession):
     userId = session.event.user_id
     content = session.current_arg_text.strip()
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, True, True, "gpt-4-turbo-preview")
+    reply = await chat(userId, content, True, True, "gpt-4o")
     await session.send(reply)
 
 
@@ -79,7 +79,7 @@ async def chatContinueGPT4(session: CommandSession):
     userId = session.event.user_id
     content = session.current_arg_text.strip()
     await session.send("继续进行对话，等待回复……")
-    reply = await chat(userId, content, False, False, "gpt-4-turbo-preview")
+    reply = await chat(userId, content, False, False, "gpt-4o")
     await session.send(reply)
 
 
@@ -228,7 +228,7 @@ async def changeModel(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     if strippedText:
         if strippedText == "gpt-4" or strippedText == "gpt4":
-            newModel = "gpt-4-turbo-preview"
+            newModel = "gpt-4o"
         elif strippedText == "gpt-3.5" or strippedText == "gpt3.5":
             newModel = "gpt-3.5-turbo"
         elif strippedText == "gpt-3.5-old" or strippedText == "gpt3.5-old":
@@ -283,7 +283,7 @@ async def chatPic(session: CommandSession):
     ]}]
 
     try:
-        reply, tokenUsage = await getChatReply("gpt-4-vision-preview", history, 4096)
+        reply, tokenUsage = await getChatReply("gpt-4o", history, 4096)
         tokenSign = f"\nTokens(gpt4-pic): {tokenUsage}"
         await session.send(reply + "\n" + tokenSign)
     except Exception as e:
