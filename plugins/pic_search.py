@@ -10,10 +10,9 @@ from lxml import etree
 from PicImageSearch import Network, SauceNAO, Ascii2D
 from PIL import Image, ImageFont, ImageDraw, ImageFilter
 
-from utils import getImgBase64
+from utils import imgLocalPathToBase64, extractImgUrls
 from kusa_base import config
 from nonebot import on_command, CommandSession
-from nonebot.command.argfilter.extractors import extract_image_urls
 
 proxy = config['web']['proxy']
 saucenaoApiKey = config['web']['saucenao']['key']
@@ -30,7 +29,7 @@ async def _(session: CommandSession):
         await session.send("非图片，取消搜图")
         return
     await session.send("正在搜索……")
-    imgUrl = extract_image_urls(imgCq)[0]
+    imgUrl = extractImgUrls(imgCq)[0]
     async with httpx.AsyncClient(proxies=proxy) as client:
         search = ImgExploration(pic_url=imgUrl, client=client, proxies=proxy,
                                 saucenao_apikey=saucenaoApiKey, header=generalHeader)
@@ -39,7 +38,7 @@ async def _(session: CommandSession):
     if not resultDict or not resultDict["info"]:
         await session.send('没有搜索到结果^ ^')
         return
-    await session.send(getImgBase64('picsearch.jpg'))
+    await session.send(imgLocalPathToBase64('picsearch.jpg'))
     imgNum = await session.aget(prompt="若需要提取图片链接，请在60s内发送对应结果的序号(如:1 2 3)")
     try:
         args = list(map(int, str(imgNum).split()))
@@ -67,7 +66,7 @@ async def picUrlGet(session: CommandSession):
     if imgCq is None or '[CQ:image' not in imgCq:
         await session.send("非图片，取消图片链接获取")
         return
-    imgUrls = extract_image_urls(imgCq)
+    imgUrls = extractImgUrls(imgCq)
     await session.send('\n'.join(imgUrls))
 
 

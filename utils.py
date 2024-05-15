@@ -1,19 +1,33 @@
 import re
+import httpx
 import base64
 import nonebot
 from nonebot import MessageSegment as ms
+from nonebot.command.argfilter.extractors import extract_image_urls
 
 
 def rd3(floatNumber: float):
     return round(floatNumber, 3)
 
 
-def getImgBase64(path):
+async def imgUrlTobase64(url):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+    return base64.b64encode(response.content).decode()
+
+
+def imgLocalPathToBase64(path):
     with open(path, 'rb') as f:
         p = f.read()
         pic_src = 'base64://' + str(base64.b64encode(p)).replace("b'", "").replace("'", "")
         pic = ms.image(pic_src)
         return pic
+
+
+def extractImgUrls(picInfo):
+    urls = extract_image_urls(picInfo)
+    urls = [url.replace('amp;', '') for url in urls]
+    return urls
 
 
 async def getUserAndGroupMsg(userId, groupId):

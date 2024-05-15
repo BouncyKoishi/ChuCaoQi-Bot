@@ -41,7 +41,7 @@ async def dailyJun():
     picPath = paths[int(random.random() * len(paths))]
     st = f'新的一天！今天是{now.year}年{now.month}月{now.day}日！今天的精选罗俊是——'
     await bot.send_group_msg(group_id=config['group']['sysu'], message=st)
-    await bot.send_group_msg(group_id=config['group']['sysu'], message=utils.getImgBase64(picPath))
+    await bot.send_group_msg(group_id=config['group']['sysu'], message=utils.imgLocalPathToBase64(picPath))
 
 
 @on_command(name='rolllj', only_to_me=False)
@@ -90,7 +90,7 @@ async def rollPic(session, imageArchiveName):
     imageArchive = archiveInfo[imageArchiveName]
     paths = imageArchive['onlineFilePaths']
     picPath = paths[int(random.random() * len(paths))]
-    await session.send(utils.getImgBase64(picPath))
+    await session.send(utils.imgLocalPathToBase64(picPath))
     print(f'本次发送的图片：{picPath}')
 
 
@@ -125,7 +125,7 @@ async def examinePic(session, imageArchiveName):
         examine_paths = imageArchive['examineFilePaths']
         if not examine_paths:
             break
-        await session.send(utils.getImgBase64(examine_paths[0]))
+        await session.send(utils.imgLocalPathToBase64(examine_paths[0]))
         file_name = examine_paths[0].split('\\')[-1]
         reply_msg = await session.aget(prompt=f'文件名:{file_name} (y/n/s)', arg_filters=[str.strip])
         if reply_msg == 'y':

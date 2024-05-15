@@ -7,7 +7,7 @@ import asyncio
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
-from utils import nameDetailSplit
+from utils import nameDetailSplit, extractImgUrls, imgUrlTobase64
 
 os.environ["http_proxy"] = config['web']['proxy']
 os.environ["https_proxy"] = config['web']['proxy']
@@ -275,16 +275,20 @@ async def chatPic(session: CommandSession):
         await session.send("非图片，取消chat")
         return
     await session.send("已开启新对话，等待回复……")
-    picUrl = re.search(r",url=(.+?)]", picInfo).group(1)
+    picUrls = extractImgUrls(picInfo)
 
-    history = [{"role": "user", "content": [
-        {"type": "text", "text": text},
-        {"type": "image_url", "image_url": {"url": picUrl}}
-    ]}]
+
+    roleMsg = {"role": "system", "content": [{"type": "text", "text": "我是一位视障人士，请你事无巨细地，以超过人眼的细节粒度（指的是包含图中极度细小的，比如文字、图案、花纹、材质等细节），尽可能详细描述这幅图片的所有细节和想要表达的意图。即使是最不起眼的细节也要描述具体。如果图中包含文字，请你先详细给出文字内容，再分析整张图片。如果图中包含人物，请你详细描述人物的外貌，衣着、动作、神态、性别、种族、人物的年龄、身份、职业等。请不要用“某种”、“某种特定的”这样模糊的形容，而要给出确切的描述。我是一位视障人士，图中任何细小的细节都值得详细描述。"}]}
+    userContent = [{"type": "text", "text": text}]
+    for picUrl in picUrls:
+        picBase64 = "data:image/jpeg;base64," + await imgUrlTobase64(picUrl)
+        userContent.append({"type": "image_url", "image_url": {"url": picBase64}})
+    userMsg = {"role": "user", "content": userContent}
+    history = [roleMsg, userMsg]
 
     try:
         reply, tokenUsage = await getChatReply("gpt-4o", history, 4096)
-        tokenSign = f"\nTokens(gpt4-pic): {tokenUsage}"
+        tokenSign = f"\nTokens(GPT4): {tokenUsage}"
         await session.send(reply + "\n" + tokenSign)
     except Exception as e:
         await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
@@ -297,7 +301,7 @@ async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=Fal
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
     role = await db.getChatRoleById(roleId)
     history = await getNewConversation(roleId) if isNewConversation else await readOldConversation(userId)
-    history.append({"role": "user", "content": content})
+    history.append({"role": "user", "content": [{"type": "text", "text": content}]})
 
     try:
         reply, tokenUsage = await getChatReply(model, history)
@@ -321,7 +325,7 @@ async def getChatReply(model, history, maxTokens=None):
     reply = response['choices'][0]['message']['content']
     finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
-    history.append({"role": "assistant", "content": reply})
+    history.append({"role": "assistant", "content": [{"type": "text", "text": reply}]})
     if finishReason != "stop":
         print(response)
     return reply, tokenUsage
@@ -349,7 +353,7 @@ async def undo(userId):
 
 async def getNewConversation(roleId):
     role = await db.getChatRoleById(roleId)
-    return [{"role": "system", "content": role.detail}] if role.detail else []
+    return [{"role": "system", "content": [{"type": "text", "text": role.detail}]}] if role.detail else []
 
 
 async def readOldConversation(userId):
