@@ -295,13 +295,16 @@ async def chatPic(session: CommandSession):
         await session.send("对话出错了，请稍后再试。")
 
 
-async def chat(userId, content: str, isNewConversation: bool, useDefaultRole=False, modelName=None, retryCount=0):
+async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, modelName=None, retryCount=0):
     chatUser = await db.getChatUser(userId)
     model = modelName if modelName else chatUser.chosenModel
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
     role = await db.getChatRoleById(roleId)
     history = await getNewConversation(roleId) if isNewConversation else await readOldConversation(userId)
-    history.append({"role": "user", "content": [{"type": "text", "text": content}]})
+    if isinstance(content, list):
+        history.append({"role": "user", "content": content})
+    else:
+        history.append({"role": "user", "content": [{"type": "text", "text": content}]})
 
     try:
         reply, tokenUsage = await getChatReply(model, history)
