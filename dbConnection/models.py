@@ -21,6 +21,7 @@ class KusaField(Model):
     kusaIsGrowing = BooleanField(default=False)
     isUsingKela = BooleanField(default=False)
     isPrescient = BooleanField(default=False)
+    overloadOnHarvest = BooleanField(default=False)
     biogasEffect = FloatField(default=1)
     soilCapacity = IntField(default=25)
     weedCosting = IntField(default=0)

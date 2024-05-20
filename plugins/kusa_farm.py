@@ -41,27 +41,10 @@ async def _(session: CommandSession):
     if not overloadMagic:
         await session.send('你未学会过载魔法，无法进行过载生草^ ^')
         return
-    await plantKusa(session)
-
-    # 添加过载效果
-    newField = await fieldDB.getKusaField(userId)
-    distinctDigitsCount = len(set(str(newField.kusaResult)))
-    advKusaNum = newField.advKusaResult + distinctDigitsCount * 2
-    overLoadTimeSec = 3 * distinctDigitsCount * 3600
-    await fieldDB.updateKusaResult(userId, newField.kusaResult, advKusaNum)
-    await itemDB.updateTimeLimitedItem(userId, '过载标记', overLoadTimeSec)
-
-    juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
-    seniorPrescient = await itemDB.getItemStorageInfo(userId, '生草预知')
-    isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
-            seniorPrescient and seniorPrescient.allowUse) else False
-    output = f'注意：你的草地进入了过载状态。'
-    if isPrescient:
-        output += f'本次生草将额外获得{distinctDigitsCount * 2}个草之精华！'
-    await session.send(output)
+    await plantKusa(session, True)
 
 
-async def plantKusa(session: CommandSession):
+async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
     if field.kusaIsGrowing:
@@ -112,8 +95,11 @@ async def plantKusa(session: CommandSession):
     growTime = math.ceil(growTime / 2) if kusaType == "速草" else growTime
     kusaSpeedMagic = await itemDB.getItemAmount(userId, '奈奈的时光魔法')
     magicQuick = kusaSpeedMagic and random.random() < 0.07
+    magicImmediate = kusaSpeedMagic and random.random() < 0.007
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
+    if magicImmediate:
+        growTime = 1
     if kusaType == "半灵草":
         kusaType = "灵草" if systemRandom.random() < 0.5 else ""
 
@@ -124,7 +110,7 @@ async def plantKusa(session: CommandSession):
     isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
             seniorPrescient and seniorPrescient.allowUse) else False
     kusaType = "草" if not kusaType else kusaType
-    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient)
+    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient, overloadOnHarvest)
 
     newField = await fieldDB.getKusaField(userId)
     baseKusaNum = 10 * systemRandom.random()
@@ -132,14 +118,8 @@ async def plantKusa(session: CommandSession):
     finalAdvKusaNum = await getCreateAdvKusaNum(newField)
     await fieldDB.updateKusaResult(userId, finalKusaNum, finalAdvKusaNum)
 
-    magicImmediate = kusaSpeedMagic and random.random() < 0.007
-    if magicImmediate:
-        await session.send('奈奈的时光魔法生效！本次的生草立即完成！')
-        await kusaHarvest(newField)
-        return
-
     outputStr = f"开始生{kusaType}。剩余时间：{growTime}min"
-    outputStr += "(时光魔法已触发)\n" if magicQuick else "\n"
+    outputStr += "(时光魔法已触发)\n" if magicQuick or magicImmediate else "\n"
     predictTime = datetime.now() + timedelta(minutes=growTime + 1)
     outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
     if isPrescient:
@@ -183,6 +163,7 @@ async def _(session: CommandSession):
         if field.isPrescient:
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
+            st += f"，本次通过过载生草额外获得{getOverloadBonus(field)}草之精华" if field.overloadOnHarvest else ""
         else:
             minPredict, maxPredict = await getKusaPredict(field)
             st += f'预估生草量：{minPredict} ~ {maxPredict}'
@@ -304,6 +285,8 @@ async def kusaHarvest(field):
         await goodNewsReport(field)
     if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
         await getChainBonus(field)
+    if field.overloadOnHarvest:
+        await getOverloadBonus(field)
     await fieldDB.kusaHistoryAdd(field)
     await fieldDB.kusaStopGrowing(field, False)
 
@@ -472,6 +455,21 @@ def getChainBonusAmount(chainStr: str):
     chainNumber = int(chainStr[0])
     chainLength = len(chainStr)
     return int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
+
+
+async def getOverloadBonus(field):
+    distinctDigitsCount = len(set(str(field.kusaResult)))
+    advKusaNum = distinctDigitsCount * 2
+    overLoadHour = 3 * distinctDigitsCount
+    await baseDB.changeAdvKusa(field.qq, advKusaNum)
+    await itemDB.updateTimeLimitedItem(field.qq, '过载标记', overLoadHour * 3600)
+    overloadMsg = f'注意：你的草地进入了{overLoadHour}小时的过载。你通过过载生草额外获得了{distinctDigitsCount * 2}个草之精华！'
+    await sendPrivateMsg(field.qq, overloadMsg)
+
+
+def getOverloadBonusAmount(field):
+    distinctDigitsCount = len(set(str(field.kusaResult)))
+    return distinctDigitsCount * 2
 
 
 @on_command(name='围殴', only_to_me=False)

@@ -80,6 +80,11 @@ async def _(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='爆柠檬', only_to_me=False)
+async def _(session: CommandSession):
+    await session.send('🍋')
+
+
 @nonebot.scheduler.scheduled_job('cron', day='*', hour='9', minute='00')
 async def read60s():
     msg = await get60sNewsPic()
