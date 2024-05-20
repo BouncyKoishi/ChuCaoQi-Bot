@@ -319,6 +319,8 @@ def getPreItemStr(item):
 
 
 def getMultiItemPrice(item, ownItemAmount, newItemAmount):
+    if not item.priceRate:
+        return newItemAmount * item.shopPrice
     return sum(getItemPrice(item, ownItemAmount + i) for i in range(newItemAmount))
 
 
