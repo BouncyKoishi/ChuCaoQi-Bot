@@ -277,14 +277,12 @@ async def chatPic(session: CommandSession):
     await session.send("已开启新对话，等待回复……")
     picUrls = extractImgUrls(picInfo)
 
-
-    roleMsg = {"role": "system", "content": [{"type": "text", "text": "我是一位视障人士，请你事无巨细地，以超过人眼的细节粒度（指的是包含图中极度细小的，比如文字、图案、花纹、材质等细节），尽可能详细描述这幅图片的所有细节和想要表达的意图。即使是最不起眼的细节也要描述具体。如果图中包含文字，请你先详细给出文字内容，再分析整张图片。如果图中包含人物，请你详细描述人物的外貌，衣着、动作、神态、性别、种族、人物的年龄、身份、职业等。请不要用“某种”、“某种特定的”这样模糊的形容，而要给出确切的描述。我是一位视障人士，图中任何细小的细节都值得详细描述。"}]}
     userContent = [{"type": "text", "text": text}]
     for picUrl in picUrls:
         picBase64 = "data:image/jpeg;base64," + await imgUrlTobase64(picUrl)
         userContent.append({"type": "image_url", "image_url": {"url": picBase64}})
     userMsg = {"role": "user", "content": userContent}
-    history = [roleMsg, userMsg]
+    history = [userMsg]
 
     try:
         reply, tokenUsage = await getChatReply("gpt-4o", history, 4096)
