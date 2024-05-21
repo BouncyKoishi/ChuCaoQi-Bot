@@ -1,7 +1,7 @@
 from plugins.scBattle.scBattlerObj import Battler
 from plugins.scBattle.scBattleUtils import getBattlerName
 from PIL import Image, ImageDraw, ImageFont
-from utils import getImgBase64
+from utils import imgLocalPathToBase64
 import time
 
 class Battle:
@@ -182,7 +182,7 @@ class Battle:
         draw.text((margin, baseHeight + margin), self.turnInfoMsg, font=font3, fill=(0, 0, 0))
         img.save("temp.jpg", format="JPEG", quality=95)
         self.turnInfoMsg = ""
-        return getImgBase64(r"temp.jpg")
+        return imgLocalPathToBase64(r"temp.jpg")
 
     def endGameCheck(self):
         isEndGame = False

@@ -34,7 +34,17 @@ async def _(session: CommandSession):
     await plantKusa(session)
 
 
-async def plantKusa(session: CommandSession):
+@on_command(name='过载生草', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    overloadMagic = await itemDB.getItemAmount(userId, '奈奈的过载魔法')
+    if not overloadMagic:
+        await session.send('你未学会过载魔法，无法进行过载生草^ ^')
+        return
+    await plantKusa(session, True)
+
+
+async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
     if field.kusaIsGrowing:
@@ -44,19 +54,11 @@ async def plantKusa(session: CommandSession):
         await session.send(outputStr)
         return
 
-    kusaType = session.current_arg_text.strip()
-    if kusaType:
-        kusaTypeName = kusaType + "基因图谱"
-        kusaItemExist = await itemDB.getItem(kusaTypeName)
-        if not kusaItemExist:
-            await session.send('你选择的草种类不存在^ ^')
-            return
-        kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
-        if not kusaItemAmount:
-            await session.send('你无法种植这种类型的草^ ^')
-            return
-    else:
-        kusaType = field.defaultKusaType
+    overload = await itemDB.getItemStorageInfo(userId, '过载标记')
+    if overload:
+        overloadEndTime = overload.timeLimitTs.strftime('%H:%M')
+        await session.send(f'土地过载中，无法生草！过载结束时间：{overloadEndTime}')
+        return
 
     soilSaver = await itemDB.getItemStorageInfo(userId, '土壤保护装置')
     if soilSaver and soilSaver.allowUse and field.soilCapacity <= 10:
@@ -66,6 +68,11 @@ async def plantKusa(session: CommandSession):
     if field.soilCapacity <= 0:
         await session.send(
             f'当前承载力为{field.soilCapacity}，不允许生草。')
+        return
+
+    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text, field.defaultKusaType)
+    if not success:
+        await session.send(errMsg)
         return
 
     growTime = 40 + int(40 * systemRandom.random())
@@ -87,6 +94,13 @@ async def plantKusa(session: CommandSession):
 
     growTime = growTime * 2 if kusaType == "巨草" else growTime
     growTime = math.ceil(growTime / 2) if kusaType == "速草" else growTime
+    kusaSpeedMagic = await itemDB.getItemAmount(userId, '奈奈的时光魔法')
+    magicImmediate = kusaSpeedMagic and random.random() < 0.007
+    magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
+    if magicImmediate:
+        await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
+    if magicQuick:
+        growTime = math.ceil(growTime * (1 - 0.777))
     if kusaType == "半灵草":
         kusaType = "灵草" if systemRandom.random() < 0.5 else ""
 
@@ -97,7 +111,7 @@ async def plantKusa(session: CommandSession):
     isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
             seniorPrescient and seniorPrescient.allowUse) else False
     kusaType = "草" if not kusaType else kusaType
-    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient)
+    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient, overloadOnHarvest)
 
     newField = await fieldDB.getKusaField(userId)
     baseKusaNum = 10 * systemRandom.random()
@@ -105,7 +119,8 @@ async def plantKusa(session: CommandSession):
     finalAdvKusaNum = await getCreateAdvKusaNum(newField)
     await fieldDB.updateKusaResult(userId, finalKusaNum, finalAdvKusaNum)
 
-    outputStr = f"开始生{kusaType}。剩余时间：{growTime}min\n"
+    outputStr = f"开始生{kusaType}。剩余时间：{growTime}min"
+    outputStr += "(-77.7%)\n" if magicQuick else "\n"
     predictTime = datetime.now() + timedelta(minutes=growTime + 1)
     outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
     if isPrescient:
@@ -149,12 +164,19 @@ async def _(session: CommandSession):
         if field.isPrescient:
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
+            if field.overloadOnHarvest:
+                st += f"\n过载！本次生草额外获得{getOverloadBonusAmount(field)}草之精华，并过载{getOverloadHour(field)}小时！"
         else:
             minPredict, maxPredict = await getKusaPredict(field)
             st += f'预估生草量：{minPredict} ~ {maxPredict}'
         st += '\n\n'
     else:
-        st += f'当前没有生草。\n'
+        overload = await itemDB.getItemStorageInfo(userId, '过载标记')
+        if overload:
+            overloadEndTime = overload.timeLimitTs.strftime('%H:%M')
+            st += f'土地过载中，无法生草！\n过载结束时间：{overloadEndTime}\n'
+        else:
+            st += '当前没有生草。\n'
     st += f'你选择的默认草种为：{field.defaultKusaType}\n' if field.defaultKusaType else '草'
     st += f'当前的土壤承载力为：{field.soilCapacity}\n'
 
@@ -184,22 +206,28 @@ async def _(session: CommandSession):
 @on_command(name='默认草种', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    kusaType = session.current_arg_text.strip()
-    if kusaType:
-        kusaTypeName = kusaType + "基因图谱"
-        kusaItemExist = await itemDB.getItem(kusaTypeName)
-        if not kusaItemExist:
-            await session.send('你选择的草种类不存在^ ^')
-            return
-        kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
-        if not kusaItemAmount:
-            await session.send('你无法种植这种类型的草^ ^')
-            return
-    else:
-        kusaType = '草'
+    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text)
+    if not success:
+        await session.send(errMsg)
+        return
     await fieldDB.updateDefaultKusaType(userId, kusaType)
     output = f'你的生草默认草种已经设置为{kusaType}' if kusaType else '你的生草默认草种已经设置为普通草'
     await session.send(output)
+
+
+async def getKusaType(userId, strippedArg, defaultType=None):
+    if not strippedArg:
+        return defaultType, True, None
+
+    kusaTypeName = strippedArg + "基因图谱"
+    kusaItemExist = await itemDB.getItem(kusaTypeName)
+    if not kusaItemExist:
+        return '', False, '你选择的草种类不存在^ ^'
+    kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
+    if not kusaItemAmount:
+        return '', False, '你无法种植这种类型的草^ ^'
+
+    return strippedArg, True, None
 
 
 @on_command(name='生草简报', only_to_me=False)
@@ -243,22 +271,43 @@ async def _(session: CommandSession):
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
+    # 常规到时收获逻辑
     activeFields = await fieldDB.getAllKusaField(onlyGrowing=True)
     for field in activeFields:
         if field.kusaRestTime <= 1:
-            await baseDB.changeKusa(field.qq, field.kusaResult)
-            await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
-            outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
-            outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
-            await sendPrivateMsg(field.qq, outputMsg)
-            if field.advKusaResult > 0:
-                await goodNewsReport(field)
-            if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
-                await getChainBonus(field)
-            await fieldDB.kusaHistoryAdd(field)
-            await fieldDB.kusaStopGrowing(field, False)
+            await kusaHarvest(field)
         else:
             await fieldDB.kusaTimePass(field)
+    # 时光魔法收获逻辑
+    timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
+    for userId in timeCapsuleUserIds:
+        field = await fieldDB.getKusaField(userId)
+        if not field.kusaIsGrowing:
+            continue
+        await sendPrivateMsg(userId, '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
+        await itemDB.changeItemAmount(userId, '时光胶囊标记', -1)
+        await kusaHarvest(field)
+        recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
+        if recoverToFull:
+            await sendFieldRecoverInfo(field.qq)
+
+
+async def kusaHarvest(field):
+    if not field.kusaIsGrowing:
+        return
+    await baseDB.changeKusa(field.qq, field.kusaResult)
+    await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
+    outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
+    outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
+    await sendPrivateMsg(field.qq, outputMsg)
+    if field.advKusaResult > 0:
+        await goodNewsReport(field)
+    if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
+        await getChainBonus(field)
+    if field.overloadOnHarvest:
+        await getOverloadBonus(field)
+    await fieldDB.kusaHistoryAdd(field)
+    await fieldDB.kusaStopGrowing(field, False)
 
 
 @nonebot.scheduler.scheduled_job('interval', minutes=90)
@@ -270,11 +319,14 @@ async def soilCapacityIncreaseBase():
             await sendFieldRecoverInfo(field.qq)
 
 
-@nonebot.scheduler.scheduled_job('cron', minute=33)
+@nonebot.scheduler.scheduled_job('cron', minute=33, second=33)
 async def soilCapacityIncreaseForInactive():
     badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
     for field in badSoilFields:
         if field.kusaIsGrowing:
+            continue
+        overload = await itemDB.getItemAmount(field.qq, '过载标记')
+        if overload:
             continue
         recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
         if recoverToFull:
@@ -396,21 +448,21 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
     # 群聊喜报发送
     await sendGroupMsg(config['group']['main'], reportStr)
     # 小礼炮通知发送
-    cannonUserList = await baseDB.getUserListByItem('小礼炮')
-    for user in cannonUserList:
-        if user.qq == field.qq:
+    cannonUserIdList = await itemDB.getUserIdListByItem('小礼炮')
+    for userId in cannonUserIdList:
+        if userId == field.qq:
             continue
-        await itemDB.changeItemAmount(user.qq, '小礼炮', -1)
-        await sendPrivateMsg(user.qq, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+        await itemDB.changeItemAmount(userId, '小礼炮', -1)
+        await sendPrivateMsg(userId, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
     # 分享魔法额外奖励效果
     if '喜报' in reportType:
         await activateRobbing(field)
-        shareUserList = await baseDB.getUserListByItem('除草器的共享魔法')
-        for user in shareUserList:
+        shareUserIdList = await itemDB.getUserIdListByItem('除草器的共享魔法')
+        for userId in shareUserIdList:
             if reportType == '喜报':
-                await baseDB.changeAdvKusa(user.qq, 1)
+                await baseDB.changeAdvKusa(userId, 1)
             if reportType == '连号喜报':
-                await baseDB.changeKusa(user.qq, int(chainStr))
+                await baseDB.changeKusa(userId, int(chainStr))
 
 
 def getChainLengthStr(chainStr: str):
@@ -424,6 +476,25 @@ def getChainBonusAmount(chainStr: str):
     return int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
 
 
+async def getOverloadBonus(field):
+    advKusaNum = getOverloadBonusAmount(field)
+    overLoadHour = getOverloadHour(field)
+    await baseDB.changeAdvKusa(field.qq, advKusaNum)
+    await itemDB.updateTimeLimitedItem(field.qq, '过载标记', overLoadHour * 3600)
+    overloadMsg = f'注意：你的草地进入了{overLoadHour}小时的过载。你通过过载生草额外获得了{advKusaNum}个草之精华！'
+    await sendPrivateMsg(field.qq, overloadMsg)
+
+
+def getOverloadBonusAmount(field):
+    distinctDigitsCount = len(set(str(field.kusaResult)))
+    return distinctDigitsCount * 2
+
+
+def getOverloadHour(field):
+    distinctDigitsCount = len(set(str(field.kusaResult)))
+    return 3 * distinctDigitsCount
+
+
 @on_command(name='围殴', only_to_me=False)
 async def _(session: CommandSession):
     global robDict
@@ -435,7 +506,7 @@ async def _(session: CommandSession):
         await session.send('当前没有可围殴对象^ ^')
         return
 
-    selfRobFlag, hasRobbedFlag, robRecords = False, False, []
+    selfRobFlag, hasRobbedFlag, robRecords, stopRobbingIds = False, False, [], []
     for robId, robInfo in robDict.items():
         print(robId, robInfo)
         if str(userId) == robInfo.targetId:
@@ -457,7 +528,7 @@ async def _(session: CommandSession):
             record += '额外获得了1草之精华！'
         robRecords.append(record)
         if robInfo.robCount >= robInfo.robLimit:
-            await stopRobbing(robId)
+            stopRobbingIds.append(robId)
 
     if robRecords:
         await session.send('\n'.join(robRecords))
@@ -465,6 +536,9 @@ async def _(session: CommandSession):
         await session.send('你已经围殴过了^ ^')
     elif selfRobFlag:
         await session.send('不能围殴自己^ ^')
+
+    for robId in stopRobbingIds:
+        await stopRobbing(robId)
 
 
 async def activateRobbing(field):

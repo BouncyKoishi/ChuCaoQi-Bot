@@ -21,6 +21,7 @@ class KusaField(Model):
     kusaIsGrowing = BooleanField(default=False)
     isUsingKela = BooleanField(default=False)
     isPrescient = BooleanField(default=False)
+    overloadOnHarvest = BooleanField(default=False)
     biogasEffect = FloatField(default=1)
     soilCapacity = IntField(default=25)
     weedCosting = IntField(default=0)
@@ -73,6 +74,7 @@ class KusaItemStorage(Model):
     item = ForeignKeyField("models.KusaItemList", on_delete=CASCADE, related_name="kusa_item_storage")
     amount = IntField()
     allowUse = BooleanField(default=True)
+    timeLimitTs = DatetimeField(null=True)
 
 
 class GValue(Model):

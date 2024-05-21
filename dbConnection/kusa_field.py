@@ -15,7 +15,7 @@ async def getAllKusaField(onlyGrowing=False, onlySoilNotBest=False):
     return await KusaField.all()
 
 
-async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaType, weedCosting, isPrescient):
+async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaType, weedCosting, isPrescient, overloadOnHarvest):
     kusaField = await getKusaField(qqNum)
     if kusaField:
         kusaField.kusaIsGrowing = True
@@ -25,6 +25,7 @@ async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaTyp
         kusaField.biogasEffect = biogasEffect
         kusaField.kusaType = kusaType
         kusaField.weedCosting = weedCosting
+        kusaField.overloadOnHarvest = overloadOnHarvest
         kusaField.soilCapacity -= 2 if kusaType == "巨草" else 1
         kusaField.lastUseTime = datetime.datetime.now()
         await kusaField.save()
@@ -53,6 +54,7 @@ async def kusaStopGrowing(field: KusaField, force=False):
     field.kusaRestTime = 0
     field.isUsingKela = False
     field.isPrescient = False
+    field.overloadOnHarvest = False
     field.biogasEffect = 1.0
     field.kusaResult = 0
     field.advKusaResult = 0
@@ -74,6 +76,13 @@ async def kusaSoilRecover(qqNum):
         if kusaField.soilCapacity == 25:
             return True
     return False
+
+
+async def kusaSoilUseUp(qqNum):
+    kusaField = await getKusaField(qqNum)
+    if kusaField:
+        kusaField.soilCapacity = 0
+        await kusaField.save()
 
 
 async def kusaHistoryAdd(field: KusaField):

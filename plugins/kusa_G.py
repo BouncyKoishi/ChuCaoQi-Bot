@@ -8,7 +8,7 @@ import datetime
 import matplotlib.pylab as plt
 from nonebot import on_command, CommandSession
 from kusa_base import buying, selling, config
-from utils import rd3, getImgBase64
+from utils import rd3, imgLocalPathToBase64
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.g_value as gValueDB
@@ -159,7 +159,7 @@ async def G_pic(session: CommandSession):
         gPicPath = G_PIC + '/G_all.png'
         createGpicAll(gValuesColMap, gPicPath)
 
-    pic = getImgBase64(gPicPath)
+    pic = imgLocalPathToBase64(gPicPath)
     await session.send(pic)
 
 

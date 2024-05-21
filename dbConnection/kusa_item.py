@@ -1,3 +1,4 @@
+import datetime
 from .models import KusaItemList, KusaItemStorage
 from utils import romanNumToInt
 
@@ -27,10 +28,11 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
         raise ValueError("Item not found")
 
 
-async def getItemStorageList(itemName):
+async def getUserIdListByItem(itemName):
     item = await getItem(itemName)
     if item:
-        return await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+        storageList = await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+        return [storage.qq for storage in storageList]
     return []
 
 
@@ -48,34 +50,58 @@ async def changeItemAmount(qqNum, itemName, increaseAmount):
         return True
 
     item = await getItem(itemName)
-    if item:
-        itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
-        if itemStorage:
-            if itemStorage.amount + increaseAmount < 0:
-                raise ValueError("Item amount cannot be negative")
-            itemStorage.amount += increaseAmount
-            await itemStorage.save()
-            if itemStorage.amount == 0:
-                await itemStorage.delete()
-            return True
-        else:
-            if increaseAmount < 0:
-                raise ValueError("Item amount cannot be negative")
-            await KusaItemStorage.create(qq=qqNum, item=item, amount=increaseAmount)
-            return True
-    else:
+    if not item:
         return False
+
+    itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
+    if itemStorage:
+        if itemStorage.amount + increaseAmount < 0:
+            raise ValueError("Item amount cannot be negative")
+        itemStorage.amount += increaseAmount
+        await itemStorage.save()
+        if itemStorage.amount == 0:
+            await itemStorage.delete()
+    else:
+        if increaseAmount < 0:
+            raise ValueError("Item amount cannot be negative")
+        await KusaItemStorage.create(qq=qqNum, item=item, amount=increaseAmount)
+
+    return True
 
 
 async def changeItemAllowUse(qqNum, itemName, allowUse):
     item = await getItem(itemName)
-    if item:
-        itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
-        if itemStorage:
-            itemStorage.allowUse = allowUse
-            await itemStorage.save()
-            return True
-    return False
+    if not item:
+        return False
+
+    itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
+    if itemStorage:
+        itemStorage.allowUse = allowUse
+        await itemStorage.save()
+        return True
+
+
+async def updateTimeLimitedItem(qqNum, itemName, duration):
+    item = await getItem(itemName)
+    if not item:
+        return False
+
+    itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
+    if itemStorage:
+        itemStorage.amount = 1
+        itemStorage.timeLimitTs += datetime.timedelta(seconds=duration)
+        await itemStorage.save()
+    else:
+        now = datetime.datetime.now()
+        timeLimitTs = now + datetime.timedelta(seconds=duration)
+        await KusaItemStorage.create(qq=qqNum, item=item, amount=1, timeLimitTs=timeLimitTs)
+
+    return True
+
+
+async def cleanTimeLimitedItem():
+    now = datetime.datetime.now()
+    return await KusaItemStorage.filter(timeLimitTs__lt=now).delete()
 
 
 async def getShopItemList(priceType):
@@ -95,3 +121,5 @@ async def cleanAllG(qqNum):
         gStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
         if gStorage:
             await gStorage.delete()
+
+

@@ -1,6 +1,7 @@
 import re
 import codecs
-from nonebot import on_command, CommandSession
+from utils import convertNumStrToInt
+from nonebot import on_command, CommandSession, scheduler
 from kusa_base import buying, selling, itemCharging, isUserExist
 from plugins.kusa_industrial import buyingKusaFactory, buyingAdvFactory, getNextFactoryCost
 import dbConnection.db as baseDB
@@ -184,14 +185,14 @@ async def usefulItemTransfer(session: CommandSession):
     argText = session.current_arg_text.strip()
     getNameSuccess, itemName, transferAmount = getItemNameAndAmount(argText)
     qqNumberList = re.search(r'(?<=(QQ|qq)=)\d+', argText)
-    qqNumber = qqNumberList.group(0) if qqNumberList else None
+    receiverQQ = qqNumberList.group(0) if qqNumberList else None
     if not getNameSuccess:
         await session.send('需要物品名！')
         return
-    if not qqNumber:
+    if not receiverQQ:
         await session.send('需要被转让人的QQ号！')
         return
-    if not await isUserExist(qqNumber):
+    if not await isUserExist(receiverQQ):
         await session.send('你想转让的对象并没有生草账户！')
         return
 
@@ -208,8 +209,8 @@ async def usefulItemTransfer(session: CommandSession):
         await session.send(f'你不够{itemName}^ ^')
         return
     await itemDB.changeItemAmount(userId, itemName, -transferAmount)
-    await itemDB.changeItemAmount(qqNumber, itemName, transferAmount)
-    await session.send(f'转让成功！转让了{transferAmount}个{itemName}给{qqNumber}。')
+    await itemDB.changeItemAmount(receiverQQ, itemName, transferAmount)
+    await session.send(f'转让成功！转让了{transferAmount}个{itemName}给{receiverQQ}。')
 
 
 @on_command(name='启用', aliases='道具启用', only_to_me=False)
@@ -275,11 +276,11 @@ async def _(session: CommandSession):
 def getItemNameAndAmount(argText: str):
     # 名字匹配中文字符
     itemNameResult = re.search(r'[\u4e00-\u9fa5G]+[IVX]*', argText)
-    itemAmountResult = re.search(r'(?<!(QQ|qq)=)\b\d+\b', argText)
+    itemAmountResult = re.search(r'(?<!(QQ|qq)=)\b\d+[kmbKMB]?\b', argText)
     if not itemNameResult:
         return False, None, None
     itemName = itemNameResult.group(0)
-    itemAmount = int(itemAmountResult.group(0)) if itemAmountResult else 1
+    itemAmount = convertNumStrToInt((itemAmountResult.group(0))) if itemAmountResult else 1
     return True, itemName, itemAmount
 
 
@@ -318,6 +319,8 @@ def getPreItemStr(item):
 
 
 def getMultiItemPrice(item, ownItemAmount, newItemAmount):
+    if not item.priceRate:
+        return newItemAmount * item.shopPrice
     return sum(getItemPrice(item, ownItemAmount + i) for i in range(newItemAmount))
 
 
@@ -325,3 +328,8 @@ def getItemPrice(item, itemAmount):
     if not item.priceRate:
         return item.shopPrice
     return int(item.shopPrice * (item.priceRate ** itemAmount))
+
+
+@scheduler.scheduled_job('interval', seconds=15)
+async def cleanTimeLimitedItem():
+    await itemDB.cleanTimeLimitedItem()

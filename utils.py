@@ -1,18 +1,33 @@
+import re
+import httpx
 import base64
 import nonebot
 from nonebot import MessageSegment as ms
+from nonebot.command.argfilter.extractors import extract_image_urls
 
 
 def rd3(floatNumber: float):
     return round(floatNumber, 3)
 
 
-def getImgBase64(path):
+async def imgUrlTobase64(url):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+    return base64.b64encode(response.content).decode()
+
+
+def imgLocalPathToBase64(path):
     with open(path, 'rb') as f:
         p = f.read()
         pic_src = 'base64://' + str(base64.b64encode(p)).replace("b'", "").replace("'", "")
         pic = ms.image(pic_src)
         return pic
+
+
+def extractImgUrls(picInfo):
+    urls = extract_image_urls(picInfo)
+    urls = [url.replace('amp;', '') for url in urls]
+    return urls
 
 
 async def getUserAndGroupMsg(userId, groupId):
@@ -63,3 +78,21 @@ def romanNumToInt(romanNum):
 def intToRomanNum(intNum):
     romanNumList = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
     return romanNumList[intNum - 1] if 0 < intNum <= 10 else ""
+
+
+# 支持k,m,b单位的数字字符串转换为int
+def convertNumStrToInt(numStr):
+    match = re.search(r'(\d+)([kmbKMB]?)', numStr)
+    if match:
+        number_part = int(match.group(1))
+        unit = match.group(2)
+        if unit == 'k' or unit == 'K':
+            return number_part * 1_000
+        elif unit == 'm' or unit == 'M':
+            return number_part * 1_000_000
+        elif unit == 'b' or unit == 'B':
+            return number_part * 1_000_000_000
+        else:
+            return number_part
+    else:
+        return None
