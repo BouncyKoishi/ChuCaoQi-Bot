@@ -330,6 +330,6 @@ def getItemPrice(item, itemAmount):
     return int(item.shopPrice * (item.priceRate ** itemAmount))
 
 
-@scheduler.scheduled_job('cron', second='1')
+@scheduler.scheduled_job('interval', seconds=15)
 async def cleanTimeLimitedItem():
     await itemDB.cleanTimeLimitedItem()

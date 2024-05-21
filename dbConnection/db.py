@@ -1,7 +1,7 @@
 from nonebot import on_startup
 from tortoise import Tortoise
 from .models import User, KusaField, Flag
-from .kusa_item import changeItemAmount, getItemStorageList
+from .kusa_item import changeItemAmount
 import datetime
 
 
@@ -18,12 +18,6 @@ async def createUser(qqNum):
 
 async def getUserListOrderByDonate():
     return await User.filter(donateAmount__gte=10).order_by('-donateAmount').limit(25)
-
-
-async def getUserListByItem(itemName):
-    storageList = await getItemStorageList(itemName)
-    userIdList = [storage.qq for storage in storageList]
-    return await User.filter(qq__in=userIdList)
 
 
 async def getUser(qqNum) -> User:

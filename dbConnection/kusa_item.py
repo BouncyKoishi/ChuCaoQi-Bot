@@ -28,10 +28,11 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
         raise ValueError("Item not found")
 
 
-async def getItemStorageList(itemName):
+async def getUserIdListByItem(itemName):
     item = await getItem(itemName)
     if item:
-        return await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+        storageList = await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+        return [storage.qq for storage in storageList]
     return []
 
 
