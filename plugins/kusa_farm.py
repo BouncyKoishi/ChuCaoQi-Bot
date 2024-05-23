@@ -119,8 +119,13 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     finalAdvKusaNum = await getCreateAdvKusaNum(newField)
     await fieldDB.updateKusaResult(userId, finalKusaNum, finalAdvKusaNum)
 
-    outputStr = f"开始生{kusaType}。剩余时间：{growTime}min"
-    outputStr += "(-77.7%)\n" if magicQuick else "\n"
+    outputStr = f"开始生{kusaType}。"
+    if magicImmediate:
+        outputStr += '\n时光魔法吟唱中……\n(ﾉ≧∀≦)ﾉ ‥…━━━★\n'
+    elif magicQuick:
+        outputStr += f'剩余时间：{growTime}min(-77.7%)\n'
+    else:
+        outputStr += f'剩余时间：{growTime}min\n'
     predictTime = datetime.now() + timedelta(minutes=growTime + 1)
     outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
     if isPrescient:
@@ -206,7 +211,7 @@ async def _(session: CommandSession):
 @on_command(name='默认草种', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text)
+    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text, '草')
     if not success:
         await session.send(errMsg)
         return
@@ -216,7 +221,7 @@ async def _(session: CommandSession):
 
 
 async def getKusaType(userId, strippedArg, defaultType=None):
-    if not strippedArg:
+    if not strippedArg or strippedArg == defaultType:
         return defaultType, True, None
 
     kusaTypeName = strippedArg + "基因图谱"
