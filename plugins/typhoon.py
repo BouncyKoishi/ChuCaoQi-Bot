@@ -20,7 +20,7 @@ async def _(session: CommandSession):
     timeData = getCmaTime(CMA_INDEX)
     prevAmount = getPrevAmount(stripped_arg)
     cmaReport = getCmaReport(timeData[prevAmount].get('data-id') if timeData else None)
-    await session.send(cmaReport + "\n具体路径信息：http://typhoon.zjwater.gov.cn/default.aspx")
+    await session.send(cmaReport + "\n具体路径信息：http://typhoon.zjwater.gov.cn")
 
 
 @on_command(name='台风报文', only_to_me=False)
