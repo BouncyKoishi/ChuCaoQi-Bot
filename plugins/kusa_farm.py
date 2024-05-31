@@ -98,6 +98,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     magicImmediate = kusaSpeedMagic and random.random() < 0.007
     magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
     if magicImmediate:
+        growTime = 1
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
@@ -276,25 +277,23 @@ async def _(session: CommandSession):
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
-    # 常规到时收获逻辑
     activeFields = await fieldDB.getAllKusaField(onlyGrowing=True)
+    timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
     for field in activeFields:
         if field.kusaRestTime <= 1:
-            await kusaHarvest(field)
+            # 时光魔法收获逻辑
+            if field.qq in timeCapsuleUserIds:
+                await sendPrivateMsg(field.qq, '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
+                await itemDB.changeItemAmount(field.qq, '时光胶囊标记', -1)
+                await kusaHarvest(field)
+                recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
+                if recoverToFull:
+                    await sendFieldRecoverInfo(field.qq)
+            # 普通收获逻辑
+            else:
+                await kusaHarvest(field)
         else:
             await fieldDB.kusaTimePass(field)
-    # 时光魔法收获逻辑
-    timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
-    for userId in timeCapsuleUserIds:
-        field = await fieldDB.getKusaField(userId)
-        if not field.kusaIsGrowing:
-            continue
-        await sendPrivateMsg(userId, '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
-        await itemDB.changeItemAmount(userId, '时光胶囊标记', -1)
-        await kusaHarvest(field)
-        recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
-        if recoverToFull:
-            await sendFieldRecoverInfo(field.qq)
 
 
 async def kusaHarvest(field):
