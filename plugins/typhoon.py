@@ -1,40 +1,26 @@
 import re
-import urllib.request
-from kusa_base import config
-from nonebot import on_command, CommandSession
+import pytz
+import requests
+from kusa_base import config, sendGroupMsg
+from nonebot import on_command, CommandSession, scheduler
+from datetime import datetime
 from bs4 import BeautifulSoup
 
 USER_AGENT = config['web']['userAgent']
 CMA_INDEX = "http://www.nmc.cn/publish/typhoon/typhoon_new.html"
-CMA_BROADCAST = "http://www.nmc.cn/publish/typhoon/message.html"
 CMA_DETAIL = "http://www.nmc.cn/f/rest/getContent?dataId="
-CMA_DATA_PREFIX = "SEVP_NMC_TCFC_SFER_ETCT_ACHN_LNO_P9_"
-CMA_BROADCAST_PREFIX = "SEVP_NMC_TCMO_SFER_ETCT_ACHN_L88_P9_"
-
-JMA_BROADCAST = "https://www.jma.go.jp/bosai/weather_map/#lang=cn_zs"
+REPORT_BASE_URL = "https://www.wis-jma.go.jp/d/o/"
+reportStorage = {}
+newReportStorage = {}
 
 
 @on_command(name='台风', only_to_me=False)
 async def _(session: CommandSession):
-    stripped_arg = session.current_arg_text.strip()
+    strippedArg = session.current_arg_text.strip()
+    prevAmount = getPrevAmount(strippedArg)
     timeData = getCmaTime(CMA_INDEX)
-    prevAmount = getPrevAmount(stripped_arg)
-    cmaReport = getCmaReport(timeData[prevAmount].get('data-id') if timeData else None)
+    cmaReport = getCmaSimpleReport(timeData[prevAmount].get('data-id') if timeData else None)
     await session.send(cmaReport + "\n具体路径信息：http://typhoon.zjwater.gov.cn")
-
-
-@on_command(name='台风报文', only_to_me=False)
-async def _(session: CommandSession):
-    stripped_arg = session.current_arg_text.strip()
-    prevAmount = getPrevAmount(stripped_arg)
-    if 'jtwc' in stripped_arg.lower():
-        broadcast = 'TODO: jtwc报文'
-    elif 'jma' in stripped_arg.lower():
-        broadcast = 'TODO: jma报文'
-    else:
-        timeData = getCmaTime(CMA_BROADCAST)
-        broadcast = get_cma_broadcast(timeData[prevAmount].get('data-id'))
-    await session.send(broadcast)
 
 
 def getPrevAmount(stripped_arg):
@@ -49,7 +35,12 @@ def getPrevAmount(stripped_arg):
     return prevAmount
 
 
-def getCmaReport(dataId):
+def getCmaTime(url):
+    bsData = BeautifulSoup(getWebPageData(url), "html.parser")
+    return bsData("p", "time")
+
+
+def getCmaSimpleReport(dataId):
     if dataId:
         reportData = getWebPageData(CMA_DETAIL + dataId)
     else:
@@ -70,18 +61,50 @@ def getCmaReport(dataId):
     return reportDetail.get_text()
 
 
-def get_cma_broadcast(data_id):
-    broadcastData = getWebPageData(CMA_DETAIL + data_id)
-    broadcastBs = BeautifulSoup(broadcastData, "html.parser")
-    return broadcastBs.get_text()
-    
-
-def getCmaTime(url):
-    bsData = BeautifulSoup(getWebPageData(url), "html.parser")
-    return bsData("p", "time")
-
-
 def getWebPageData(url):
-    req = urllib.request.Request(url)
-    req.add_header("User-Agent", USER_AGENT)
-    return urllib.request.urlopen(req).read().decode('utf-8')
+    response = requests.get(url, headers={"User-Agent": USER_AGENT})
+    response.raise_for_status()
+    return response.text
+
+
+@on_command(name='台风报文', only_to_me=False)
+async def _(session: CommandSession):
+    await session.send(newReportStorage[-1])
+
+
+@scheduler.scheduled_job('interval', minutes=20)
+async def _():
+    global reportStorage
+    global newReportStorage
+    latestReports = await getNewCmaReports()
+    newReports = {k: v for k, v in latestReports.items() if k not in reportStorage}
+    if newReports:
+        newReportStorage = newReports
+        for report in newReports.values():
+            await sendGroupMsg(config['group']['main'], report)
+    reportStorage = latestReports
+
+
+async def getNewCmaReports():
+    reports = {}
+    dateStr = datetime.now(pytz.timezone('UTC')).strftime("%Y%m%d")
+    url = f"{REPORT_BASE_URL}/BABJ/Alphanumeric/Warning/Tropical_cyclone/{dateStr}/"
+
+    response = getWebPageData(url)
+    soup = BeautifulSoup(response, 'html.parser')
+    for link in soup.find_all('a'):
+        timeStr = link.get('href')
+        if timeStr is None or timeStr.startswith('?C=') or timeStr.startswith('/d/o/'):
+            continue
+        timeResponse = getWebPageData(f'{url}{timeStr}')
+        timeSoup = BeautifulSoup(timeResponse, 'html.parser')
+        for timeLink in timeSoup.find_all('a'):
+            fileStr = timeLink.get('href')
+            if fileStr is None or fileStr.startswith('?C=') or fileStr.startswith('/d/o/'):
+                continue
+            fileResponse = getWebPageData(f'{url}{timeStr}{fileStr}')
+            reports[fileStr] = fileResponse
+    return reports
+
+
+
