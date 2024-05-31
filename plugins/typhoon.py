@@ -2,7 +2,7 @@ import re
 import pytz
 import requests
 from kusa_base import config, sendGroupMsg
-from nonebot import on_command, CommandSession, scheduler
+from nonebot import on_command, CommandSession, on_startup, scheduler
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -10,8 +10,8 @@ USER_AGENT = config['web']['userAgent']
 CMA_INDEX = "http://www.nmc.cn/publish/typhoon/typhoon_new.html"
 CMA_DETAIL = "http://www.nmc.cn/f/rest/getContent?dataId="
 REPORT_BASE_URL = "https://www.wis-jma.go.jp/d/o/"
-reportStorage = {}
-newReportStorage = {}
+reportsStorage = {}
+newReportStorage = ''
 
 
 @on_command(name='台风', only_to_me=False)
@@ -69,20 +69,29 @@ def getWebPageData(url):
 
 @on_command(name='台风报文', only_to_me=False)
 async def _(session: CommandSession):
-    await session.send(newReportStorage[-1])
+    if newReportStorage:
+        await session.send(newReportStorage)
+    else:
+        await session.send("暂无新报文！")
 
 
 @scheduler.scheduled_job('interval', minutes=20)
 async def _():
-    global reportStorage
+    global reportsStorage
     global newReportStorage
     latestReports = await getNewCmaReports()
-    newReports = {k: v for k, v in latestReports.items() if k not in reportStorage}
+    newReports = {k: v for k, v in latestReports.items() if k not in reportsStorage}
     if newReports:
-        newReportStorage = newReports
         for report in newReports.values():
             await sendGroupMsg(config['group']['main'], report)
-    reportStorage = latestReports
+    reportsStorage = latestReports
+
+
+@on_startup
+async def _():
+    global reportsStorage
+    global newReportStorage
+    reportsStorage = await getNewCmaReports()
 
 
 async def getNewCmaReports():
@@ -104,6 +113,7 @@ async def getNewCmaReports():
                 continue
             fileResponse = getWebPageData(f'{url}{timeStr}{fileStr}')
             reports[fileStr] = fileResponse
+    print(f'---已获取当日的台风报文共{len(reports)}条---')
     return reports
 
 
