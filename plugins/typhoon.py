@@ -11,7 +11,7 @@ CMA_INDEX = "http://www.nmc.cn/publish/typhoon/typhoon_new.html"
 CMA_DETAIL = "http://www.nmc.cn/f/rest/getContent?dataId="
 REPORT_BASE_URL = "https://www.wis-jma.go.jp/d/o/"
 reportsStorage = {}
-newReportStorage = ''
+newReportsStorage = {}
 
 
 @on_command(name='台风', only_to_me=False)
@@ -63,14 +63,18 @@ def getCmaSimpleReport(dataId):
 
 def getWebPageData(url):
     response = requests.get(url, headers={"User-Agent": USER_AGENT})
-    response.raise_for_status()
-    return response.text
+    if response.status_code == 200:
+        return response.text
+    else:
+        print(f"台风模块HTTP请求出错: {response.status_code}")
+        return None
 
 
 @on_command(name='台风报文', only_to_me=False)
 async def _(session: CommandSession):
-    if newReportStorage:
-        await session.send(newReportStorage)
+    if newReportsStorage:
+        for report in newReportsStorage.values():
+            await session.send(report)
     else:
         await session.send("暂无新报文！")
 
@@ -78,19 +82,20 @@ async def _(session: CommandSession):
 @scheduler.scheduled_job('interval', minutes=20)
 async def _():
     global reportsStorage
-    global newReportStorage
+    global newReportsStorage
     latestReports = await getNewCmaReports()
     newReports = {k: v for k, v in latestReports.items() if k not in reportsStorage}
     if newReports:
         for report in newReports.values():
             await sendGroupMsg(config['group']['main'], report)
+        newReportsStorage = newReports
     reportsStorage = latestReports
 
 
 @on_startup
 async def _():
     global reportsStorage
-    global newReportStorage
+    global newReportsStorage
     reportsStorage = await getNewCmaReports()
 
 
@@ -99,7 +104,13 @@ async def getNewCmaReports():
     dateStr = datetime.now(pytz.timezone('UTC')).strftime("%Y%m%d")
     url = f"{REPORT_BASE_URL}/BABJ/Alphanumeric/Warning/Tropical_cyclone/{dateStr}/"
 
+    nowTime = datetime.now(pytz.timezone('Asia/Shanghai')).strftime("%H:%M")
+    print(f"---开始获取台风报文，当前时间：{nowTime}---")
     response = getWebPageData(url)
+    if not response:
+        print("---当日无台风信息，或获取台风报文失败---")
+        return reports
+
     soup = BeautifulSoup(response, 'html.parser')
     for link in soup.find_all('a'):
         timeStr = link.get('href')
