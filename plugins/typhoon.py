@@ -66,7 +66,7 @@ def getWebPageData(url):
     if response.status_code == 200:
         return response.text
     else:
-        print(f"台风模块HTTP请求出错: {response.status_code}")
+        print(f"--- 台风模块HTTP请求出错: {response.status_code} ---")
         return None
 
 
@@ -105,10 +105,10 @@ async def getNewCmaReports():
     url = f"{REPORT_BASE_URL}/BABJ/Alphanumeric/Warning/Tropical_cyclone/{dateStr}/"
 
     nowTime = datetime.now(pytz.timezone('Asia/Shanghai')).strftime("%H:%M")
-    print(f"---开始获取台风报文，当前时间：{nowTime}---")
+    print(f"--- 开始获取台风报文，当前时间：{nowTime} ---")
     response = getWebPageData(url)
     if not response:
-        print("---当日无台风信息，或获取台风报文失败---")
+        print("--- 当日无台风信息，或获取台风报文失败 ---")
         return reports
 
     soup = BeautifulSoup(response, 'html.parser')
@@ -124,7 +124,7 @@ async def getNewCmaReports():
                 continue
             fileResponse = getWebPageData(f'{url}{timeStr}{fileStr}')
             reports[fileStr] = fileResponse
-    print(f'---已获取当日的台风报文共{len(reports)}条---')
+    print(f'--- 已获取当日的台风报文共{len(reports)}条 ---')
     return reports
 
 

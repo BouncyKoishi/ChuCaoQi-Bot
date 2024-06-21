@@ -127,8 +127,10 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         outputStr += f'剩余时间：{growTime}min(-77.7%)\n'
     else:
         outputStr += f'剩余时间：{growTime}min\n'
-    predictTime = datetime.now() + timedelta(minutes=growTime + 1)
-    outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+    if not magicImmediate:
+        predictTime = datetime.now() + timedelta(minutes=growTime + 1)
+        outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+
     if isPrescient:
         outputStr += f"预知：生草量为{finalKusaNum}"
         outputStr += f"，草之精华获取量为{finalAdvKusaNum}" if finalAdvKusaNum else ""
