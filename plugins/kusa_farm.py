@@ -206,7 +206,7 @@ async def _(session: CommandSession):
         st += f'已掌握双生法术 * 2\n' if doubleMagic else ''
         st += f'生草科技影响 * {kusaTechEffect}\n' if kusaTechEffect != 1 else ''
         st += f'当前草种影响 * {kusaTypeEffect}\n' if kusaTypeEffect != 1 else ''
-        st += f'土壤承载力影响 * {soilEffect}\n' if soilEffect != 1 else ''
+        st += f'土壤承载力影响 * {soilEffect:.1f}\n' if soilEffect != 1 else ''
 
     await session.send(st[:-1])
 

@@ -79,7 +79,7 @@ async def _(session: CommandSession):
         await session.send("暂无新报文！")
 
 
-@scheduler.scheduled_job('interval', minutes=20)
+@scheduler.scheduled_job('interval', minutes=30)
 async def _():
     global reportsStorage
     global newReportsStorage
