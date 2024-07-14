@@ -10,12 +10,14 @@ def rd3(floatNumber: float):
     return round(floatNumber, 3)
 
 
+# 仅转为base64
 async def imgUrlTobase64(url):
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
     return base64.b64encode(response.content).decode()
 
 
+# 输出MessageSegment类型的图片
 def imgLocalPathToBase64(path):
     with open(path, 'rb') as f:
         p = f.read()
