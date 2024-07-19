@@ -65,7 +65,7 @@ def getCmaSimpleReport(dataId):
             td.string = td.get_text().replace("\xa0", "")
         tr.append("\n")
 
-    return reportDetail.get_text()
+    return reportDetail.get_text().encode('latin-1').decode('utf-8')
 
 
 @on_command(name='雷达回波', only_to_me=False)
@@ -86,7 +86,6 @@ async def _(session: CommandSession):
         return
     radarUrl = NMC_RADAR_BASE_URL + nameDict[strippedArg]
     radarPicUrl = getRadarPicUrl(radarUrl)
-    print(radarPicUrl)
     if not radarPicUrl:
         await session.send("获取雷达回波图失败^ ^")
         return
@@ -101,8 +100,6 @@ def getRadarPicUrl(url):
     bsData = BeautifulSoup(pageData, "html.parser")
     imgBlockDiv = bsData("div", "imgblock")[0]
     imgTag = imgBlockDiv("img")[0]
-    print(imgTag.prettify())
-    print('---------------------------------------------------')
     return imgTag.get("src")
 
 
