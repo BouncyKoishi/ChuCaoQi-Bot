@@ -2,7 +2,6 @@
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue)](https://www.python.org/downloads/release/python-370/)
 [![NoneBot](https://img.shields.io/badge/nonebot-1.9.1-blue)](https://v1.nonebot.dev/)
-[![Go-CQHTTP](https://img.shields.io/badge/go--cqhttp-1.0.0-blue)](https://docs.go-cqhttp.org/)
 
 名为"除草器"的QQBot，采用Python编写，基于[NoneBot1](https://v1.nonebot.dev/)构建。
 
@@ -12,7 +11,7 @@
 
 ## 功能列表
 
-- **生草系统**：一个使用“草”作为货币的模拟经营&挂机游戏。具体内容见本[在线文档](https://docs.qq.com/doc/DQVlFQnBwc0d6eE9Z)
+- **生草系统**：一个使用“草”作为货币的模拟经营&挂机游戏。具体内容在主群有相关文件说明。
 - **符卡对战系统(开发中)**：一个类桌游机制的模拟对战游戏。具体内容在主群有相关文件说明。
 - **对话模块**：与语言大模型进行对话的封装模块，支持自定义角色配置。当前使用ChatGPT Api接口。
 - **抽奖模块**：由群友通过指令自行添加奖品，并提供抽奖功能的模块。
@@ -23,21 +22,16 @@
 - **台风查询**：查询当前正在活跃的台风信息（目前仅限西太洋区）。
 - **图片搜索**：通过多个搜图引擎搜索图片，是[cpuopt/nonebot_plugin_imgexploration](https://github.com/cpuopt/nonebot_plugin_imgexploration)的nonebot1适配改造。
 - **音乐搜索**：根据名字从网易云音乐搜索相关音乐信息。
-- **复读禁言**：群内复读被终结后，禁言参与复读的倒数第二个群友。（历史功能）
-- **五子棋**：提供在群聊中进行五子棋对战的功能，刷屏注意。（历史功能）
 
-部分杂项功能和自用功能不在此一一列出。
+部分杂项功能、自用功能、历史功能等不在此一一列出。
+
+更加详细的功能列表，请参考[指令文档](https://rinkastone.com/2024/05/13/archives/409)
 
 ## 部署与运行
 
 除草器当前在以下项目的基础上构建：
 - [richardchien/nonebot](https://github.com/nonebot/nonebot)
-- [Mrs4s/go-cqhttp](https://github.com/Mrs4s/go-cqhttp)
-- fuqiuluo/unidbg-fetch-qsign(项目已删除)
-
-目前，由于签名服务器项目的删除和QQ官方的围追堵截，先前未自建过QQBot的用户部署本项目的难度已经很大，不推荐无相关经验者部署运行本项目。
-
-如果你拥有可用的签名服务器，或有不基于签名服务器的QQ无头客户端部署方案，请参考[NoneBot1部署说明](https://v1.nonebot.dev/guide/installation.html#nonebot)。
+- [LLOneBot/LLOneBot](https://github.com/LLOneBot/LLOneBot)
 
 完成环境配置后，请按以下流程执行：
 

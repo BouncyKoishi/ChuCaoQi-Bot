@@ -103,14 +103,24 @@ class DB:
     @classmethod
     async def init(cls):
         from . import models
-        await Tortoise.init(
-            db_url=f"sqlite://database/chuchu.sqlite",
-            modules={'models': [locals()['models']]}
-        )
+        await Tortoise.init({
+            "connections": {
+                "default": {
+                    "engine": "tortoise.backends.sqlite",
+                    "credentials": {
+                        "file_path": "database/chuchu.sqlite",
+                        "isolation_level": 'EXCLUSIVE'
+                    }
+                }
+            },
+            "apps": {
+                "models": {
+                    "models": [locals()['models']],
+                    "default_connection": "default",
+                }
+            }
+        })
         await Tortoise.generate_schemas()
-
-    async def createUser(self, qqNum):
-        pass
 
 
 @on_startup

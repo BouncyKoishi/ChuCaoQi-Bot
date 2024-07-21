@@ -98,6 +98,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     magicImmediate = kusaSpeedMagic and random.random() < 0.007
     magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
     if magicImmediate:
+        growTime = 1
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
@@ -119,10 +120,17 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     finalAdvKusaNum = await getCreateAdvKusaNum(newField)
     await fieldDB.updateKusaResult(userId, finalKusaNum, finalAdvKusaNum)
 
-    outputStr = f"开始生{kusaType}。剩余时间：{growTime}min"
-    outputStr += "(-77.7%)\n" if magicQuick else "\n"
-    predictTime = datetime.now() + timedelta(minutes=growTime + 1)
-    outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+    outputStr = f"开始生{kusaType}。"
+    if magicImmediate:
+        outputStr += '\n时光魔法吟唱中……\n(ﾉ≧∀≦)ﾉ ‥…━━━★\n'
+    elif magicQuick:
+        outputStr += f'剩余时间：{growTime}min(-77.7%)\n'
+    else:
+        outputStr += f'剩余时间：{growTime}min\n'
+    if not magicImmediate:
+        predictTime = datetime.now() + timedelta(minutes=growTime + 1)
+        outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+
     if isPrescient:
         outputStr += f"预知：生草量为{finalKusaNum}"
         outputStr += f"，草之精华获取量为{finalAdvKusaNum}" if finalAdvKusaNum else ""
@@ -198,7 +206,7 @@ async def _(session: CommandSession):
         st += f'已掌握双生法术 * 2\n' if doubleMagic else ''
         st += f'生草科技影响 * {kusaTechEffect}\n' if kusaTechEffect != 1 else ''
         st += f'当前草种影响 * {kusaTypeEffect}\n' if kusaTypeEffect != 1 else ''
-        st += f'土壤承载力影响 * {soilEffect}\n' if soilEffect != 1 else ''
+        st += f'土壤承载力影响 * {soilEffect:.1f}\n' if soilEffect != 1 else ''
 
     await session.send(st[:-1])
 
@@ -206,7 +214,7 @@ async def _(session: CommandSession):
 @on_command(name='默认草种', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
-    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text)
+    kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text, '草')
     if not success:
         await session.send(errMsg)
         return
@@ -216,7 +224,7 @@ async def _(session: CommandSession):
 
 
 async def getKusaType(userId, strippedArg, defaultType=None):
-    if not strippedArg:
+    if not strippedArg or strippedArg == defaultType:
         return defaultType, True, None
 
     kusaTypeName = strippedArg + "基因图谱"
@@ -271,25 +279,23 @@ async def _(session: CommandSession):
 # 生草结算
 @nonebot.scheduler.scheduled_job('interval', minutes=1)
 async def save():
-    # 常规到时收获逻辑
     activeFields = await fieldDB.getAllKusaField(onlyGrowing=True)
+    timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
     for field in activeFields:
         if field.kusaRestTime <= 1:
-            await kusaHarvest(field)
+            # 时光魔法收获逻辑
+            if field.qq in timeCapsuleUserIds:
+                await sendPrivateMsg(field.qq, '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
+                await itemDB.changeItemAmount(field.qq, '时光胶囊标记', -1)
+                await kusaHarvest(field)
+                recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
+                if recoverToFull:
+                    await sendFieldRecoverInfo(field.qq)
+            # 普通收获逻辑
+            else:
+                await kusaHarvest(field)
         else:
             await fieldDB.kusaTimePass(field)
-    # 时光魔法收获逻辑
-    timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
-    for userId in timeCapsuleUserIds:
-        field = await fieldDB.getKusaField(userId)
-        if not field.kusaIsGrowing:
-            continue
-        await sendPrivateMsg(userId, '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
-        await itemDB.changeItemAmount(userId, '时光胶囊标记', -1)
-        await kusaHarvest(field)
-        recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
-        if recoverToFull:
-            await sendFieldRecoverInfo(field.qq)
 
 
 async def kusaHarvest(field):

@@ -3,25 +3,31 @@ import httpx
 import base64
 import nonebot
 from nonebot import MessageSegment as ms
-from nonebot.command.argfilter.extractors import extract_image_urls
+from nonebot.command.argfilter.extractors import extract_text, extract_image_urls
 
 
 def rd3(floatNumber: float):
     return round(floatNumber, 3)
 
 
+# 仅转为base64
 async def imgUrlTobase64(url):
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
     return base64.b64encode(response.content).decode()
 
 
+# 输出MessageSegment类型的图片
 def imgLocalPathToBase64(path):
     with open(path, 'rb') as f:
         p = f.read()
         pic_src = 'base64://' + str(base64.b64encode(p)).replace("b'", "").replace("'", "")
         pic = ms.image(pic_src)
         return pic
+
+
+def extractText(arg):
+    return extract_text(arg)
 
 
 def extractImgUrls(picInfo):

@@ -7,12 +7,15 @@ import asyncio
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
-from utils import nameDetailSplit, extractImgUrls, imgUrlTobase64
+from utils import nameDetailSplit, extractText, extractImgUrls, imgUrlTobase64
 
 os.environ["http_proxy"] = config['web']['proxy']
 os.environ["https_proxy"] = config['web']['proxy']
 openai.api_key = config['web']['openai']['key']
 HISTORY_PATH = u"chatHistory/"
+
+unlimitedGroup = config['web']['openai']['gpt3AllowGroups']
+groupCallCounts = {}
 
 
 @on_command(name='chat', only_to_me=False)
@@ -20,9 +23,9 @@ async def chatNew(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, True)
+    reply = await chat(userId, content, isNewConversation=True)
     await session.send(reply)
 
 
@@ -31,9 +34,9 @@ async def chatNewGPT4(session: CommandSession):
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, True, False, "gpt-4o")
+    reply = await chat(userId, content, isNewConversation=True, useGPT4=True)
     await session.send(reply)
 
 
@@ -42,9 +45,9 @@ async def chatNewWithoutRole(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, True, True)
+    reply = await chat(userId, content, isNewConversation=True, useDefaultRole=True)
     await session.send(reply)
 
 
@@ -53,9 +56,9 @@ async def chatNewWithoutRoleGPT4(session: CommandSession):
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, True, True, "gpt-4o")
+    reply = await chat(userId, content, isNewConversation=True, useDefaultRole=True, useGPT4=True)
     await session.send(reply)
 
 
@@ -64,9 +67,9 @@ async def chatContinue(session: CommandSession):
     if not await permissionCheck(session, 'chatc'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     await session.send("继续进行对话，等待回复……")
-    reply = await chat(userId, content, False)
+    reply = await chat(userId, content, isNewConversation=False)
     await session.send(reply)
 
 
@@ -77,9 +80,9 @@ async def chatContinueGPT4(session: CommandSession):
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     await session.send("继续进行对话，等待回复……")
-    reply = await chat(userId, content, False, False, "gpt-4o")
+    reply = await chat(userId, content, isNewConversation=False, useGPT4=True)
     await session.send(reply)
 
 
@@ -96,10 +99,26 @@ async def chatRetry(session: CommandSession):
     if not await permissionCheck(session, 'chatc'):
         return
     userId = session.event.user_id
-    content = session.current_arg_text.strip()
+    content = await getChatContent(session)
     lastMessage = await undo(userId)
+    inputContent = content if session.current_arg_text else lastMessage['content']
     await session.send("已撤回一次对话，重新生成回复中……")
-    reply = await chat(userId, content if content else lastMessage['content'], False)
+    reply = await chat(userId, inputContent, isNewConversation=False)
+    await session.send(reply)
+
+
+@on_command(name='chatr4', only_to_me=False)
+async def chatRetryGPT4(session: CommandSession):
+    if not await permissionCheck(session, 'chatc'):
+        return
+    if not await permissionCheck(session, 'model'):
+        return
+    userId = session.event.user_id
+    content = await getChatContent(session)
+    lastMessage = await undo(userId)
+    inputContent = content if session.current_arg_text else lastMessage['content']
+    await session.send("已撤回一次对话，重新生成回复中……")
+    reply = await chat(userId, inputContent, isNewConversation=False, useGPT4=True)
     await session.send(reply)
 
 
@@ -115,8 +134,8 @@ async def chatUserInfo(session: CommandSession):
     output += f"你已使用的token量(GPT4): {chatUser.tokenUseGPT4}\n" if chatUser.allowModel else ""
     output += f"当前chat功能使用权限：\n"
     output += f"连续对话：{'可用' if chatUser.allowContinue else '不可用'}\n"
-    output += f"私聊：{'可用' if chatUser.allowPrivate else '不可用'}\n"
-    output += f"群聊：{'可用' if chatUser.allowGroup else '不可用'}\n"
+    output += f"任意私聊：{'可用' if chatUser.allowPrivate else '不可用'}\n"
+    output += f"任意群聊：{'可用' if chatUser.allowGroup else '不可用'}\n"
     output += f"角色切换：{'可用' if chatUser.allowRole else '不可用'}\n"
     output += f"GPT4模型：{'可用' if chatUser.allowModel else '不可用'}\n"
 
@@ -264,45 +283,27 @@ async def chatHelp(session: CommandSession):
     await session.send(output)
 
 
-@on_command(name='chatpic', only_to_me=False)
-async def chatPic(session: CommandSession):
-    if not await permissionCheck(session, "admin"):
-        return
-
-    text = session.current_arg_text.strip()
-    picInfo = await session.aget(prompt='给出你需要上传的图片')
-    if picInfo is None or not picInfo.startswith('[CQ:image'):
-        await session.send("非图片，取消chat")
-        return
-    await session.send("已开启新对话，等待回复……")
-    picUrls = extractImgUrls(picInfo)
-
-    userContent = [{"type": "text", "text": text}]
-    for picUrl in picUrls:
+async def getChatContent(session: CommandSession):
+    inputText = session.current_arg_text
+    inputPicUrls = session.current_arg_images
+    userContent = [{"type": "text", "text": inputText}]
+    print(inputPicUrls)
+    if not inputPicUrls:
+        return userContent
+    for picUrl in inputPicUrls:
         picBase64 = "data:image/jpeg;base64," + await imgUrlTobase64(picUrl)
         userContent.append({"type": "image_url", "image_url": {"url": picBase64}})
-    userMsg = {"role": "user", "content": userContent}
-    history = [userMsg]
-
-    try:
-        reply, tokenUsage = await getChatReply("gpt-4o", history, 4096)
-        tokenSign = f"\nTokens(GPT4): {tokenUsage}"
-        await session.send(reply + "\n" + tokenSign)
-    except Exception as e:
-        await sendLog(f"ChatGPT pic api调用出现异常，异常原因为：{str(e)}")
-        await session.send("对话出错了，请稍后再试。")
+    print(userContent)
+    return userContent
 
 
-async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, modelName=None, retryCount=0):
+async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, useGPT4=False, retryCount=0):
     chatUser = await db.getChatUser(userId)
-    model = modelName if modelName else chatUser.chosenModel
+    model = "gpt-4o" if useGPT4 else chatUser.chosenModel
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
     role = await db.getChatRoleById(roleId)
     history = await getNewConversation(roleId) if isNewConversation else await readOldConversation(userId)
-    if isinstance(content, list):
-        history.append({"role": "user", "content": content})
-    else:
-        history.append({"role": "user", "content": [{"type": "text", "text": content}]})
+    history.append({"role": "user", "content": content})
 
     try:
         reply, tokenUsage = await getChatReply(model, history)
@@ -316,7 +317,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, m
     except Exception as e:
         await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}\nRetry次数：{retryCount}")
         if retryCount < 1:
-            return await chat(userId, content, isNewConversation, useDefaultRole, modelName, retryCount + 1)
+            return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
         else:
             return "对话出错了，请稍后再试。"
 
@@ -377,21 +378,30 @@ async def permissionCheck(session: CommandSession, checker: str):
     if checker == 'admin':
         return await isSuperAdmin(userId)
 
+    isGroupCall = session.ctx['message_type'] == 'group'
+    groupId = session.event.group_id if isGroupCall else None
     chatUser = await db.getChatUser(userId)
     if chatUser is None:
-        return False
+        if groupId not in unlimitedGroup:
+            return False
+        await db.updateChatUser(userId, '')
+
     if checker == 'base':
         return True
     if checker == 'chat':
-        if session.ctx['message_type'] == 'private':
-            return chatUser.allowPrivate
-        if session.ctx['message_type'] == 'group':
+        if isGroupCall:
+            if groupId in unlimitedGroup:
+                return True
             return chatUser.allowGroup
+        if not isGroupCall:
+            return chatUser.allowPrivate
     if checker == 'chatc':
-        if session.ctx['message_type'] == 'private':
-            return chatUser.allowPrivate and chatUser.allowContinue
-        if session.ctx['message_type'] == 'group':
+        if isGroupCall:
+            if groupId in unlimitedGroup:
+                return True
             return chatUser.allowGroup and chatUser.allowContinue
+        if not isGroupCall:
+            return chatUser.allowPrivate and chatUser.allowContinue
     if checker == 'role':
         return chatUser.allowRole
     if checker == 'model':
