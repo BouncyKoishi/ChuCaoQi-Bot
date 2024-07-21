@@ -1,7 +1,6 @@
 import re
 import pytz
 import requests
-import base64
 from nonebot import MessageSegment as ms
 from kusa_base import config, sendGroupMsg
 from nonebot import on_command, CommandSession, on_startup, scheduler
@@ -65,7 +64,7 @@ def getCmaSimpleReport(dataId):
             td.string = td.get_text().replace("\xa0", "")
         tr.append("\n")
 
-    return reportDetail.get_text().encode('latin-1').decode('utf-8')
+    return reportDetail.get_text()
 
 
 @on_command(name='雷达回波', only_to_me=False)
@@ -120,7 +119,7 @@ async def _():
     newReports = {k: v for k, v in latestReports.items() if k not in reportsStorage}
     if newReports:
         for report in newReports.values():
-            await sendGroupMsg(config['group']['main'], report)
+            await sendGroupMsg(config['group']['log'], report)
         newReportsStorage = newReports
     reportsStorage = latestReports
 
