@@ -76,9 +76,9 @@ async def deleteRole(role: ChatRole):
 
 
 async def addTokenUsage(chatUser: ChatUser, model: str, tokenUse: int):
-    if "gpt-3.5-turbo" in model:
-        chatUser.tokenUse += tokenUse
-    elif "gpt-4" in model:
+    if model == "gpt-4o":
         chatUser.tokenUseGPT4 += tokenUse
+    else:
+        chatUser.tokenUse += tokenUse
     chatUser.tokenUse += tokenUse
     await chatUser.save()

@@ -12,6 +12,8 @@ def rd3(floatNumber: float):
 
 # 仅转为base64
 async def imgUrlTobase64(url):
+    url = url.replace('amp;', '')
+    print(f'imgUrlTobase64: {url}')
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
     return base64.b64encode(response.content).decode()
