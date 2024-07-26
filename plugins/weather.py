@@ -69,19 +69,21 @@ def getCmaSimpleReport(dataId):
 
 @on_command(name='雷达回波', only_to_me=False)
 async def _(session: CommandSession):
-    # 广州韶关梅州阳江汕头深圳湛江河源汕尾肇庆连州
     nameDict = {'全国': 'chinaall.html', '华北': 'huabei.html', '东北': 'dongbei.html', '华东': 'huadong.html',
                 '华中': 'huazhong.html', '华南': 'huanan.html', '西南': 'xinan.html', '西北': 'xibei.html',
                 '广州': 'guang-dong/guang-zhou.htm', '韶关': 'guang-dong/shao-guan.htm', '梅州': 'guang-dong/mei-zhou.htm',
                 '阳江': 'guang-dong/yang-jiang.htm', '汕头': 'guang-dong/shan-tou.htm', '深圳': 'guang-dong/shen-zhen.htm',
                 '湛江': 'guang-dong/zhan-jiang.htm', '河源': 'guang-dong/he-yuan.htm', '汕尾': 'guang-dong/shan-wei.htm',
-                '肇庆': 'guang-dong/zhao-qing.htm', '连州': 'guang-dong/lian-zhou.htm'}
+                '肇庆': 'guang-dong/zhao-qing.htm', '连州': 'guang-dong/lian-zhou.htm', '福州': 'fu-jian/fu-zhou.htm',
+                '厦门': 'fu-jian/xia-men.htm', '杭州': 'zhe-jiang/hang-zhou.htm', '宁波': 'zhe-jiang/ning-bo.htm',
+                '温州': 'zhe-jiang/wen-zhou.htm', '嵊泗': 'zhe-jiang/cheng-si.htm', '金华': 'zhe-jiang/jin-hua.htm',
+                '上海': 'shang-hai/qing-pu.htm', '南京': 'jiang-su/nan-jing.htm'}
     strippedArg = session.current_arg_text.strip()
     if not strippedArg:
         await session.send(f"地区未指定^ ^\n目前支持的地区有：{'、'.join(nameDict.keys())}")
         return
     if strippedArg not in nameDict:
-        await session.send("未找到对应地区的雷达回波图^ ^")
+        await session.send(f"未找到对应地区的雷达回波图^ ^\n目前支持的地区有：{'、'.join(nameDict.keys())}")
         return
     radarUrl = NMC_RADAR_BASE_URL + nameDict[strippedArg]
     radarPicUrl = getRadarPicUrl(radarUrl)
