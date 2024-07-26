@@ -7,7 +7,7 @@ import asyncio
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
-from utils import nameDetailSplit, extractText, extractImgUrls, imgUrlTobase64
+from utils import nameDetailSplit, imgUrlTobase64
 
 os.environ["http_proxy"] = config['web']['proxy']
 os.environ["https_proxy"] = config['web']['proxy']
@@ -248,15 +248,15 @@ async def changeModel(session: CommandSession):
     if strippedText:
         if strippedText == "gpt-4" or strippedText == "gpt4":
             newModel = "gpt-4o"
+        elif strippedText == "gpt-4-mini" or strippedText == "gpt4-mini":
+            newModel = "gpt-4o-mini"
         elif strippedText == "gpt-3.5" or strippedText == "gpt3.5":
-            newModel = "gpt-3.5-turbo"
-        elif strippedText == "gpt-3.5-old" or strippedText == "gpt3.5-old":
             newModel = "gpt-3.5-turbo-0301"
         else:
             newModel = strippedText
             await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
     else:
-        newModel = "gpt-3.5-turbo"
+        newModel = "gpt-4o-mini"
     await db.updateUsingModel(userId, newModel)
     output = f"已切换到{newModel}模型"
     await session.send(output)
@@ -276,10 +276,10 @@ async def chatHelp(session: CommandSession):
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt3.5/gpt4）"
+        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
-    output += "\n\n当前默认使用的模型：gpt-3.5-turbo\n当前使用的是收费api，请勿滥用！"
+    output += "\n\n当前默认使用的模型：gpt-4o-mini\n当前使用的是收费api，请勿滥用！"
     await session.send(output)
 
 
@@ -293,7 +293,6 @@ async def getChatContent(session: CommandSession):
     for picUrl in inputPicUrls:
         picBase64 = "data:image/jpeg;base64," + await imgUrlTobase64(picUrl)
         userContent.append({"type": "image_url", "image_url": {"url": picBase64}})
-    print(userContent)
     return userContent
 
 
@@ -311,7 +310,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
-        gpt4Sign = "(GPT4)" if "gpt-4" in model else ""
+        gpt4Sign = "(GPT-4o)" if model == "gpt-4o" else ""
         tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
