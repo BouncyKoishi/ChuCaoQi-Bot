@@ -9,13 +9,11 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 USER_AGENT = config['web']['userAgent']
-
 CMA_INDEX_URL = "http://www.nmc.cn/publish/typhoon/typhoon_new.html"
 CMA_DETAIL_URL = "http://www.nmc.cn/f/rest/getContent?dataId="
-
 NMC_RADAR_BASE_URL = "http://www.nmc.cn/publish/radar/"
-
 REPORT_BASE_URL = "https://www.wis-jma.go.jp/d/o/"
+GET_REPORT_FLAG = not config['debug'] if 'debug' in config else True
 reportsStorage = {}
 newReportsStorage = {}
 
@@ -106,6 +104,9 @@ def getRadarPicUrl(url):
 
 @on_command(name='台风报文', only_to_me=False)
 async def _(session: CommandSession):
+    if not GET_REPORT_FLAG:
+        await session.send("台风报文自动获取功能已关闭。")
+        return
     if newReportsStorage:
         for report in newReportsStorage.values():
             await session.send(report)
@@ -115,6 +116,8 @@ async def _(session: CommandSession):
 
 @scheduler.scheduled_job('interval', minutes=30)
 async def _():
+    if not GET_REPORT_FLAG:
+        return
     global reportsStorage
     global newReportsStorage
     latestReports = await getNewCmaReports()
@@ -128,6 +131,9 @@ async def _():
 
 @on_startup
 async def _():
+    if not GET_REPORT_FLAG:
+        print(f'--- 台风报文自动获取功能已关闭 ---')
+        return
     global reportsStorage
     reportsStorage = await getNewCmaReports()
 
