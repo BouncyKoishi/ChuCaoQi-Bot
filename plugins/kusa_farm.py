@@ -27,6 +27,12 @@ class RobInfo:
 systemRandom = random.SystemRandom()
 robDict: typing.Dict[str, RobInfo] = {}
 advKusaProbabilityDict = {0: 0, 1: 0.1, 2: 0.4, 3: 0.5, 4: 0.6}
+kusaTypeEffectMap = {'巨草': 2, '巨巨草': 3, '巨灵草': 4, '速草': 0.75, '速速草': 0.5,
+                     '灵草': 2, '不灵草': 0, '灵草II': 3, '灵草III': 4, '灵草IV': 5,
+                     '灵草V': 6, '灵草VI': 7, '灵草VII': 8, '灵草VIII': 9, '神灵草': 10}
+advKusaTypeEffectMap = {'巨草': 2, '巨巨草': 3, '巨灵草': 4, '灵草': 2, '灵草II': 3,
+                        '灵草III': 4, '灵草IV': 5, '灵草V': 6, '灵草VI': 7, '灵草VII': 8,
+                        '灵草VIII': 9, '神灵草': 10}
 
 
 @on_command(name='生草', only_to_me=False)
@@ -74,10 +80,11 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     if not success:
         await session.send(errMsg)
         return
+    kusaType = "草" if not kusaType else kusaType
 
-    growTime = 40 + int(40 * systemRandom.random())
-    isUsingKela = False
-    bioGasEffect = 1
+    # 原始生长时间和金坷垃、沼气池效果
+    growTime = systemRandom.randint(40, 80)
+    isUsingKela, bioGasEffect = False, 1
     kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
     biogasStorage = await itemDB.getItemStorageInfo(userId, '沼气池')
     fieldAmount = await itemDB.getItemAmount(userId, '草地')
@@ -92,8 +99,28 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
             bioGasEffect = round(random.uniform(1.2, 2), 2)
             await itemDB.changeItemAmount(userId, '红茶', -1)
 
-    growTime = growTime * 2 if kusaType == "巨草" else growTime
-    growTime = math.ceil(growTime / 2) if kusaType == "速草" else growTime
+    # 神灵草替换
+    divinePlugin = await itemDB.getItemStorageInfo(userId, '神灵草基因模块')
+    if divinePlugin and divinePlugin.allowUse and kusaType != '不灵草':
+        if random.random() < 0.05:
+            kusaType = '神灵草'
+
+    # 灵草相关处理
+    if kusaType == "半灵草":
+        kusaType = "灵草" if systemRandom.random() < 0.5 else "草"
+    if kusaType == "半灵巨草":
+        kusaType = "巨灵草" if systemRandom.random() < 0.5 else "巨草"
+    if kusaType == "灵灵草":
+        spiritTypeName = ['草', '灵草', '灵草II', '灵草III', '灵草IV', '灵草V', '灵草VI', '灵草VII', '灵草VIII']
+        spiritLevel = min(8, int(-math.log2(systemRandom.random())))
+        kusaType = spiritTypeName[spiritLevel]
+
+    # 草种影响生长时间
+    growTimeMultiplierMap = {'巨草': 2, '巨灵草': 2, '巨巨草': 4, '速草': 0.5}
+    growTime = math.ceil(growTime * growTimeMultiplierMap[kusaType]) if kusaType in growTimeMultiplierMap else growTime
+    growTime = systemRandom.randint(1, 5) if kusaType == "速速草" else growTime
+
+    # 奈奈的时光魔法影响生长时间
     kusaSpeedMagic = await itemDB.getItemAmount(userId, '奈奈的时光魔法')
     magicImmediate = kusaSpeedMagic and random.random() < 0.007
     magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
@@ -102,18 +129,23 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
-    if kusaType == "半灵草":
-        kusaType = "灵草" if systemRandom.random() < 0.5 else ""
 
+    # 生草预知判断
     juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
     seniorPrescient = await itemDB.getItemStorageInfo(userId, '生草预知')
-    weedCosting = 2 if juniorPrescient and juniorPrescient.allowUse and not (
-            seniorPrescient and seniorPrescient.allowUse) else 0
     isPrescient = True if (juniorPrescient and juniorPrescient.allowUse) or (
             seniorPrescient and seniorPrescient.allowUse) else False
-    kusaType = "草" if not kusaType else kusaType
-    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType, weedCosting, isPrescient, overloadOnHarvest)
 
+    # 生草、除草消耗承载力计算
+    plantCostingMap = {'巨草': 2, '巨灵草': 2, '巨巨草': 4}
+    plantCosting = plantCostingMap[kusaType] if kusaType in plantCostingMap else 1
+    weedCosting = 2 if ((juniorPrescient and juniorPrescient.allowUse) and
+                        not (seniorPrescient and seniorPrescient.allowUse)) else 0
+
+    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType,
+                                   plantCosting, weedCosting, isPrescient, overloadOnHarvest)
+
+    # 生草产量计算
     newField = await fieldDB.getKusaField(userId)
     baseKusaNum = 10 * systemRandom.random()
     finalKusaNum = await getCreateKusaNum(newField, baseKusaNum)
@@ -153,6 +185,7 @@ async def _(session: CommandSession):
         await session.send('当前没有生草，无法除草^ ^')
         return
     await fieldDB.kusaStopGrowing(field, True)
+    await itemDB.removeTimeLimitedItem(field.qq, '灵性标记')
     await session.send('除草成功^ ^')
 
     if await baseDB.getFlagValue(userId, '除草后自动生草'):
@@ -195,7 +228,9 @@ async def _(session: CommandSession):
         doubleMagic = await itemDB.getItemAmount(field.qq, '双生法术卷轴')
         kusaTechEffect = await getKusaTechEffect(field.qq)
         soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
-        kusaTypeEffectMap = {'巨草': 2, '灵草': 2, '速草': 0.75}
+        spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
+        spiritualEffect = 2 if spiritualSign else 1
+
         kusaTypeEffect = kusaTypeEffectMap[field.kusaType] if field.kusaType in kusaTypeEffectMap else 1
         st += '\n生草数量计算详情:\n'
         st += f'基础生草量：0 ~ 10\n'
@@ -206,6 +241,7 @@ async def _(session: CommandSession):
         st += f'已掌握双生法术 * 2\n' if doubleMagic else ''
         st += f'生草科技影响 * {kusaTechEffect}\n' if kusaTechEffect != 1 else ''
         st += f'当前草种影响 * {kusaTypeEffect}\n' if kusaTypeEffect != 1 else ''
+        st += f'灵性保留 * {spiritualEffect}\n' if spiritualSign else ''
         st += f'土壤承载力影响 * {soilEffect:.1f}\n' if soilEffect != 1 else ''
 
     await session.send(st[:-1])
@@ -285,8 +321,9 @@ async def save():
         if field.kusaRestTime <= 1:
             # 时光魔法收获逻辑
             if field.qq in timeCapsuleUserIds:
-                await sendPrivateMsg(field.qq, '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
-                await itemDB.changeItemAmount(field.qq, '时光胶囊标记', -1)
+                await sendPrivateMsg(field.qq,
+                                     '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
+                await itemDB.removeTimeLimitedItem(field.qq, '时光胶囊标记')
                 await kusaHarvest(field)
                 recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
                 if recoverToFull:
@@ -312,6 +349,10 @@ async def kusaHarvest(field):
         await getChainBonus(field)
     if field.overloadOnHarvest:
         await getOverloadBonus(field)
+    if field.kusaType == "不灵草":
+        await itemDB.updateTimeLimitedItem(field.qq, '灵性标记', 24 * 3600)
+    else:
+        await itemDB.removeTimeLimitedItem(field.qq, '灵性标记')
     await fieldDB.kusaHistoryAdd(field)
     await fieldDB.kusaStopGrowing(field, False)
 
@@ -356,15 +397,16 @@ async def getCreateKusaNum(field, baseKusa):
     user = await baseDB.getUser(field.qq)
     fieldAmount = await itemDB.getItemAmount(field.qq, '草地')
     doubleMagic = await itemDB.getItemAmount(field.qq, '双生法术卷轴')
+    spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
     kusaTechEffect = await getKusaTechEffect(field.qq)
-    soilCapacity = field.soilCapacity
-    soilEffect = 1 - 0.1 * (10 - soilCapacity) if soilCapacity <= 10 else 1
+    soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
+
     kusaNum = baseKusa
     kusaNum += 0.5 * (2 ** (user.vipLevel - 1)) if user.vipLevel > 0 else 0
+    kusaNum *= kusaTypeEffectMap[field.kusaType] if field.kusaType in kusaTypeEffectMap else 1
     kusaNum *= 2 if field.isUsingKela else 1
     kusaNum *= 2 if doubleMagic else 1
-    kusaNum *= 2 if field.kusaType == "巨草" or field.kusaType == "灵草" else 1
-    kusaNum *= 0.75 if field.kusaType == "速草" else 1
+    kusaNum *= 2 if spiritualSign else 1
     kusaNum *= field.biogasEffect
     kusaNum *= fieldAmount
     kusaNum *= soilEffect
@@ -388,8 +430,10 @@ async def getCreateAdvKusaNum(field):
             advKusaNum = 1
 
     mustGrowAdv = await itemDB.getItemAmount(field.qq, '生草控制论')
+    spiritualSign = await itemDB.getItemStorageInfo(field.qq, '灵性标记')
     advKusaNum = 1 if mustGrowAdv and advKusaNum == 0 else advKusaNum
-    advKusaNum *= 2 if field.kusaType == "巨草" or field.kusaType == "灵草" else 1
+    advKusaNum *= advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
+    advKusaNum *= 2 if spiritualSign and field.kusaType != '不灵草' else 1
 
     return advKusaNum
 
@@ -410,13 +454,16 @@ async def goodNewsReport(field):
         countThresholds = math.log(1 / 200, 1 - advKusaProbabilityDict[qualityLevel])  # 质量2为11，质量3为8，质量4为6
         if noKusaAdvCount > countThresholds:
             await sendReportMsg(field, '悲报', sadNewsCount=noKusaAdvCount)
-    # 喜报：基础草精大于等于X
+    # 生草质量喜报：基础草精大于等于X
     if qualityLevel >= 3:
-        advKusaMultiple = (field.kusaType == "巨草" or field.kusaType == "灵草")
-        baseAdvKusa = field.advKusaResult / 2 if advKusaMultiple else field.advKusaResult
+        advKusaEffect = advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
+        baseAdvKusa = field.advKusaResult / advKusaEffect
         advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
         if baseAdvKusa >= advKusaThresholds:
-            await sendReportMsg(field, '喜报')
+            await sendReportMsg(field, '质量喜报')
+    # 总草精数喜报：最终草精大于等于50
+    if field.advKusaResult >= 50:
+        await sendReportMsg(field, '草精喜报')
 
 
 async def getChainBonus(field):
@@ -442,7 +489,7 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
         qualityLevel = await itemDB.getTechLevel(field.qq, '生草质量')
         itemName = "生草质量" + intToRomanNum(qualityLevel)
         reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {itemName} 在连续{sadNewsCount}次生草中未获得草之精华！[CQ:face,id=144]"
-    if reportType == '喜报':
+    if reportType in ['质量喜报', '草精喜报']:
         kusaType = field.kusaType if field.kusaType else "普通草"
         reportStr = f"喜报\n[CQ:face,id=144]玩家 {userName} 使用 {kusaType} 获得了{field.advKusaResult}个草之精华！大家快来围殴他吧！[CQ:face,id=144]"
     if reportType == '连号喜报':
@@ -465,7 +512,7 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
         await activateRobbing(field)
         shareUserIdList = await itemDB.getUserIdListByItem('除草器的共享魔法')
         for userId in shareUserIdList:
-            if reportType == '喜报':
+            if reportType in ['质量喜报', '草精喜报']:
                 await baseDB.changeAdvKusa(userId, 1)
             if reportType == '连号喜报':
                 await baseDB.changeKusa(userId, int(chainStr))
