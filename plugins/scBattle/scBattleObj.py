@@ -30,6 +30,12 @@ class Battle:
         self.joiner.setEnemy(self.creator)
         self.gameRound = 0
 
+    async def leaveBattle(self) -> None:
+        self.joinerId = None
+        self.joiner = None
+        self.gameRound = None
+        self.creator.setEnemy(None)
+
     async def setSingleBattleEnemy(self, enemyName, enemyCardList):
         self.joinerId = -1
         self.joiner = Battler(self.joinerId, enemyName)

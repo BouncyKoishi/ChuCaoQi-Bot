@@ -84,6 +84,10 @@ effectDict, _ = getClassesDict(r'plugins\scBattle\effects')
 costCountList = getCostCountList(5, 3, 7)   # standard: 5 cards, card <= 5 cost, total cost = 10
 
 
+def getAllCards():
+    return [cardClass() for cardClass in cardDict.values()]
+
+
 def getCardObjById(cardId):
     cardClass = cardDict.get(cardId, None)
     return cardClass() if cardClass else None
