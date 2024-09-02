@@ -332,4 +332,4 @@ def getItemPrice(item, itemAmount):
 
 @scheduler.scheduled_job('interval', seconds=15)
 async def cleanTimeLimitedItem():
-    await itemDB.cleanTimeLimitedItem()
+    await itemDB.cleanTimeLimitedItems()

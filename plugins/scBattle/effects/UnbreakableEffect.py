@@ -10,7 +10,7 @@ class UnbreakableEffect(AbstractEffect):
         self.effectType = "BUFF"
 
     def beforeHurt(self, hurtValue: int):
-        if hurtValue >= self.user.hp:
+        if hurtValue >= self.user.nowHp:
             self.effectInfoMsg = f"[{self.user.name}]的击破保护触发，免疫本次伤害！\n"
             self.effectAmount -= 1
             return 0

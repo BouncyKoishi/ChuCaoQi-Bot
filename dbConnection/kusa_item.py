@@ -99,7 +99,19 @@ async def updateTimeLimitedItem(qqNum, itemName, duration):
     return True
 
 
-async def cleanTimeLimitedItem():
+async def removeTimeLimitedItem(qqNum, itemName):
+    item = await getItem(itemName)
+    if not item:
+        return False
+
+    itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
+    if itemStorage:
+        await itemStorage.delete()
+        return True
+    return False
+
+
+async def cleanTimeLimitedItems():
     now = datetime.datetime.now()
     return await KusaItemStorage.filter(timeLimitTs__lt=now).delete()
 

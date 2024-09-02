@@ -15,7 +15,7 @@ async def getAllKusaField(onlyGrowing=False, onlySoilNotBest=False):
     return await KusaField.all()
 
 
-async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaType, weedCosting, isPrescient, overloadOnHarvest):
+async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaType, plantCosting, weedCosting, isPrescient, overloadOnHarvest):
     kusaField = await getKusaField(qqNum)
     if kusaField:
         kusaField.kusaIsGrowing = True
@@ -25,8 +25,8 @@ async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaTyp
         kusaField.biogasEffect = biogasEffect
         kusaField.kusaType = kusaType
         kusaField.weedCosting = weedCosting
+        kusaField.soilCapacity -= plantCosting
         kusaField.overloadOnHarvest = overloadOnHarvest
-        kusaField.soilCapacity -= 2 if kusaType == "巨草" else 1
         kusaField.lastUseTime = datetime.datetime.now()
         await kusaField.save()
 
@@ -125,6 +125,7 @@ async def kusaHistoryTotalReport(interval):
             strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < ?
     ''', [interval])
     return rows[0]
+
 
 async def kusaFarmChampion():
     async def executeChampionQuery(conn, select: str, orderBy: str):
