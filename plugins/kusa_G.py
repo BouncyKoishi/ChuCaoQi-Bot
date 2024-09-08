@@ -5,13 +5,16 @@ import time
 import random
 import nonebot
 import datetime
-import matplotlib.pylab as plt
 from nonebot import on_command, CommandSession
 from kusa_base import buying, selling, config
 from utils import rd3, imgLocalPathToBase64
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.g_value as gValueDB
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 
 G_PIC = 'gPic'
 systemRandom = random.SystemRandom()
