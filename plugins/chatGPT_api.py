@@ -314,7 +314,8 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
-        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{str(e)}\nRetry次数：{retryCount}")
+        reason = str(e) if str(e) else "Timeout"
+        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
         if retryCount < 1:
             return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
         else:
@@ -339,9 +340,9 @@ async def getResponseAsync(model, history, maxTokens=None):
 
 def getResponse(model, history, maxTokens):
     if maxTokens:
-        return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=180)
+        return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
     else:
-        return openai.ChatCompletion.create(model=model, messages=history, timeout=180)
+        return openai.ChatCompletion.create(model=model, messages=history, timeout=60)
 
 
 async def undo(userId):

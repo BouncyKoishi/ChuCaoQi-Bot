@@ -103,7 +103,7 @@ class ChatUser(Model):
     allowGroup = BooleanField(default=False)
     allowRole = BooleanField(default=False)
     allowModel = BooleanField(default=False)
-    chosenModel = CharField(max_length=32, default="gpt-3.5-turbo")
+    chosenModel = CharField(max_length=32, default="gpt-4o-mini")
     tokenUse = IntField(default=0)
     tokenUseGPT4 = IntField(default=0)
     chosenRoleId = IntField(default=0)
@@ -113,7 +113,7 @@ class ChatUser(Model):
 class ChatRole(Model):
     id = IntField(pk=True)
     name = CharField(max_length=32)
-    detail = CharField(max_length=1024)
+    detail = CharField(max_length=10240)
     isPublic = BooleanField(default=False)
     creator = CharField(max_length=12)
     createTime = DatetimeField(auto_now_add=True)
