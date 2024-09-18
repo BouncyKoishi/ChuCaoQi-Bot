@@ -61,7 +61,7 @@ async def usefulItemQuery(session: CommandSession):
     itemName = session.current_arg_text.strip()
     item = await itemDB.getItem(itemName)
     if not item:
-        await session.send('此物品不存在!')
+        await session.send('此物品不存在!（如果需要查看抽奖物品信息，请使用!物品详情）')
         return
     ownItemAmount = await itemDB.getItemAmount(session.ctx['user_id'], itemName)
     output = f'{item.name}\n'

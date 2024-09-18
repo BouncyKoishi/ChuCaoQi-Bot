@@ -285,7 +285,7 @@ async def itemSearch(session: CommandSession):
         pageSize = 12
         count, items = await drawItemDB.searchItem(strippedArg, pageSize, offset)
         if not count:
-            await session.send('没有找到该物品^ ^')
+            await session.send('没有找到该物品^ ^（如果需要查看生草系统道具信息，请使用!查询）')
             return
         outputStr = '' if offset else '你要找的是不是：\n'
         outputStr += '\n'.join(f'[{itemRareDescribe[item["rareRank"]]}]{item["name"]}' for item in items)
