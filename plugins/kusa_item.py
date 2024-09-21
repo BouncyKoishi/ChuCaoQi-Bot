@@ -1,8 +1,9 @@
 import re
 import codecs
+import datetime
 from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession, scheduler
-from kusa_base import buying, selling, itemCharging, isUserExist
+from kusa_base import buying, selling, itemCharging, isUserExist, sendPrivateMsg
 from plugins.kusa_industrial import buyingKusaFactory, buyingAdvFactory, getNextFactoryCost
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
@@ -332,4 +333,10 @@ def getItemPrice(item, itemAmount):
 
 @scheduler.scheduled_job('interval', seconds=15)
 async def cleanTimeLimitedItem():
+    overloadIdList = await itemDB.getUserIdListByItem('过载标记')
+    for userId in overloadIdList:
+        if await baseDB.getFlagValue(userId, '过载结束提示'):
+            overloadInfo = await itemDB.getItemStorageInfo(userId, '过载标记')
+            if overloadInfo.timeLimitTs < datetime.datetime.now().timestamp():
+                await sendPrivateMsg(userId, '你的百草园过载已结束！')
     await itemDB.cleanTimeLimitedItems()

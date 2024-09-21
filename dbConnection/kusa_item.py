@@ -1,3 +1,4 @@
+import pytz
 import datetime
 from .models import KusaItemList, KusaItemStorage
 from utils import romanNumToInt
@@ -92,8 +93,8 @@ async def updateTimeLimitedItem(qqNum, itemName, duration):
         itemStorage.timeLimitTs += datetime.timedelta(seconds=duration)
         await itemStorage.save()
     else:
-        now = datetime.datetime.now()
-        timeLimitTs = now + datetime.timedelta(seconds=duration)
+        now = datetime.datetime.now().timestamp()
+        timeLimitTs = now + duration
         await KusaItemStorage.create(qq=qqNum, item=item, amount=1, timeLimitTs=timeLimitTs)
 
     return True
@@ -112,7 +113,7 @@ async def removeTimeLimitedItem(qqNum, itemName):
 
 
 async def cleanTimeLimitedItems():
-    now = datetime.datetime.now()
+    now = datetime.datetime.now().timestamp()
     return await KusaItemStorage.filter(timeLimitTs__lt=now).delete()
 
 
