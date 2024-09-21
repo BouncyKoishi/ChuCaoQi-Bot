@@ -1,6 +1,7 @@
 import json
 import codecs
 import nonebot
+import datetime
 import numpy as np
 import dbConnection.db as db
 from nonebot import Message, on_command, CommandSession
@@ -83,6 +84,11 @@ async def _(session: CommandSession):
 @on_command(name='爆柠檬', only_to_me=False)
 async def _(session: CommandSession):
     await session.send('🍋')
+
+
+@on_command(name='timestamp', only_to_me=False)
+async def _(session: CommandSession):
+    await session.send(str(datetime.datetime.now().timestamp()))
 
 
 @nonebot.scheduler.scheduled_job('cron', day='*', hour='9', minute='00')
