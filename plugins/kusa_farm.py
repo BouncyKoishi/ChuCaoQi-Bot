@@ -575,9 +575,10 @@ async def _(session: CommandSession):
         await baseDB.changeKusa(robInfo.targetId, -kusaRobbed)
         robInfo.robCount += kusaRobbed
         robInfo.participantIds.add(str(userId))
-        user = await baseDB.getUser(robInfo.targetId)
-        userName = user.name if user.name else user.qq
-        record = f'围殴 {userName} 成功！你获得了{kusaRobbed}草！'
+        targetUser = await baseDB.getUser(robInfo.targetId)
+        targetUserName = targetUser.name if targetUser.name else targetUser.qq
+        record = f'围殴 {targetUserName} 成功！你获得了{kusaRobbed}草！'
+        user = await baseDB.getUser(userId)
         if robInfo.extraKusaAdv and user.vipLevel >= 5:
             await baseDB.changeAdvKusa(userId, 1)
             record += '额外获得了1草之精华！'
