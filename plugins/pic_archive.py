@@ -104,7 +104,7 @@ async def commitPic(session, imageArchiveName):
         return
 
     picNameList = re.findall(r'(?<=,file=)\S+?(?=,)', replyMsg)
-    picUrlList = re.findall(r'(?<=,url=)\S+?(?=])', replyMsg)
+    picUrlList = utils.extractImgUrls(replyMsg)
     for i in range(0, len(picNameList)):
         uploaderQQ = session.ctx['user_id']
         examinePath = imageArchive['examinePath']
