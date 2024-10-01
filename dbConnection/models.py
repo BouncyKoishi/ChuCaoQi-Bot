@@ -124,3 +124,11 @@ class Flag(Model):
     value = BooleanField(default=False)
     forAll = BooleanField(default=True)
     ownerId = CharField(max_length=12, null=True)
+
+
+class DonateRecord(Model):
+    qq = CharField(max_length=12)
+    amount = FloatField()
+    donateDate = CharField(max_length=16)
+    source = CharField(max_length=12)
+    remark = CharField(max_length=128, null=True)

@@ -65,20 +65,49 @@ def sleepTimeCalculation(base, summa, size):
 
 @on_command(name='THANKS', only_to_me=False)
 async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    year = session.current_arg_text.strip()
+    year = year if year and year.isdigit() and 2020 <= int(year) <= 2099 else None
+    donateAmount = await db.getDonateAmount(userId)
     output = ''
-    donateList = await db.getUserListOrderByDonate()
-    selfDonate = await db.getUser(session.ctx['user_id'])
 
-    if selfDonate and selfDonate.donateAmount > 0:
+    if donateAmount > 0:
         output += '感谢您对生草系统的支援！\n'
-        output += f"您的捐助金额为：{selfDonate.donateAmount}元\n\n"
+        output += f"您的累计捐助金额为：{donateAmount}元\n"
+        if year:
+            thisYearAmount = await db.getDonateAmount(userId, year)
+            output += f"您的{year}年度捐助金额为：{thisYearAmount}元\n" if thisYearAmount > 0 else ''
+        output += '若需要查询您的所有捐助记录，请使用【!捐助记录】指令\n\n'
 
-    output += '感谢所有生草系统的资助者！\n篇幅所限，仅展示部分捐助信息。\n'
-    for row in donateList:
-        displayName = row.name if row.name else row.qq
-        output += f'{displayName}：{row.donateAmount}元\n'
-    output += 'and you...'
-    await session.send(output)
+    output += '感谢所有生草系统的资助者！\n'
+    donateRank = await db.getDonateRank(year=year)
+
+    if len(donateRank) == 0:
+        output += f'{year}年度暂无捐助信息= ='
+        await session.send(output)
+        return
+    output += f'以下是{year}年度的捐助信息' if year else '以下是累计捐助信息'
+    output += f'(篇幅较长，仅展示前25条)：\n' if len(donateRank) > 25 else '：\n'
+
+    nameList = await db.getNameListByQQ(donateRank.keys())
+    for qq, amount in list(donateRank.items())[:25]:
+        displayName = nameList.get(qq, qq)
+        output += f'{displayName}：{amount:.2f}元\n'
+    await session.send(output[:-1])
+
+
+@on_command(name='捐助记录', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    output = ''
+    donateRecords = await db.getDonateRecords(userId)
+    if not donateRecords:
+        output += '您还没有捐助记录哦~'
+    else:
+        output += '您的捐助记录如下：\n'
+        for record in donateRecords:
+            output += f"{record.donateDate}：{record.amount}元\n"
+    await session.send(output[:-1])
 
 
 @on_command(name='爆柠檬', only_to_me=False)

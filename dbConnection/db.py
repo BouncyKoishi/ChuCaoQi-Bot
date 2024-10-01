@@ -1,6 +1,9 @@
+from itertools import groupby
+from operator import attrgetter
+
 from nonebot import on_startup
 from tortoise import Tortoise
-from .models import User, KusaField, Flag
+from .models import User, KusaField, Flag, DonateRecord
 from .kusa_item import changeItemAmount
 import datetime
 
@@ -16,8 +19,9 @@ async def createUser(qqNum):
         await existUser.save()
 
 
-async def getUserListOrderByDonate():
-    return await User.filter(donateAmount__gte=10).order_by('-donateAmount').limit(25)
+async def getNameListByQQ(qqList):
+    users = await User.filter(qq__in=qqList).values('qq', 'name')
+    return {user['qq']: user['name'] for user in users}
 
 
 async def getUser(qqNum) -> User:
@@ -91,6 +95,37 @@ async def setFlag(userId, flagName, value):
 
 async def getFlagList():
     return await Flag.filter(forAll=True).all()
+
+
+async def getDonateRecords(qqNum=None, year=None):
+    if qqNum:
+        if year:
+            return await DonateRecord.filter(qq=qqNum).filter(donateDate__contains=year).order_by('donateDate')
+        return await DonateRecord.filter(qq=qqNum).order_by('donateDate')
+    if year:
+        return await DonateRecord.filter(donateDate__contains=year).order_by('donateDate')
+    return await DonateRecord.all()
+
+
+async def getDonateAmount(qqNum=None, year=None):
+    records = await getDonateRecords(qqNum, year)
+    return sum([record.amount for record in records])
+
+
+async def getDonateRank(qqNum=None, year=None):
+    records = await getDonateRecords(qqNum, year)
+    groupedRecords = {}
+    for record in records:
+        groupedRecords.setdefault(record.qq, []).append(record.amount)
+    donates = {qq: sum(amounts) for qq, amounts in groupedRecords.items()}
+    donateRank = dict(sorted(donates.items(), key=lambda item: item[1], reverse=True))
+    return donateRank
+
+
+async def setDonateRecord(qqNum, amount, source):
+    now = datetime.datetime.now()
+    donateDate = now.strftime('%Y-%m-%d')
+    await DonateRecord.create(qq=qqNum, amount=amount, donateDate=donateDate, source=source)
 
 
 class DB:
