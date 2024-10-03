@@ -9,16 +9,13 @@ class User(Model):
     kusa = IntField(default=0)
     advKusa = IntField(default=0)
     vipLevel = IntField(default=0)
-    donateAmount = FloatField(default=0)
     isSuperAdmin = BooleanField(default=False)
-    trigger = CharField(max_length=32, null=True)
     lastUseTime = DatetimeField(null=True)
 
 
 class KusaField(Model):
     qq = CharField(max_length=12, pk=True)
-    kusaRestTime = IntField(default=0)
-    kusaIsGrowing = BooleanField(default=False)
+    kusaFinishTs = IntField(default=None, null=True)
     isUsingKela = BooleanField(default=False)
     isPrescient = BooleanField(default=False)
     overloadOnHarvest = BooleanField(default=False)
@@ -27,7 +24,7 @@ class KusaField(Model):
     weedCosting = IntField(default=0)
     kusaResult = IntField(default=0)
     advKusaResult = IntField(default=0)
-    kusaType = CharField(max_length=8, default="")
+    kusaType = CharField(max_length=8, default=None, null=True)
     defaultKusaType = CharField(max_length=8, default="草")
     lastUseTime = DatetimeField(null=True)
 

@@ -53,9 +53,10 @@ async def _(session: CommandSession):
 async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
-    if field.kusaIsGrowing:
-        outputStr = f'你的{field.kusaType}还在生。剩余时间：{field.kusaRestTime}min'
-        predictTime = datetime.now() + timedelta(minutes=field.kusaRestTime + 1)
+    if field.kusaFinishTs:
+        predictTime = datetime.fromtimestamp(field.kusaFinishTs)
+        restTime = predictTime - datetime.now()
+        outputStr = f'你的{field.kusaType}还在生。剩余时间：{restTime.seconds // 60}min'
         outputStr += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}'
         await session.send(outputStr)
         return
@@ -68,12 +69,10 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
 
     soilSaver = await itemDB.getItemStorageInfo(userId, '土壤保护装置')
     if soilSaver and soilSaver.allowUse and field.soilCapacity <= 10:
-        await session.send(
-            f'当前承载力为{field.soilCapacity}，强制土壤保护启用中，不允许生草。\n如果需要强制生草，请先禁用土壤保护装置。')
+        await session.send(f'当前承载力为{field.soilCapacity}，强制土壤保护启用中，不允许生草。\n如果需要强制生草，请先禁用土壤保护装置。')
         return
     if field.soilCapacity <= 0:
-        await session.send(
-            f'当前承载力为{field.soilCapacity}，不允许生草。')
+        await session.send(f'当前承载力为{field.soilCapacity}，不允许生草。')
         return
 
     kusaType, success, errMsg = await getKusaType(userId, session.current_arg_text, field.defaultKusaType)
@@ -142,7 +141,8 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     weedCosting = 2 if ((juniorPrescient and juniorPrescient.allowUse) and
                         not (seniorPrescient and seniorPrescient.allowUse)) else 0
 
-    await fieldDB.kusaStartGrowing(userId, growTime, isUsingKela, bioGasEffect, kusaType,
+    kusaFinishTs = datetime.timestamp(datetime.now() + timedelta(minutes=growTime))
+    await fieldDB.kusaStartGrowing(userId, kusaFinishTs, isUsingKela, bioGasEffect, kusaType,
                                    plantCosting, weedCosting, isPrescient, overloadOnHarvest)
 
     # 生草产量计算
@@ -181,7 +181,7 @@ async def _(session: CommandSession):
         await session.send('你没有除草机，无法除草^ ^')
         return
     field = await fieldDB.getKusaField(userId)
-    if not field.kusaIsGrowing:
+    if not field.kusaFinishTs:
         await session.send('当前没有生草，无法除草^ ^')
         return
     await fieldDB.kusaStopGrowing(field, True)
@@ -198,10 +198,11 @@ async def _(session: CommandSession):
     user = await baseDB.getUser(userId)
     field = await fieldDB.getKusaField(userId)
     st = '百草园：\n'
-    if field.kusaIsGrowing:
-        st += f'距离{field.kusaType}长成还有{field.kusaRestTime}min\n'
-        predictTime = datetime.now() + timedelta(minutes=field.kusaRestTime + 1)
-        st += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+    if field.kusaFinishTs:
+        predictTime = datetime.fromtimestamp(field.kusaFinishTs)
+        restTime = predictTime - datetime.now()
+        st += f'距离{field.kusaType}长成还有{restTime.seconds // 60}min\n'
+        st += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
         if field.isPrescient:
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
@@ -313,30 +314,27 @@ async def _(session: CommandSession):
 
 
 # 生草结算
-@nonebot.scheduler.scheduled_job('interval', minutes=1)
+@nonebot.scheduler.scheduled_job('interval', minutes=1, max_instances=10)
 async def save():
-    activeFields = await fieldDB.getAllKusaField(onlyGrowing=True)
+    finishedFields = await fieldDB.getAllKusaField(onlyFinished=True)
     timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
-    for field in activeFields:
-        if field.kusaRestTime <= 1:
-            # 时光魔法收获逻辑
-            if field.qq in timeCapsuleUserIds:
-                await sendPrivateMsg(field.qq,
-                                     '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
-                await itemDB.removeTimeLimitedItem(field.qq, '时光胶囊标记')
-                await kusaHarvest(field)
-                recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
-                if recoverToFull:
-                    await sendFieldRecoverInfo(field.qq)
-            # 普通收获逻辑
-            else:
-                await kusaHarvest(field)
+    for field in finishedFields:
+        # 时光魔法收获逻辑
+        if field.qq in timeCapsuleUserIds:
+            await sendPrivateMsg(field.qq,
+                                 '时光胶囊启动！奈奈发动了时光魔法，使本次生草立即完成且不消耗承载力喵(⑅˘̤ ᵕ˘̤)*♡*')
+            await itemDB.removeTimeLimitedItem(field.qq, '时光胶囊标记')
+            await kusaHarvest(field)
+            recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
+            if recoverToFull:
+                await sendFieldRecoverInfo(field.qq)
+        # 普通收获逻辑
         else:
-            await fieldDB.kusaTimePass(field)
+            await kusaHarvest(field)
 
 
 async def kusaHarvest(field):
-    if not field.kusaIsGrowing:
+    if not field.kusaFinishTs:
         return
     await baseDB.changeKusa(field.qq, field.kusaResult)
     await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
@@ -370,7 +368,7 @@ async def soilCapacityIncreaseBase():
 async def soilCapacityIncreaseForInactive():
     badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
     for field in badSoilFields:
-        if field.kusaIsGrowing:
+        if field.kusaFinishTs:
             continue
         overload = await itemDB.getItemAmount(field.qq, '过载标记')
         if overload:
