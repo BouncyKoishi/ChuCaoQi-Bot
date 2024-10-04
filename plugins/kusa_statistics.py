@@ -16,18 +16,14 @@ async def _(session: CommandSession):
     outputStr += "KUSA_ADV_RANK 总草精排行榜\n"
     outputStr += "TITLE_LIST 系统称号列表\n"
     outputStr += "GIVE_TITLE [qq号] [称号] 给予称号\n"
+    outputStr += "SET_DONATION [qq号] [金额] (ifd) 设置捐赠金额\n"
     await session.send(outputStr)
 
 
 @on_command(name='TOTAL_KUSA', only_to_me=False)
 async def _(session: CommandSession):
     userList = await baseDB.getAllUser()
-    totalKusa = 0
-    totalKusaAdv = 0
-    availableKusa = 0
-    availableKusaAdv = 0
-    
-    print(config['qq']['bot'])
+    totalKusa, totalKusaAdv, availableKusa, availableKusaAdv = 0, 0, 0, 0
     for user in userList:
         totalKusa += user.kusa
         totalKusaAdv += user.advKusa
@@ -168,3 +164,19 @@ async def _(session: CommandSession):
         return
     await itemDB.changeItemAmount(user.qq, title, 1)
     await session.send(f'成功赠送{user.qq}称号{title}')
+
+
+@on_command(name='SET_DONATION', only_to_me=False)
+async def _(session: CommandSession):
+    if not await isSuperAdmin(session.ctx['user_id']):
+        return
+
+    stripped_arg = session.current_arg_text.strip()
+    qqNum, amount, source = stripped_arg.split(" ")
+    source = source if source else "qq"
+    user = await baseDB.getUser(qqNum)
+    if not user:
+        await session.send("用户不存在")
+        return
+    await baseDB.setDonateRecord(qqNum, amount, source)
+    await session.send(f'成功添加{qqNum}通过{source}捐赠{amount}元的记录')

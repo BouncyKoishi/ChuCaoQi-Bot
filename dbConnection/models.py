@@ -9,16 +9,13 @@ class User(Model):
     kusa = IntField(default=0)
     advKusa = IntField(default=0)
     vipLevel = IntField(default=0)
-    donateAmount = FloatField(default=0)
     isSuperAdmin = BooleanField(default=False)
-    trigger = CharField(max_length=32, null=True)
     lastUseTime = DatetimeField(null=True)
 
 
 class KusaField(Model):
     qq = CharField(max_length=12, pk=True)
-    kusaRestTime = IntField(default=0)
-    kusaIsGrowing = BooleanField(default=False)
+    kusaFinishTs = IntField(default=None, null=True)
     isUsingKela = BooleanField(default=False)
     isPrescient = BooleanField(default=False)
     overloadOnHarvest = BooleanField(default=False)
@@ -27,7 +24,7 @@ class KusaField(Model):
     weedCosting = IntField(default=0)
     kusaResult = IntField(default=0)
     advKusaResult = IntField(default=0)
-    kusaType = CharField(max_length=8, default="")
+    kusaType = CharField(max_length=8, default=None, null=True)
     defaultKusaType = CharField(max_length=8, default="草")
     lastUseTime = DatetimeField(null=True)
 
@@ -74,7 +71,7 @@ class KusaItemStorage(Model):
     item = ForeignKeyField("models.KusaItemList", on_delete=CASCADE, related_name="kusa_item_storage")
     amount = IntField()
     allowUse = BooleanField(default=True)
-    timeLimitTs = DatetimeField(null=True)
+    timeLimitTs = IntField(null=True)
 
 
 class GValue(Model):
@@ -103,7 +100,7 @@ class ChatUser(Model):
     allowGroup = BooleanField(default=False)
     allowRole = BooleanField(default=False)
     allowModel = BooleanField(default=False)
-    chosenModel = CharField(max_length=32, default="gpt-3.5-turbo")
+    chosenModel = CharField(max_length=32, default="gpt-4o-mini")
     tokenUse = IntField(default=0)
     tokenUseGPT4 = IntField(default=0)
     chosenRoleId = IntField(default=0)
@@ -113,7 +110,7 @@ class ChatUser(Model):
 class ChatRole(Model):
     id = IntField(pk=True)
     name = CharField(max_length=32)
-    detail = CharField(max_length=1024)
+    detail = CharField(max_length=10240)
     isPublic = BooleanField(default=False)
     creator = CharField(max_length=12)
     createTime = DatetimeField(auto_now_add=True)
@@ -124,3 +121,11 @@ class Flag(Model):
     value = BooleanField(default=False)
     forAll = BooleanField(default=True)
     ownerId = CharField(max_length=12, null=True)
+
+
+class DonateRecord(Model):
+    qq = CharField(max_length=12)
+    amount = FloatField()
+    donateDate = CharField(max_length=16)
+    source = CharField(max_length=12)
+    remark = CharField(max_length=128, null=True)

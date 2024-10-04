@@ -38,9 +38,8 @@ async def warehouse(session: CommandSession):
         user = await baseDB.getUser(userId)
         nickname = user.name if user.name else session.ctx['sender']['nickname']
 
-        output = ''
-        if user.donateAmount:
-            output += f'感谢您，生草系统的捐助者!\n'
+        donateAmount = await baseDB.getDonateAmount(userId)
+        output = f'感谢您，生草系统的捐助者!\n' if donateAmount else ''
         output += f'Lv{user.vipLevel} ' if user.vipLevel else ''
         output += f'{user.title} ' if user.title else f'{vipTitleName[user.vipLevel]} '
         output += f'{nickname}({userId})\n'

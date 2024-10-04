@@ -1,3 +1,4 @@
+import pytz
 import datetime
 from .models import KusaItemList, KusaItemStorage
 from utils import romanNumToInt
@@ -28,12 +29,19 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
         raise ValueError("Item not found")
 
 
+async def getItemStorageListByItem(itemName):
+    item = await getItem(itemName)
+    if not item:
+        return []
+    return await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+
+
 async def getUserIdListByItem(itemName):
     item = await getItem(itemName)
-    if item:
-        storageList = await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
-        return [storage.qq for storage in storageList]
-    return []
+    if not item:
+        return []
+    storageList = await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+    return [storage.qq for storage in storageList]
 
 
 async def getTechLevel(qqNum, techNamePrefix) -> int:
@@ -92,8 +100,8 @@ async def updateTimeLimitedItem(qqNum, itemName, duration):
         itemStorage.timeLimitTs += datetime.timedelta(seconds=duration)
         await itemStorage.save()
     else:
-        now = datetime.datetime.now()
-        timeLimitTs = now + datetime.timedelta(seconds=duration)
+        now = datetime.datetime.now().timestamp()
+        timeLimitTs = now + duration
         await KusaItemStorage.create(qq=qqNum, item=item, amount=1, timeLimitTs=timeLimitTs)
 
     return True
@@ -112,7 +120,7 @@ async def removeTimeLimitedItem(qqNum, itemName):
 
 
 async def cleanTimeLimitedItems():
-    now = datetime.datetime.now()
+    now = datetime.datetime.now().timestamp()
     return await KusaItemStorage.filter(timeLimitTs__lt=now).delete()
 
 

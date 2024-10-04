@@ -7,19 +7,19 @@ async def getKusaField(qqNum) -> KusaField:
     return await KusaField.filter(qq=qqNum).first()
 
 
-async def getAllKusaField(onlyGrowing=False, onlySoilNotBest=False):
-    if onlyGrowing:
-        return await KusaField.filter(kusaIsGrowing=True).all()
+async def getAllKusaField(onlyFinished=False, onlySoilNotBest=False):
+    if onlyFinished:
+        nowTimestamp = datetime.datetime.now().timestamp()
+        return await KusaField.filter(kusaFinishTs__lt=nowTimestamp).all()
     if onlySoilNotBest:
         return await KusaField.filter(soilCapacity__lt=25).all()
     return await KusaField.all()
 
 
-async def kusaStartGrowing(qqNum, kusaRestTime, usingKela, biogasEffect, kusaType, plantCosting, weedCosting, isPrescient, overloadOnHarvest):
+async def kusaStartGrowing(qqNum, kusaFinishTs, usingKela, biogasEffect, kusaType, plantCosting, weedCosting, isPrescient, overloadOnHarvest):
     kusaField = await getKusaField(qqNum)
     if kusaField:
-        kusaField.kusaIsGrowing = True
-        kusaField.kusaRestTime = kusaRestTime
+        kusaField.kusaFinishTs = kusaFinishTs
         kusaField.isUsingKela = usingKela
         kusaField.isPrescient = isPrescient
         kusaField.biogasEffect = biogasEffect
@@ -50,22 +50,16 @@ async def kusaStopGrowing(field: KusaField, force=False):
     if force:
         field.soilCapacity -= field.weedCosting
     field.weedCosting = 0
-    field.kusaIsGrowing = False
-    field.kusaRestTime = 0
+    field.kusaFinishTs = None
     field.isUsingKela = False
     field.isPrescient = False
     field.overloadOnHarvest = False
     field.biogasEffect = 1.0
     field.kusaResult = 0
     field.advKusaResult = 0
-    field.kusaType = ""
+    field.kusaType = None
     field.lastUseTime = datetime.datetime.now()
     await field.save()
-
-
-async def kusaTimePass(kusaField: KusaField):
-    kusaField.kusaRestTime -= 1
-    await kusaField.save()
 
 
 async def kusaSoilRecover(qqNum):

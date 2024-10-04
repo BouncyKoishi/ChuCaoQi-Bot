@@ -1,8 +1,9 @@
 import re
 import codecs
+import datetime
 from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession, scheduler
-from kusa_base import buying, selling, itemCharging, isUserExist
+from kusa_base import buying, selling, itemCharging, isUserExist, sendPrivateMsg
 from plugins.kusa_industrial import buyingKusaFactory, buyingAdvFactory, getNextFactoryCost
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
@@ -61,7 +62,7 @@ async def usefulItemQuery(session: CommandSession):
     itemName = session.current_arg_text.strip()
     item = await itemDB.getItem(itemName)
     if not item:
-        await session.send('此物品不存在!')
+        await session.send('此物品不存在!（如果需要查看抽奖物品信息，请使用!物品详情）')
         return
     ownItemAmount = await itemDB.getItemAmount(session.ctx['user_id'], itemName)
     output = f'{item.name}\n'
@@ -330,6 +331,11 @@ def getItemPrice(item, itemAmount):
     return int(item.shopPrice * (item.priceRate ** itemAmount))
 
 
-@scheduler.scheduled_job('interval', seconds=15)
+@scheduler.scheduled_job('interval', seconds=59)
 async def cleanTimeLimitedItem():
+    overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
+    for storage in overloadStorageList:
+        if storage.timeLimitTs < datetime.datetime.now().timestamp():
+            if await baseDB.getFlagValue(storage.qq, '过载结束提示'):
+                await sendPrivateMsg(storage.qq, '你的百草园过载已结束！')
     await itemDB.cleanTimeLimitedItems()

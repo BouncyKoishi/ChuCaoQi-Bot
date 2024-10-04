@@ -27,7 +27,7 @@ async def newFriendHandle(session: RequestSession):
         await session.approve()
         await sendLog(logInfo + '已自动通过')
     else:
-        await session.reject(reason='Code Error')
+        await session.reject(reason='好友码错误，请向维护者申请好友码')
         await sendLog(logInfo + '因好友码错误已自动拒绝')
 
 
