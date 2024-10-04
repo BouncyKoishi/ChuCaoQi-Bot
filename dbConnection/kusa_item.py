@@ -29,12 +29,19 @@ async def getItemStorageInfo(qqNum, itemName) -> KusaItemStorage:
         raise ValueError("Item not found")
 
 
+async def getItemStorageListByItem(itemName):
+    item = await getItem(itemName)
+    if not item:
+        return []
+    return await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+
+
 async def getUserIdListByItem(itemName):
     item = await getItem(itemName)
-    if item:
-        storageList = await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
-        return [storage.qq for storage in storageList]
-    return []
+    if not item:
+        return []
+    storageList = await KusaItemStorage.filter(item=item, allowUse=True, amount__gt=0).all()
+    return [storage.qq for storage in storageList]
 
 
 async def getTechLevel(qqNum, techNamePrefix) -> int:
