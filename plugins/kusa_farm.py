@@ -56,14 +56,14 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     if field.kusaFinishTs:
         predictTime = datetime.fromtimestamp(field.kusaFinishTs)
         restTime = predictTime - datetime.now()
-        outputStr = f'你的{field.kusaType}还在生。剩余时间：{restTime.seconds // 60}min'
+        outputStr = f'你的{field.kusaType}还在生。剩余时间：{restTime.total_seconds() // 60}min'
         outputStr += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}'
         await session.send(outputStr)
         return
 
     overload = await itemDB.getItemStorageInfo(userId, '过载标记')
     if overload:
-        overloadEndTime = overload.timeLimitTs.strftime('%H:%M')
+        overloadEndTime = datetime.fromtimestamp(overload.timeLimitTs).strftime('%H:%M')
         await session.send(f'土地过载中，无法生草！过载结束时间：{overloadEndTime}')
         return
 
@@ -201,8 +201,8 @@ async def _(session: CommandSession):
     if field.kusaFinishTs:
         predictTime = datetime.fromtimestamp(field.kusaFinishTs)
         restTime = predictTime - datetime.now()
-        st += f'距离{field.kusaType}长成还有{restTime.seconds // 60}min\n'
-        st += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+        st += f'距离{field.kusaType}长成还有{restTime.total_seconds() // 60}min\n'
+        st += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
         if field.isPrescient:
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
@@ -215,7 +215,7 @@ async def _(session: CommandSession):
     else:
         overload = await itemDB.getItemStorageInfo(userId, '过载标记')
         if overload:
-            overloadEndTime = overload.timeLimitTs.strftime('%H:%M')
+            overloadEndTime = datetime.fromtimestamp(overload.timeLimitTs).strftime('%H:%M')
             st += f'土地过载中，无法生草！\n过载结束时间：{overloadEndTime}\n'
         else:
             st += '当前没有生草。\n'
