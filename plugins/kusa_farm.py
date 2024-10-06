@@ -199,10 +199,13 @@ async def _(session: CommandSession):
     field = await fieldDB.getKusaField(userId)
     st = '百草园：\n'
     if field.kusaFinishTs:
-        predictTime = datetime.fromtimestamp(field.kusaFinishTs)
+        predictTime = datetime.fromtimestamp(field.kusaFinishTs) + timedelta(minutes=1)
         restTime = predictTime - datetime.now()
-        st += f'距离{field.kusaType}长成还有{restTime.total_seconds() // 60}min\n'
-        st += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+        if restTime.total_seconds() > 60:
+            st += f'距离{field.kusaType}长成还有{int(restTime.total_seconds() // 60)}min\n'
+            st += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+        else:
+            st += f'你的{field.kusaType}将在一分钟内长成！\n'
         if field.isPrescient:
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
