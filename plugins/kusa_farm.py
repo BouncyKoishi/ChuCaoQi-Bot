@@ -54,11 +54,14 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
     if field.kusaFinishTs:
-        predictTime = datetime.fromtimestamp(field.kusaFinishTs)
+        predictTime = datetime.fromtimestamp(field.kusaFinishTs) + timedelta(minutes=1)
         restTime = predictTime - datetime.now()
-        outputStr = f'你的{field.kusaType}还在生。剩余时间：{restTime.total_seconds() // 60}min'
-        outputStr += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}'
-        await session.send(outputStr)
+        if restTime.total_seconds() > 60:
+            outputStr = f'你的{field.kusaType}还在生。剩余时间：{int(restTime.total_seconds() // 60)}min'
+            outputStr += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}'
+            await session.send(outputStr)
+        else:
+            await session.send(f'你的{field.kusaType}将在一分钟内长成！')
         return
 
     overload = await itemDB.getItemStorageInfo(userId, '过载标记')
