@@ -574,7 +574,7 @@ async def _(session: CommandSession):
         if str(userId) in robInfo.participantIds:
             hasRobbedFlag = True
             continue
-        kusaRobbed = random.randint(round(robInfo.robLimit * .05), round(robInfo.robLimit * .3))
+        kusaRobbed = random.randint(round(robInfo.robLimit * .04), round(robInfo.robLimit * .15))
         await baseDB.changeKusa(userId, kusaRobbed)
         await baseDB.changeKusa(robInfo.targetId, -kusaRobbed)
         robInfo.robCount += kusaRobbed
@@ -603,7 +603,7 @@ async def _(session: CommandSession):
 
 async def activateRobbing(field):
     global robDict
-    duration = random.randint(60, 300)
+    duration = random.randint(120, 300)
     shareMagic = await itemDB.getItemAmount(field.qq, '除草器的共享魔法')
     shareMagicExist = True if shareMagic else False
     robInfo = RobInfo(targetId=field.qq, participantIds=set(),
