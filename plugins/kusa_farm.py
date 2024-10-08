@@ -26,7 +26,7 @@ class RobInfo:
 
 systemRandom = random.SystemRandom()
 robDict: typing.Dict[str, RobInfo] = {}
-advKusaProbabilityDict = {0: 0, 1: 0.1, 2: 0.4, 3: 0.5, 4: 0.6}
+advKusaProbabilityDict = {0: 0, 1: 0.15, 2: 0.5, 3: 0.5, 4: 0.6}
 kusaTypeEffectMap = {'巨草': 2, '巨巨草': 3, '巨灵草': 4, '速草': 0.75, '速速草': 0.5,
                      '灵草': 2, '不灵草': 0, '灵草II': 3, '灵草III': 4, '灵草IV': 5,
                      '灵草V': 6, '灵草VI': 7, '灵草VII': 8, '灵草VIII': 9, '神灵草': 10}
@@ -452,7 +452,7 @@ async def goodNewsReport(field):
     if qualityLevel >= 2:
         history = await fieldDB.noKusaAdvHistory(field.qq, 40)
         noKusaAdvCount = next((i for i, h in enumerate(history) if h.advKusaResult > 0), len(history))
-        countThresholds = math.log(1 / 200, 1 - advKusaProbabilityDict[qualityLevel])  # 质量2为11，质量3为8，质量4为6
+        countThresholds = math.log(1 / 200, 1 - advKusaProbabilityDict[qualityLevel])  # 质量2、3为8，质量4为6
         if noKusaAdvCount > countThresholds:
             await sendReportMsg(field, '悲报', sadNewsCount=noKusaAdvCount)
     # 生草质量喜报：基础草精大于等于X
