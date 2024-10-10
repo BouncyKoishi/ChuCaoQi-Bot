@@ -112,7 +112,7 @@ async def shopBuy(session: CommandSession):
             await session.send('你已达到此物品的最大数量限制!')
             return
         buyingAmount = min(buyingAmount, item.amountLimit - nowAmount)
-    if item.priceRate and buyingAmount > 10000:
+    if item.priceRate and buyingAmount > 2000:
         await session.send('暂不支持大量购买浮动价格物品!')
         return
     if not await preItemCheck(item, userId):
@@ -331,7 +331,7 @@ def getItemPrice(item, itemAmount):
     return int(item.shopPrice * (item.priceRate ** itemAmount))
 
 
-@scheduler.scheduled_job('interval', seconds=59)
+@scheduler.scheduled_job('interval', seconds=50)
 async def cleanTimeLimitedItem():
     overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
     for storage in overloadStorageList:

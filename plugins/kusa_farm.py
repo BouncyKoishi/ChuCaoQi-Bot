@@ -26,7 +26,7 @@ class RobInfo:
 
 systemRandom = random.SystemRandom()
 robDict: typing.Dict[str, RobInfo] = {}
-advKusaProbabilityDict = {0: 0, 1: 0.15, 2: 0.5, 3: 0.5, 4: 0.6}
+advKusaProbabilityDict = {0: 0, 1: 0.125, 2: 0.5, 3: 0.5, 4: 0.6}
 kusaTypeEffectMap = {'巨草': 2, '巨巨草': 3, '巨灵草': 4, '速草': 0.75, '速速草': 0.5,
                      '灵草': 2, '不灵草': 0, '灵草II': 3, '灵草III': 4, '灵草IV': 5,
                      '灵草V': 6, '灵草VI': 7, '灵草VII': 8, '灵草VIII': 9, '神灵草': 10}
