@@ -5,7 +5,7 @@ import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
 from nonebot import on_command, CommandSession
-from kusa_base import config, sendGroupMsg
+from kusa_base import config, sendGroupMsg, sendLog
 
 
 async def buyingKusaFactory(session: CommandSession, increaseAmount: int):
@@ -120,7 +120,11 @@ async def dailyStatistics(session: CommandSession):
 
 # 生草工业运作
 @nonebot.scheduler.scheduled_job('cron', hour=0)
-async def daily():
+async def _():
+    await dailyIndustrial()
+
+
+async def dailyIndustrial():
     kusaRandInt = random.randint(4, 12)
     coreRandInt = random.randint(4, 12)
     signStr = f'今日工业运作开始！\n生草机器产量：{kusaRandInt}\n核心装配工厂产量：{coreRandInt}'
@@ -128,6 +132,7 @@ async def daily():
 
     userList = await baseDB.getAllUser()
     for user in userList:
+        print(f'{user.qq}的每日工业开始运作！')
         newKusaAmount = await getDailyKusaNum(user.qq, kusaRandInt)
         newAdvKusaAmount = await getDailyAdvKusaNum(user.qq)
         newCoreAmount = await getDailyCoreNum(user.qq, coreRandInt)
@@ -147,6 +152,8 @@ async def daily():
         await itemDB.changeItemAmount(user.qq, '自动化核心', newCoreAmount)
         await itemDB.changeItemAmount(user.qq, '红茶', newBlackTeaAmount)
         await createLotteryTicket(user.qq)
+    print('所有每日工业运作完成！')
+    await sendLog('所有每日工业运作完成！')
 
 
 async def getDailyKusaNum(userId, machineRandInt):

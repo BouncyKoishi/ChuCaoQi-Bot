@@ -97,7 +97,7 @@ async def updateTimeLimitedItem(qqNum, itemName, duration):
     itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
     if itemStorage:
         itemStorage.amount = 1
-        itemStorage.timeLimitTs += datetime.timedelta(seconds=duration)
+        itemStorage.timeLimitTs += duration
         await itemStorage.save()
     else:
         now = datetime.datetime.now().timestamp()

@@ -26,7 +26,7 @@ class RobInfo:
 
 systemRandom = random.SystemRandom()
 robDict: typing.Dict[str, RobInfo] = {}
-advKusaProbabilityDict = {0: 0, 1: 0.1, 2: 0.4, 3: 0.5, 4: 0.6}
+advKusaProbabilityDict = {0: 0, 1: 0.125, 2: 0.5, 3: 0.5, 4: 0.6}
 kusaTypeEffectMap = {'巨草': 2, '巨巨草': 3, '巨灵草': 4, '速草': 0.75, '速速草': 0.5,
                      '灵草': 2, '不灵草': 0, '灵草II': 3, '灵草III': 4, '灵草IV': 5,
                      '灵草V': 6, '灵草VI': 7, '灵草VII': 8, '灵草VIII': 9, '神灵草': 10}
@@ -54,16 +54,19 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     userId = session.ctx['user_id']
     field = await fieldDB.getKusaField(userId)
     if field.kusaFinishTs:
-        predictTime = datetime.fromtimestamp(field.kusaFinishTs)
+        predictTime = datetime.fromtimestamp(field.kusaFinishTs) + timedelta(minutes=1)
         restTime = predictTime - datetime.now()
-        outputStr = f'你的{field.kusaType}还在生。剩余时间：{restTime.seconds // 60}min'
-        outputStr += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}'
-        await session.send(outputStr)
+        if restTime.total_seconds() > 60:
+            outputStr = f'你的{field.kusaType}还在生。剩余时间：{int(restTime.total_seconds() // 60)}min'
+            outputStr += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}'
+            await session.send(outputStr)
+        else:
+            await session.send(f'你的{field.kusaType}将在一分钟内长成！')
         return
 
     overload = await itemDB.getItemStorageInfo(userId, '过载标记')
     if overload:
-        overloadEndTime = overload.timeLimitTs.strftime('%H:%M')
+        overloadEndTime = datetime.fromtimestamp(overload.timeLimitTs).strftime('%H:%M')
         await session.send(f'土地过载中，无法生草！过载结束时间：{overloadEndTime}')
         return
 
@@ -199,10 +202,13 @@ async def _(session: CommandSession):
     field = await fieldDB.getKusaField(userId)
     st = '百草园：\n'
     if field.kusaFinishTs:
-        predictTime = datetime.fromtimestamp(field.kusaFinishTs)
+        predictTime = datetime.fromtimestamp(field.kusaFinishTs) + timedelta(minutes=1)
         restTime = predictTime - datetime.now()
-        st += f'距离{field.kusaType}长成还有{restTime.seconds // 60}min\n'
-        st += f'\n预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+        if restTime.total_seconds() > 60:
+            st += f'距离{field.kusaType}长成还有{int(restTime.total_seconds() // 60)}min\n'
+            st += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
+        else:
+            st += f'你的{field.kusaType}将在一分钟内长成！\n'
         if field.isPrescient:
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
@@ -215,7 +221,7 @@ async def _(session: CommandSession):
     else:
         overload = await itemDB.getItemStorageInfo(userId, '过载标记')
         if overload:
-            overloadEndTime = overload.timeLimitTs.strftime('%H:%M')
+            overloadEndTime = datetime.fromtimestamp(overload.timeLimitTs).strftime('%H:%M')
             st += f'土地过载中，无法生草！\n过载结束时间：{overloadEndTime}\n'
         else:
             st += '当前没有生草。\n'
@@ -449,7 +455,7 @@ async def goodNewsReport(field):
     if qualityLevel >= 2:
         history = await fieldDB.noKusaAdvHistory(field.qq, 40)
         noKusaAdvCount = next((i for i, h in enumerate(history) if h.advKusaResult > 0), len(history))
-        countThresholds = math.log(1 / 200, 1 - advKusaProbabilityDict[qualityLevel])  # 质量2为11，质量3为8，质量4为6
+        countThresholds = math.log(1 / 200, 1 - advKusaProbabilityDict[qualityLevel])  # 质量2、3为8，质量4为6
         if noKusaAdvCount > countThresholds:
             await sendReportMsg(field, '悲报', sadNewsCount=noKusaAdvCount)
     # 生草质量喜报：基础草精大于等于X
@@ -568,7 +574,7 @@ async def _(session: CommandSession):
         if str(userId) in robInfo.participantIds:
             hasRobbedFlag = True
             continue
-        kusaRobbed = random.randint(round(robInfo.robLimit * .05), round(robInfo.robLimit * .3))
+        kusaRobbed = random.randint(round(robInfo.robLimit * .04), round(robInfo.robLimit * .15))
         await baseDB.changeKusa(userId, kusaRobbed)
         await baseDB.changeKusa(robInfo.targetId, -kusaRobbed)
         robInfo.robCount += kusaRobbed
@@ -597,7 +603,7 @@ async def _(session: CommandSession):
 
 async def activateRobbing(field):
     global robDict
-    duration = random.randint(60, 300)
+    duration = random.randint(120, 300)
     shareMagic = await itemDB.getItemAmount(field.qq, '除草器的共享魔法')
     shareMagicExist = True if shareMagic else False
     robInfo = RobInfo(targetId=field.qq, participantIds=set(),
