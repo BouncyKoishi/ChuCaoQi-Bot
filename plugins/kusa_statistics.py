@@ -86,11 +86,19 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-@on_command(name='KUSA_ADV_RANK', only_to_me=False)
+@on_command(name='KUSA_ADV_RANK', only_to_me=False, aliases=('草精排行榜'))
 async def _(session: CommandSession):
     if not await permissionCheck(session):
         return
-    outputStr = await getKusaAdvRank()
+    outputStr = '总草精排行榜：' + await getKusaAdvRank()
+    await session.send(outputStr)
+
+
+@on_command(name='KUSA_ADV_RANK2', only_to_me=False, aliases=('草精新星榜'))
+async def _(session: CommandSession):
+    if not await permissionCheck(session):
+        return
+    outputStr = '草精新星排行榜：' + await getKusaAdvRank(levelMax=6)
     await session.send(outputStr)
 
 
@@ -107,18 +115,20 @@ async def permissionCheck(session: CommandSession) -> bool:
         return False
 
 
-async def getKusaAdvRank():
+async def getKusaAdvRank(levelMax: int= 10):
     userList = await baseDB.getAllUser()
     advShopItemList = await itemDB.getShopItemList(priceType="草之精华")
     userAdvKusaDict = {}
     for user in userList:
+        if user.vipLevel > levelMax:
+            continue
         bluePrintExist = await itemDB.getItemAmount(user.qq, '生草工业园区蓝图')
         if not bluePrintExist:
             continue
         total, _, _, _ = await getKusaAdv(user, advShopItemList)
         userAdvKusaDict[user] = total
     userAdvKusaDict = sorted(userAdvKusaDict.items(), key=lambda x: x[1], reverse=True)
-    outputStr = "草精排行榜：\n"
+    outputStr = "\n"
     for i in range(min(25, len(userAdvKusaDict))):
         user = userAdvKusaDict[i][0]
         userName = user.name if user.name else user.qq
