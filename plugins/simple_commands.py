@@ -91,12 +91,12 @@ async def _(session: CommandSession):
 
     nameList = await db.getNameListByQQ(donateRank.keys())
     for qq, amount in list(donateRank.items())[:25]:
-        displayName = nameList.get(qq, qq)
+        displayName = nameList[qq] if qq in nameList and nameList[qq] else qq
         output += f'{displayName}：{amount:.2f}元\n'
     await session.send(output[:-1])
 
 
-@on_command(name='捐助记录', only_to_me=False)
+@on_command(name='捐助记录', aliases='捐赠记录', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     output = ''
