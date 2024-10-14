@@ -16,6 +16,37 @@ async def newMemberHandle(session: RequestSession):
         st = f"{adder_id}申请进群。加群备注为：\n" + session.event.comment
         await bot.send_group_msg(group_id=groupNum, message=st)
         await sendLog(f'群聊{groupNum}:' + st)
+        if session.event.sub_type == 'add':
+            for keyword in (
+                '交流学习',
+            ):
+                if keyword in session.event.comment:
+                    await bot.set_group_add_request(
+                        flag=session.event.flag, 
+                        sub_type=session.event.sub_type, 
+                        approve=False, 
+                        reason='触发风控，已自动拒绝加群申请',
+                    )
+                    await bot.send_group_msg(
+                        group_id=groupNum, 
+                        message='触发关键词风控，已自动拒绝加群申请。如有需要，请联系该用户通过邀请方式进群。',
+                    )
+                    await sendLog(f'群聊{groupNum}触发关键词风控（{keyword}），已拒绝{adder_id}的申请')
+                    return
+            stranger_info = await bot.get_stranger_info(user_id=adder_id)
+            if stranger_info['level'] < 8:
+                await bot.set_group_add_request(
+                    flag=session.event.flag, 
+                    sub_type=session.event.sub_type, 
+                    approve=False, 
+                    reason='触发风控，已自动拒绝加群申请',
+                )
+                await bot.send_group_msg(
+                    group_id=groupNum, 
+                    message='触发等级风控，已自动拒绝加群申请。如有需要，请联系该用户通过邀请方式进群。',
+                )
+                await sendLog(f'群聊{groupNum}触发等级风控（{stranger_info["level"]}），已拒绝{adder_id}的申请')
+                return
 
 
 @on_request('friend')
