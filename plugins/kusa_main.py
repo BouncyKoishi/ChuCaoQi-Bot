@@ -359,5 +359,5 @@ async def weeklyReport():
 # 每周草精总榜
 @nonebot.scheduler.scheduled_job('cron', hour=4, minute=2, day_of_week='mon')
 async def weeklyReport():
-    outputStr = await getKusaAdvRank()
+    outputStr = '总草精排行榜：' + await getKusaAdvRank()
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)
