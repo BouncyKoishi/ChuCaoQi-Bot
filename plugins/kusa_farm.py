@@ -10,6 +10,7 @@ import dbConnection.db as baseDB
 import dbConnection.kusa_field as fieldDB
 import dbConnection.kusa_item as itemDB
 from nonebot import on_command, CommandSession
+from nonebot import MessageSegment as ms
 from datetime import datetime, timedelta, date, time
 from kusa_base import config, sendGroupMsg, sendPrivateMsg
 from utils import intToRomanNum
@@ -556,6 +557,7 @@ def getOverloadHour(field):
 
 @on_command(name='围殴', only_to_me=False)
 async def _(session: CommandSession):
+    print(f'{session.ctx["user_id"]}的围殴节点-接收指令：{datetime.now().timestamp()}')
     global robDict
     userId = session.ctx['user_id']
     if "group_id" not in session.ctx:
@@ -564,7 +566,6 @@ async def _(session: CommandSession):
     if not robDict:
         await session.send('当前没有可围殴对象^ ^')
         return
-
     selfRobFlag, hasRobbedFlag, robRecords, stopRobbingIds = False, False, [], []
     for robId, robInfo in robDict.items():
         print(robId, robInfo)
@@ -581,7 +582,7 @@ async def _(session: CommandSession):
         robInfo.participantIds.add(str(userId))
         targetUser = await baseDB.getUser(robInfo.targetId)
         targetUserName = targetUser.name if targetUser.name else targetUser.qq
-        record = f'围殴 {targetUserName} 成功！你获得了{kusaRobbed}草！'
+        record = f'{ms.at(userId)} 围殴 {targetUserName} 成功！你获得了{kusaRobbed}草！'
         user = await baseDB.getUser(userId)
         if robInfo.extraKusaAdv and user.vipLevel >= 5:
             await baseDB.changeAdvKusa(userId, 1)
@@ -589,16 +590,18 @@ async def _(session: CommandSession):
         robRecords.append(record)
         if robInfo.robCount >= robInfo.robLimit:
             stopRobbingIds.append(robId)
-
+    print(f'{userId}的围殴节点-完成后台处理：{datetime.now().timestamp()}')
     if robRecords:
         await session.send('\n'.join(robRecords))
     elif hasRobbedFlag:
-        await session.send('你已经围殴过了^ ^')
+        await session.send(f'{ms.at(userId)} 你已经围殴过了^ ^')
     elif selfRobFlag:
-        await session.send('不能围殴自己^ ^')
+        await session.send(f'{ms.at(userId)} 不能围殴自己^ ^')
 
+    print(f'{userId}的围殴节点-完成消息发送：{datetime.now().timestamp()}')
     for robId in stopRobbingIds:
         await stopRobbing(robId)
+        print(f'{userId}的围殴节点-结束一个围殴：{datetime.now().timestamp()}')
 
 
 async def activateRobbing(field):
