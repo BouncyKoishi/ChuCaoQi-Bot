@@ -73,7 +73,7 @@ async def _(session: CommandSession):
 
     if donateAmount > 0:
         output += '感谢您对生草系统的支援！\n'
-        output += f"您的累计捐助金额为：{donateAmount}元\n"
+        output += f"您的累计捐助金额为：{donateAmount:.2f}元\n"
         if year:
             thisYearAmount = await db.getDonateAmount(userId, year)
             output += f"您的{year}年度捐助金额为：{thisYearAmount}元\n" if thisYearAmount > 0 else ''
@@ -106,7 +106,7 @@ async def _(session: CommandSession):
     else:
         output += '您的捐助记录如下：\n'
         for record in donateRecords:
-            output += f"{record.donateDate}：{record.amount}元\n"
+            output += f"{record.donateDate}：{record.amount:.2f}元\n"
     await session.send(output[:-1])
 
 
