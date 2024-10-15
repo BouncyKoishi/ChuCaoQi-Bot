@@ -1,5 +1,7 @@
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
+import dbConnection.kusa_field as fieldDB
+from datetime import datetime
 from nonebot import on_command, CommandSession
 from kusa_base import isSuperAdmin, config
 
@@ -129,10 +131,16 @@ async def getKusaAdvRank(levelMax: int= 10):
         userAdvKusaDict[user] = total
     userAdvKusaDict = sorted(userAdvKusaDict.items(), key=lambda x: x[1], reverse=True)
     outputStr = "\n"
-    for i in range(min(25, len(userAdvKusaDict))):
+    cnt = 0
+    for i in range(len(userAdvKusaDict)):
         user = userAdvKusaDict[i][0]
-        userName = user.name if user.name else user.qq
-        outputStr += f'{i + 1}. {userName}: {userAdvKusaDict[i][1]}\n'
+        row = await fieldDB.kusaHistoryReport(user.qq, datetime.now(), 7776000) # 近90天无生草记录，则不显示在排行榜
+        if row["count"]:
+            userName = user.name if user.name else user.qq
+            cnt += 1
+            outputStr += f'{cnt}. {userName}: {userAdvKusaDict[i][1]}\n'
+            if cnt >= 25:
+                break
     return outputStr
 
 
