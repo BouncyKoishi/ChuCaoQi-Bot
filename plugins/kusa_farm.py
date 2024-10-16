@@ -128,7 +128,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     magicImmediate = kusaSpeedMagic and random.random() < 0.007
     magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
     if magicImmediate:
-        growTime = 1
+        growTime = 0
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
