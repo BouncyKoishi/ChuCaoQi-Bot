@@ -24,7 +24,7 @@ async def isSuperAdmin(qqNum) -> bool:
 
 
 # 基础交易模块
-async def buying(qqNum, itemNameBuying, itemAmountBuying, totalPrice, isUsingAdvKusa=False) -> bool:
+async def buying(qqNum, itemNameBuying, itemAmountBuying, totalPrice, tradeType, isUsingAdvKusa=False, detail=None) -> bool:
     user = await baseDB.getUser(qqNum)
     item = await itemDB.getItem(itemNameBuying)
     if itemAmountBuying < 0:
@@ -43,10 +43,14 @@ async def buying(qqNum, itemNameBuying, itemAmountBuying, totalPrice, isUsingAdv
     else:
         await baseDB.changeKusa(qqNum, -totalPrice)
         await baseDB.changeKusa(config['qq']['bot'], totalPrice)
+    costItemName = '草之精华' if isUsingAdvKusa else '草'
+    await baseDB.setTradeRecord(operator=qqNum, tradeType=tradeType, detail=detail,
+                                gainItemName=itemNameBuying, gainItemAmount=itemAmountBuying,
+                                costItemName=costItemName, costItemAmount=totalPrice)
     return True
 
 
-async def selling(qqNum, itemNameSelling, itemAmountSelling, totalPrice, isUsingAdvKusa=False) -> bool:
+async def selling(qqNum, itemNameSelling, itemAmountSelling, totalPrice, tradeType, isUsingAdvKusa=False) -> bool:
     user = await baseDB.getUser(qqNum)
     item = await itemDB.getItem(itemNameSelling)
     itemAmount = await itemDB.getItemAmount(qqNum, itemNameSelling)
@@ -63,10 +67,14 @@ async def selling(qqNum, itemNameSelling, itemAmountSelling, totalPrice, isUsing
     else:
         await baseDB.changeKusa(qqNum, totalPrice)
         await baseDB.changeKusa(config['qq']['bot'], -totalPrice)
+    gainItemName = '草之精华' if isUsingAdvKusa else '草'
+    await baseDB.setTradeRecord(operator=qqNum, tradeType=tradeType,
+                                gainItemName=gainItemName, gainItemAmount=totalPrice,
+                                costItemName=itemNameSelling, costItemAmount=itemAmountSelling)
     return True
 
 
-async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAmountCost) -> bool:
+async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAmountCost, tradeType, detail=None) -> bool:
     user = await baseDB.getUser(qqNum)
     itemGain = await itemDB.getItem(itemNameGain)
     itemCost = await itemDB.getItem(itemNameCost)
@@ -80,6 +88,9 @@ async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAm
 
     await itemDB.changeItemAmount(qqNum, itemNameGain, itemAmountGain)
     await itemDB.changeItemAmount(qqNum, itemNameCost, -itemAmountCost)
+    await baseDB.setTradeRecord(operator=qqNum, tradeType=tradeType, detail=detail,
+                                gainItemName=itemNameGain, gainItemAmount=itemAmountGain,
+                                costItemName=itemNameCost, costItemAmount=itemAmountCost)
     return True
 
 

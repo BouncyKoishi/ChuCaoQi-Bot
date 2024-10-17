@@ -126,7 +126,8 @@ async def shopBuy(session: CommandSession):
         if confirm.lower() != 'y':
             return
 
-    buyingSuccess = await buyingByCostType(userId, itemName, buyingAmount, totalPrice, item.priceType)
+    floatPriceSign = f'本次购买了浮动价格物品 {itemName} ，购买前已有该物品{nowAmount}个。' if item.priceRate else None
+    buyingSuccess = await buyingByCostType(userId, itemName, buyingAmount, totalPrice, item.priceType, floatPriceSign)
     if buyingSuccess:
         await session.send(f'购买成功！购买了{buyingAmount}个{itemName}。' if item.amountLimit != 1 else f'购买成功！购买了{itemName}。')
     else:
@@ -134,12 +135,12 @@ async def shopBuy(session: CommandSession):
         await session.send(output)
 
 
-async def buyingByCostType(userId, itemName, buyingAmount, totalPrice, priceType):
+async def buyingByCostType(userId, itemName, buyingAmount, totalPrice, priceType, detail):
     if priceType == '草' or priceType == '草之精华':
         isUsingAdvKusa = (priceType == '草之精华')
-        return await buying(userId, itemName, buyingAmount, totalPrice, isUsingAdvKusa)
+        return await buying(userId, itemName, buyingAmount, totalPrice, '商店(买)', isUsingAdvKusa, detail)
     else:
-        return await itemCharging(userId, itemName, buyingAmount, priceType, totalPrice)
+        return await itemCharging(userId, itemName, buyingAmount, priceType, totalPrice, '商店(买)', detail)
 
 
 @on_command(name='出售', only_to_me=False)
@@ -174,7 +175,7 @@ async def shopSell(session: CommandSession):
 async def sellingByCostType(userId, itemName, buyingAmount, totalPrice, priceType):
     if priceType == '草' or priceType == '草之精华':
         isUsingAdvKusa = (priceType == '草之精华')
-        return await selling(userId, itemName, buyingAmount, totalPrice, isUsingAdvKusa)
+        return await selling(userId, itemName, buyingAmount, totalPrice, '商店(卖)', isUsingAdvKusa)
     else:
         # 暂不支持非草/草精物品的出售
         return False
@@ -267,7 +268,7 @@ async def _(session: CommandSession):
         await session.send('此物品无法进行合成！')
         return
 
-    success = await itemCharging(userId, itemName, amount, composeList[itemName], amount * 10)
+    success = await itemCharging(userId, itemName, amount, composeList[itemName], amount * 10, '合成')
     if success:
         await session.send(f'合成成功！合成了{amount}个{itemName}。')
     else:

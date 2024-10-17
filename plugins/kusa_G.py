@@ -47,7 +47,8 @@ async def _(session: CommandSession):
     st += (f'北校区： {northGAmount}\n' if northGAmount else '')
     st += (f'珠海校区： {zhuhaiGAmount}\n' if zhuhaiGAmount else '')
     st += (f'深圳校区： {shenzhenGAmount}\n' if shenzhenGAmount else '')
-    st += (f'您当前没有任何G!\n' if not (eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '')
+    st += (f'您当前没有任何G!\n' if not (
+                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '')
     st += f'\n'
     st += f'您可以选择：\n!G买入 [校区] [数量]\n!G卖出 [校区] [数量]\n!G线图 [校区]\n'
     await session.send(st)
@@ -94,7 +95,7 @@ async def _(session: CommandSession):
             buyingAmount = math.floor(user.kusa / gValue)
             st += f'买入了{buyingAmount}G'
         totalPrice = int(buyingAmount * gValue)
-        success = await buying(userId, gType, buyingAmount, totalPrice)
+        success = await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)')
         if not success:
             st = '你不够草^ ^'
     else:
@@ -119,7 +120,7 @@ async def _(session: CommandSession):
         valueType = areaTranslateValue(schoolName)
         gValue = getattr(gValues, valueType)
         totalPrice = int(sellingAmount * gValue)
-        success = await selling(userId, gType, sellingAmount, totalPrice)
+        success = await selling(userId, gType, sellingAmount, totalPrice, 'G市(卖)')
         if not success:
             st = '你不够G^ ^'
     elif isSellingAll:
@@ -131,22 +132,31 @@ async def _(session: CommandSession):
 
 
 async def GSellingAll(userId, gValues):
-    eastGAmount, southGAmount, northGAmount, zhuhaiGAmount, shenzhenGAmount = await getAllGAmounts(userId)
-    kusaEast = eastGAmount * gValues.eastValue
-    kusaSouth = southGAmount * gValues.southValue
-    kusaNorth = northGAmount * gValues.northValue
-    kusaZhuhai = zhuhaiGAmount * gValues.zhuhaiValue
-    kusaShenzhen = shenzhenGAmount * gValues.shenzhenValue
-    allKusa = kusaEast + kusaSouth + kusaNorth + kusaZhuhai + kusaShenzhen
-    allKusa = int(allKusa)
+    EGAmount, SGAmount, NGAmount, ZGAmount, SZGAmount = await getAllGAmounts(userId)
+    allKusa = int(sum([
+        EGAmount * gValues.eastValue, SGAmount * gValues.southValue,
+        NGAmount * gValues.northValue, ZGAmount * gValues.zhuhaiValue,
+        SZGAmount * gValues.shenzhenValue
+    ]))
     await baseDB.changeKusa(userId, allKusa)
     await baseDB.changeKusa(config['qq']['bot'], -allKusa)
     await itemDB.cleanAllG(userId)
+    for amount, area in zip(
+        [EGAmount, SGAmount, NGAmount, ZGAmount, SZGAmount],
+        ['东校区', '南校区', '北校区', '珠海校区', '深圳校区']
+    ):
+        if amount > 0:
+            await baseDB.setTradeRecord(
+                operator=userId, tradeType='G市(卖)',
+                gainItemName='草', gainItemAmount=allKusa,
+                costItemName=f'G({area})', costItemAmount=amount
+            )
     return allKusa
 
 
 @on_command(name='G线图', only_to_me=False)
 async def G_pic(session: CommandSession):
+    startTs = datetime.datetime.now().timestamp()
     stripped_arg = session.current_arg_text.strip()
     school = re.findall(r'[东南北珠深]', stripped_arg)
     gValuesList = await gValueDB.getThisCycleGValues()
@@ -164,6 +174,8 @@ async def G_pic(session: CommandSession):
 
     pic = imgLocalPathToBase64(gPicPath)
     await session.send(pic)
+    endTs = datetime.datetime.now().timestamp()
+    print(f'G线图生成时间：{endTs - startTs}')
 
 
 def getGValuesColMap(gValuesList):

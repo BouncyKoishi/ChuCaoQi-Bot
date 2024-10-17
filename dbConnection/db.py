@@ -1,9 +1,6 @@
-from itertools import groupby
-from operator import attrgetter
-
 from nonebot import on_startup
 from tortoise import Tortoise
-from .models import User, KusaField, Flag, DonateRecord
+from .models import User, KusaField, Flag, DonateRecord, TradeRecord
 from .kusa_item import changeItemAmount
 import datetime
 
@@ -126,6 +123,13 @@ async def setDonateRecord(qqNum, amount, source):
     now = datetime.datetime.now()
     donateDate = now.strftime('%Y-%m-%d')
     await DonateRecord.create(qq=qqNum, amount=amount, donateDate=donateDate, source=source)
+
+
+async def setTradeRecord(operator, tradeType, gainItemAmount, gainItemName, costItemAmount, costItemName, detail=None):
+    timestamp = datetime.datetime.now().timestamp()
+    await TradeRecord.create(operator=operator, tradeType=tradeType, detail=detail, timestamp=timestamp,
+                             gainItemAmount=gainItemAmount, gainItemName=gainItemName,
+                             costItemAmount=costItemAmount, costItemName=costItemName)
 
 
 class DB:

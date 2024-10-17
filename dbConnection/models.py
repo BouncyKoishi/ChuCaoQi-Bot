@@ -129,3 +129,17 @@ class DonateRecord(Model):
     donateDate = CharField(max_length=16)
     source = CharField(max_length=12)
     remark = CharField(max_length=128, null=True)
+
+
+class TradeRecord(Model):
+    id = IntField(pk=True)
+    operator = CharField(max_length=12)
+    tradeType = CharField(max_length=16)
+    gainItemAmount = IntField(null=True)
+    gainItemName = CharField(max_length=64, null=True)
+    costItemAmount = IntField(null=True)
+    costItemName = CharField(max_length=64, null=True)
+    detail = CharField(max_length=128, null=True)
+    timestamp = IntField()
+
+

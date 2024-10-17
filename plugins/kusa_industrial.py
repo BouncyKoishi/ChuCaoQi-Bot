@@ -29,6 +29,10 @@ async def buyingKusaFactory(session: CommandSession, increaseAmount: int):
     await itemDB.changeItemAmount(userId, '自动化核心', -coreCost)
     await itemDB.changeItemAmount(userId, '生草工厂', increaseAmount)
     await session.send(f'建造成功！新建了{increaseAmount}个工厂，消耗了{coreCost}个自动化核心，你的当前工厂数为{factoryAmount + increaseAmount}。')
+    tradeDetail = f'购买前已有生草工厂{factoryAmount}个，购买时等效信息员等级为{cheapLevel}'
+    await baseDB.setTradeRecord(operator=userId, tradeType='商店(买)', detail=tradeDetail,
+                                gainItemName='生草工厂', gainItemAmount=increaseAmount,
+                                costItemName='自动化核心', costItemAmount=coreCost)
 
 
 def getFactoriesCost(cheapLevelAll, nowFactory, newFactory):
@@ -70,6 +74,9 @@ async def buyingAdvFactory(session: CommandSession, increaseAmount: int):
         await itemDB.changeItemAmount(userId, '草精炼厂', newAdvFactoryAmount)
         await itemDB.changeItemAmount(userId, '自动化核心', -needCoreAmount)
         await session.send(f'{newAdvFactoryAmount}个草精炼厂建造成功！消耗了{needCoreAmount}个自动化核心。')
+        await baseDB.setTradeRecord(operator=userId, tradeType='商店(买)',
+                                    gainItemName='草精炼厂', gainItemAmount=newAdvFactoryAmount,
+                                    costItemName='自动化核心', costItemAmount=needCoreAmount)
     else:
         await session.send(f"你不够核心^ ^")
 
