@@ -248,7 +248,7 @@ async def give(session: CommandSession):
 
     nickname = session.ctx['sender']['nickname']
     announce = f'{nickname}({userId})转让了{transferKusa}个草给你！'
-    hasSendPrivate = sendPrivateMsg(receiverQQ, announce) if transferKusa >= 10000 else False
+    hasSendPrivate = await sendPrivateMsg(receiverQQ, announce) if transferKusa >= 10000 else False
     st = '转让成功！' if hasSendPrivate else '转让成功！(未私聊通知被转让者)'
 
     await session.send(st)

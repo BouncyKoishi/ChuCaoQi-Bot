@@ -128,7 +128,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     magicImmediate = kusaSpeedMagic and random.random() < 0.007
     magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
     if magicImmediate:
-        growTime = 1
+        growTime = 0
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
@@ -505,8 +505,6 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
     if not reportStr:
         return
 
-    # 群聊喜报发送
-    await sendGroupMsg(config['group']['main'], reportStr)
     # 小礼炮通知发送
     cannonUserIdList = await itemDB.getUserIdListByItem('小礼炮')
     for userId in cannonUserIdList:
@@ -514,6 +512,8 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
             continue
         await itemDB.changeItemAmount(userId, '小礼炮', -1)
         await sendPrivateMsg(userId, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+    # 群聊喜报发送
+    await sendGroupMsg(config['group']['main'], reportStr)
     # 分享魔法额外奖励效果
     if '喜报' in reportType:
         await activateRobbing(field)
@@ -564,7 +564,7 @@ async def _(session: CommandSession):
         await session.send('只能在群聊中进行围殴^ ^')
         return
     if not robDict:
-        await session.send('当前没有可围殴对象^ ^')
+        await session.send(f'{ms.at(userId)} 当前没有可围殴对象^ ^')
         return
     selfRobFlag, hasRobbedFlag, robRecords, stopRobbingIds = False, False, [], []
     for robId, robInfo in robDict.items():
