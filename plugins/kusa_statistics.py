@@ -18,7 +18,7 @@ async def _(session: CommandSession):
     outputStr += "KUSA_ADV_RANK 总草精排行榜\n"
     outputStr += "TITLE_LIST 系统称号列表\n"
     outputStr += "GIVE_TITLE [qq号] [称号] 给予称号\n"
-    outputStr += "SET_DONATION [qq号] [金额] (ifd) 设置捐赠金额\n"
+    outputStr += "SET_DONATION [qq号] [金额] (qq/ifd) 设置捐赠金额\n"
     await session.send(outputStr)
 
 
@@ -32,8 +32,8 @@ async def _(session: CommandSession):
         if str(user.qq) != str(config['qq']['bot']):
             availableKusa += user.kusa
             availableKusaAdv += user.advKusa
-    await session.send(f'系统总草数: {totalKusa}\n可流通草数: {availableKusa}\n'
-                       f'系统总草精数: {totalKusaAdv}\n可流通草精数: {availableKusaAdv}')
+    await session.send(f'历史总草数: {totalKusa}\n当前总草数: {availableKusa}\n'
+                       f'历史总草精数: {totalKusaAdv}\n当前总草精数: {availableKusaAdv}')
 
 
 @on_command(name='KUSA_RANK', only_to_me=False)
@@ -82,13 +82,12 @@ async def _(session: CommandSession):
         await session.send("用户不存在")
         return
 
-    advShopItemList = await itemDB.getShopItemList(priceType="草之精华")
-    total, now, title, item = await getKusaAdv(user, advShopItemList)
+    total, now, title, item = await getKusaAdv(user)
     outputStr = f"{user.qq}草精情况：\n现有 {now}\n信息员等级消费 {title}\n道具消费 {item}\n总计 {total}"
     await session.send(outputStr)
 
 
-@on_command(name='KUSA_ADV_RANK', only_to_me=False, aliases=('草精排行榜'))
+@on_command(name='KUSA_ADV_RANK', only_to_me=False, aliases='草精排行榜')
 async def _(session: CommandSession):
     if not await permissionCheck(session):
         return
@@ -96,7 +95,7 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-@on_command(name='KUSA_ADV_RANK2', only_to_me=False, aliases=('草精新星榜'))
+@on_command(name='KUSA_ADV_RANK2', only_to_me=False, aliases='草精新星榜')
 async def _(session: CommandSession):
     if not await permissionCheck(session):
         return
@@ -117,9 +116,8 @@ async def permissionCheck(session: CommandSession) -> bool:
         return False
 
 
-async def getKusaAdvRank(levelMax: int= 10):
+async def getKusaAdvRank(levelMax: int = 10):
     userList = await baseDB.getAllUser()
-    advShopItemList = await itemDB.getShopItemList(priceType="草之精华")
     userAdvKusaDict = {}
     for user in userList:
         if user.vipLevel > levelMax:
@@ -127,30 +125,27 @@ async def getKusaAdvRank(levelMax: int= 10):
         bluePrintExist = await itemDB.getItemAmount(user.qq, '生草工业园区蓝图')
         if not bluePrintExist:
             continue
-        total, _, _, _ = await getKusaAdv(user, advShopItemList)
+        # 近90天无生草记录，则不显示在排行榜
+        kusaRecordRow = await fieldDB.kusaHistoryReport(user.qq, datetime.now(), 7776000)
+        if kusaRecordRow["count"] == 0:
+            continue
+        total, _, _, _ = await getKusaAdv(user)
         userAdvKusaDict[user] = total
     userAdvKusaDict = sorted(userAdvKusaDict.items(), key=lambda x: x[1], reverse=True)
     outputStr = "\n"
-    cnt = 0
-    for i in range(len(userAdvKusaDict)):
+
+    for i in range(min(len(userAdvKusaDict), 25)):
         user = userAdvKusaDict[i][0]
-        row = await fieldDB.kusaHistoryReport(user.qq, datetime.now(), 7776000) # 近90天无生草记录，则不显示在排行榜
-        if row["count"]:
-            userName = user.name if user.name else user.qq
-            cnt += 1
-            outputStr += f'{cnt}. {userName}: {userAdvKusaDict[i][1]}\n'
-            if cnt >= 25:
-                break
+        userName = user.name if user.name else user.qq
+        outputStr += f'{i + 1}. {userName}: {userAdvKusaDict[i][1]}\n'
     return outputStr
 
 
-async def getKusaAdv(user, advShopItemList):
+async def getKusaAdv(user):
     nowKusaAdv = user.advKusa
     titleKusaAdv = sum(10 ** (i - 4) for i in range(5, user.vipLevel + 1)) if user.vipLevel > 4 else 0
-    itemKusaAdv = 0
-    for item in advShopItemList:
-        itemAmount = await itemDB.getItemAmount(user.qq, item.name)
-        itemKusaAdv += item.shopPrice * itemAmount
+    advItemTradeRecord = await baseDB.getTradeRecord(operator=user.qq, costItemName='草之精华')
+    itemKusaAdv = sum(record.costItemAmount for record in advItemTradeRecord)
     return nowKusaAdv + titleKusaAdv + itemKusaAdv, nowKusaAdv, titleKusaAdv, itemKusaAdv
 
 
