@@ -139,6 +139,8 @@ async def getTradeRecord(operator, tradeType=None, gainItemName=None, costItemNa
 
 
 async def setTradeRecord(operator, tradeType, gainItemAmount, gainItemName, costItemAmount, costItemName, detail=None):
+    if gainItemAmount == 0 or costItemAmount == 0:
+        return
     timestamp = datetime.datetime.now().timestamp()
     await TradeRecord.create(operator=operator, tradeType=tradeType, detail=detail, timestamp=timestamp,
                              gainItemAmount=gainItemAmount, gainItemName=gainItemName,
