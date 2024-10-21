@@ -28,12 +28,12 @@ async def _(session: CommandSession):
 
     st = f'G市有风险，炒G需谨慎！\n'
     if gValues.turn != 1:
-        st += f'当前G值为：\n'
-        st += f'东校区：{rd3(gValues.eastValue)}(上期：{rd3(gValuesLast.eastValue)})\n'
-        st += f'南校区：{rd3(gValues.southValue)}(上期：{rd3(gValuesLast.southValue)})\n'
-        st += f'北校区：{rd3(gValues.northValue)}(上期：{rd3(gValuesLast.northValue)})\n'
-        st += f'珠海校区：{rd3(gValues.zhuhaiValue)}(上期：{rd3(gValuesLast.zhuhaiValue)})\n'
-        st += f'深圳校区：{rd3(gValues.shenzhenValue)}(上期：{rd3(gValuesLast.shenzhenValue)})\n'
+        st += '当前G值为：\n'
+        st += formatGValue(gValues.eastValue, gValuesLast.eastValue, '东')
+        st += formatGValue(gValues.southValue, gValuesLast.southValue, '南')
+        st += formatGValue(gValues.northValue, gValuesLast.northValue, '北')
+        st += formatGValue(gValues.zhuhaiValue, gValuesLast.zhuhaiValue, '珠海')
+        st += formatGValue(gValues.shenzhenValue, gValuesLast.shenzhenValue, '深圳')
         st += f'当前为本周期第{gValues.turn}期数值。\n\n'
     else:
         st += f'当前为本周期的第一期数值！\n当前G值为：\n'
@@ -49,9 +49,14 @@ async def _(session: CommandSession):
     st += (f'深圳校区： {shenzhenGAmount}\n' if shenzhenGAmount else '')
     st += (f'您当前没有任何G!\n' if not (
                 eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '')
-    st += f'\n'
-    st += f'您可以选择：\n!G买入 [校区] [数量]\n!G卖出 [校区] [数量]\n!G线图 [校区]\n'
     await session.send(st)
+
+
+def formatGValue(currentValue, lastValue, campusName):
+    change = currentValue - lastValue
+    percentageChange = (change / lastValue * 100) if lastValue != 0 else 0
+    pChangeSign = '+' if change >= 0 else ''
+    return f'{campusName}校区：{currentValue:.3f}({pChangeSign}{percentageChange:.2f}%)\n'
 
 
 @on_command(name='测F', only_to_me=False)
