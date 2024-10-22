@@ -79,12 +79,15 @@ async def _(session: CommandSession):
 
 @on_command(name='交易总结', only_to_me=False)
 async def _(session: CommandSession):
+    if not await tradingTimeCheck(session):
+        await session.send('请在G市结算完成后再查询交易总结^ ^')
+        return
     userId = session.ctx['user_id']
     gValues = await gValueDB.getLatestGValues()
     eastGAmount, southGAmount, northGAmount, zhuhaiGAmount, shenzhenGAmount = await getAllGAmounts(userId)
     gStartTs = getGCycleStartTs(gValues)
-    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(买)')
-    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(卖)')
+    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(买)')
+    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(卖)')
     nowKusaInG = int(sum([
         eastGAmount * gValues.eastValue, southGAmount * gValues.southValue,
         northGAmount * gValues.northValue, zhuhaiGAmount * gValues.zhuhaiValue,
@@ -110,14 +113,38 @@ async def _(session: CommandSession):
     await session.send(st[:-1])
 
 
+@on_command(name='上期交易总结', only_to_me=False)
+async def _(session: CommandSession):
+    if not await tradingTimeCheck(session):
+        await session.send('请在G市结算完成后再查询上期交易总结^ ^')
+        return
+    userId = session.ctx['user_id']
+    gValues = await gValueDB.getLatestGValues()
+    gThisCycleStartTs = getGCycleStartTs(gValues)
+    gLastCycleStartTs = gThisCycleStartTs - 3 * 86400
+    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, startTime=gLastCycleStartTs, endTime=gThisCycleStartTs, tradeType='G市(买)')
+    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, startTime=gLastCycleStartTs, endTime=gThisCycleStartTs,  tradeType='G市(卖)')
+    allCostKusa = sum([record.costItemAmount for record in tradeRecordBuying])
+    allGainKusa = sum([record.gainItemAmount for record in tradeRecordSelling])
+    st = f'您上周期的G市交易总结：\n'
+    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，盈亏估值：{allGainKusa - allCostKusa}草。\n\n'
+
+    lastCyclePrice = await gValueDB.getLastCycleEndGValues()
+    st += '上周期各G的收盘价为：\n'
+    st += (f'东校区：{lastCyclePrice.eastValue:.3f}\n南校区：{lastCyclePrice.southValue:.3f}\n'
+           f'北校区：{lastCyclePrice.northValue:.3f}\n珠海校区：{lastCyclePrice.zhuhaiValue:.3f}\n'
+           f'深圳校区：{lastCyclePrice.shenzhenValue:.3f}')
+    await session.send(st)
+
+
 @on_command(name='交易记录', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     gValues = await gValueDB.getLatestGValues()
 
     gStartTs = getGCycleStartTs(gValues)
-    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(买)')
-    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(卖)')
+    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(买)')
+    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(卖)')
     if not (tradeRecordBuying or tradeRecordSelling):
         await session.send('您本周期暂无G市交易记录= =')
     allRecords = tradeRecordBuying + tradeRecordSelling
@@ -158,6 +185,7 @@ def getGCycleStartTs(gValues):
 @on_command(name='G买入', only_to_me=False)
 async def _(session: CommandSession):
     if not await tradingTimeCheck(session):
+        await session.send('当前是结算时间，无法进行G交易^ ^')
         return
 
     userId = session.ctx['user_id']
@@ -191,6 +219,7 @@ async def _(session: CommandSession):
 @on_command(name='G卖出', only_to_me=False)
 async def _(session: CommandSession):
     if not await tradingTimeCheck(session):
+        await session.send('当前是结算时间，无法进行G交易^ ^')
         return
 
     userId = session.ctx['user_id']
@@ -246,7 +275,6 @@ async def tradingTimeCheck(session: CommandSession):
     # 非交易周期：当前G值为第一周期，且时间在23：50分之前
     gValues = await gValueDB.getLatestGValues()
     if gValues.turn == 1 and datetime.datetime.now().minute < 50:
-        await session.send('当前是结算时间，无法进行G交易^ ^')
         return False
     return True
 
