@@ -125,8 +125,10 @@ async def setDonateRecord(qqNum, amount, source):
     await DonateRecord.create(qq=qqNum, amount=amount, donateDate=donateDate, source=source)
 
 
-async def getTradeRecord(operator, tradeType=None, gainItemName=None, costItemName=None, startTime=None, endTime=None):
-    query = TradeRecord.filter(operator=operator)
+async def getTradeRecord(operator=None, tradeType=None, gainItemName=None, costItemName=None, startTime=None, endTime=None):
+    query = TradeRecord.all()
+    if operator:
+        query = query.filter(operator=operator)
     if tradeType:
         query = query.filter(tradeType=tradeType)
     if gainItemName:
