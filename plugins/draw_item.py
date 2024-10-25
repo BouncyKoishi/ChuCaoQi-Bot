@@ -12,7 +12,7 @@ import dbConnection.kusa_item as usefulItemDB
 
 itemRareDescribe = ['Easy', 'Normal', 'Hard', 'Lunatic']
 drawConfig = config['drawItem']
-
+sensitiveWords = config['sensitiveWords']
 
 @on_command(name='抽奖', only_to_me=False)
 async def itemDraw(session: CommandSession):
@@ -175,6 +175,10 @@ async def addItem(session, rare):
     if itemDetail and len(itemDetail) > 1024:
         await session.send('物品简介太长啦!最多1024字')
         return
+    for word in sensitiveWords:
+        if word in itemName or (itemDetail and word in itemDetail):
+            await session.send('物品名或简介中包含敏感词汇^_^')
+            return
     existItem = await drawItemDB.getItemByName(itemName)
     if existItem:
         await session.send('此物品名已经存在!')
