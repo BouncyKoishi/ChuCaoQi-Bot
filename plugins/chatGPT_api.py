@@ -17,6 +17,8 @@ HISTORY_PATH = u"chatHistory/"
 unlimitedGroup = config['web']['openai']['gpt3AllowGroups']
 groupCallCounts = {}
 
+sensitiveWords = config['sensitiveWords']
+
 
 @on_command(name='chat', only_to_me=False)
 async def chatNew(session: CommandSession):
@@ -306,6 +308,8 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
 
     try:
         reply, tokenUsage = await getChatReply(model, history)
+        for word in sensitiveWords:
+            reply = reply.replace(word, "*" * len(word))
         await db.addTokenUsage(chatUser, model, tokenUsage)
         saveConversation(userId, history)
 

@@ -2,11 +2,12 @@ import os
 import re
 import math
 import time
+import codecs
 import random
 import nonebot
 import datetime
 from nonebot import on_command, CommandSession
-from kusa_base import buying, selling, config
+from kusa_base import buying, selling, config, sendGroupMsg
 from utils import rd3, imgLocalPathToBase64
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
@@ -28,17 +29,17 @@ async def _(session: CommandSession):
 
     st = f'G市有风险，炒G需谨慎！\n'
     if gValues.turn != 1:
-        st += f'当前G值为：\n'
-        st += f'东校区：{rd3(gValues.eastValue)}(上期：{rd3(gValuesLast.eastValue)})\n'
-        st += f'南校区：{rd3(gValues.southValue)}(上期：{rd3(gValuesLast.southValue)})\n'
-        st += f'北校区：{rd3(gValues.northValue)}(上期：{rd3(gValuesLast.northValue)})\n'
-        st += f'珠海校区：{rd3(gValues.zhuhaiValue)}(上期：{rd3(gValuesLast.zhuhaiValue)})\n'
-        st += f'深圳校区：{rd3(gValues.shenzhenValue)}(上期：{rd3(gValuesLast.shenzhenValue)})\n'
+        st += '当前G值为：\n'
+        st += formatGValue(gValues.eastValue, gValuesLast.eastValue, '东')
+        st += formatGValue(gValues.southValue, gValuesLast.southValue, '南')
+        st += formatGValue(gValues.northValue, gValuesLast.northValue, '北')
+        st += formatGValue(gValues.zhuhaiValue, gValuesLast.zhuhaiValue, '珠海')
+        st += formatGValue(gValues.shenzhenValue, gValuesLast.shenzhenValue, '深圳')
         st += f'当前为本周期第{gValues.turn}期数值。\n\n'
     else:
         st += f'当前为本周期的第一期数值！\n当前G值为：\n'
         st += f'东校区：{areaStartValue("东")}\n南校区：{areaStartValue("南")}\n北校区：{areaStartValue("北")}\n' \
-              f'珠海校区：{areaStartValue("珠")}\n深圳校区：{areaStartValue("深")}\n'
+              f'珠海校区：{areaStartValue("珠")}\n深圳校区：{areaStartValue("深")}\n\n'
 
     eastGAmount, southGAmount, northGAmount, zhuhaiGAmount, shenzhenGAmount = await getAllGAmounts(userId)
     st += f'您拥有的G：\n'
@@ -48,10 +49,23 @@ async def _(session: CommandSession):
     st += (f'珠海校区： {zhuhaiGAmount}\n' if zhuhaiGAmount else '')
     st += (f'深圳校区： {shenzhenGAmount}\n' if shenzhenGAmount else '')
     st += (f'您当前没有任何G!\n' if not (
-                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '')
-    st += f'\n'
-    st += f'您可以选择：\n!G买入 [校区] [数量]\n!G卖出 [校区] [数量]\n!G线图 [校区]\n'
-    await session.send(st)
+                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '\n')
+
+    st += '\n使用 !G市帮助 可以查看G市交易相关指令。'
+    await session.send(st[:-1])
+
+
+def formatGValue(currentValue, lastValue, campusName):
+    change = currentValue - lastValue
+    percentageChange = (change / lastValue * 100) if lastValue != 0 else 0
+    pChangeSign = '+' if change >= 0 else ''
+    return f'{campusName}校区：{currentValue:.3f}({pChangeSign}{percentageChange:.2f}%)\n'
+
+
+@on_command(name='G市帮助', only_to_me=False)
+async def GHelp(session: CommandSession):
+    with codecs.open(u'text/生草系统-G市帮助.txt', 'r', 'utf-8') as f:
+        await session.send(f.read().strip())
 
 
 @on_command(name='测F', only_to_me=False)
@@ -74,12 +88,15 @@ async def _(session: CommandSession):
 
 @on_command(name='交易总结', only_to_me=False)
 async def _(session: CommandSession):
+    if not await tradingTimeCheck():
+        await session.send('请在G市结算完成后再查询交易总结^ ^')
+        return
     userId = session.ctx['user_id']
     gValues = await gValueDB.getLatestGValues()
     eastGAmount, southGAmount, northGAmount, zhuhaiGAmount, shenzhenGAmount = await getAllGAmounts(userId)
     gStartTs = getGCycleStartTs(gValues)
-    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(买)')
-    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(卖)')
+    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(买)')
+    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(卖)')
     nowKusaInG = int(sum([
         eastGAmount * gValues.eastValue, southGAmount * gValues.southValue,
         northGAmount * gValues.northValue, zhuhaiGAmount * gValues.zhuhaiValue,
@@ -101,8 +118,25 @@ async def _(session: CommandSession):
         st += (f'珠海校区： {zhuhaiGAmount}G * {gValues.zhuhaiValue:.3f} = {zhuhaiGAmount * gValues.zhuhaiValue:.0f}草\n' if zhuhaiGAmount else '')
         st += (f'深圳校区： {shenzhenGAmount}G * {gValues.shenzhenValue:.3f} = {shenzhenGAmount * gValues.shenzhenValue:.0f}草\n' if shenzhenGAmount else '')
 
-    st += '\n如果需要查询本期的G市交易记录详情，请使用“!交易记录”指令。'
     await session.send(st[:-1])
+
+
+@on_command(name='上期交易总结', only_to_me=False)
+async def _(session: CommandSession):
+    if not await tradingTimeCheck():
+        await session.send('请在G市结算完成后再查询上期交易总结^ ^')
+        return
+    userId = session.ctx['user_id']
+    gValues = await gValueDB.getLatestGValues()
+    gThisCycleStartTs = getGCycleStartTs(gValues)
+    gLastCycleStartTs = gThisCycleStartTs - 3 * 86400
+    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, startTime=gLastCycleStartTs, endTime=gThisCycleStartTs, tradeType='G市(买)')
+    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, startTime=gLastCycleStartTs, endTime=gThisCycleStartTs,  tradeType='G市(卖)')
+    allCostKusa = sum([record.costItemAmount for record in tradeRecordBuying])
+    allGainKusa = sum([record.gainItemAmount for record in tradeRecordSelling])
+    st = f'您上周期的G市交易总结：\n'
+    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。\n'
+    await session.send(st)
 
 
 @on_command(name='交易记录', only_to_me=False)
@@ -111,12 +145,12 @@ async def _(session: CommandSession):
     gValues = await gValueDB.getLatestGValues()
 
     gStartTs = getGCycleStartTs(gValues)
-    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(买)')
-    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, timeLimit=gStartTs, tradeType='G市(卖)')
+    tradeRecordBuying = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(买)')
+    tradeRecordSelling = await baseDB.getTradeRecord(operator=userId, startTime=gStartTs, tradeType='G市(卖)')
     if not (tradeRecordBuying or tradeRecordSelling):
         await session.send('您本周期暂无G市交易记录= =')
     allRecords = tradeRecordBuying + tradeRecordSelling
-    allRecords.sort(key=lambda tradeRecord: tradeRecord.timestamp)
+    allRecords.sort(key=lambda tradeRecord: tradeRecord.timestamp, reverse=True)
 
     pageSize = 10
     totalPages = (len(allRecords) + pageSize - 1) // pageSize
@@ -127,13 +161,13 @@ async def _(session: CommandSession):
         pageRecords = allRecords[startIndex:endIndex]
         outputStr = f'您本周期的G市交易记录如下：\n'
         for record in pageRecords:
-            recordTime = datetime.datetime.fromtimestamp(record.timestamp).strftime('%m-%d %H:%M:%S')
+            recordTime = datetime.datetime.fromtimestamp(record.timestamp).strftime('%m-%d %H:%M')
             if record.tradeType == 'G市(买)':
                 unitPrice = rd3(record.costItemAmount / record.gainItemAmount)
-                outputStr += f'{recordTime}: 买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，买入单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，单价为{unitPrice}\n'
             if record.tradeType == 'G市(卖)':
                 unitPrice = rd3(record.gainItemAmount / record.costItemAmount)
-                outputStr += f'{recordTime}: 卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，卖出单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，单价为{unitPrice}\n'
         if totalPages > 1 and currentPage < totalPages:
             confirm = await session.aget(prompt=outputStr + f'(当前第{currentPage}/{totalPages}页，输入Next显示下一页)')
             if confirm.lower() != 'next':
@@ -152,7 +186,8 @@ def getGCycleStartTs(gValues):
 
 @on_command(name='G买入', only_to_me=False)
 async def _(session: CommandSession):
-    if not await tradingTimeCheck(session):
+    if not await tradingTimeCheck():
+        await session.send('当前是结算时间，无法进行G交易^ ^')
         return
 
     userId = session.ctx['user_id']
@@ -185,7 +220,8 @@ async def _(session: CommandSession):
 
 @on_command(name='G卖出', only_to_me=False)
 async def _(session: CommandSession):
-    if not await tradingTimeCheck(session):
+    if not await tradingTimeCheck():
+        await session.send('当前是结算时间，无法进行G交易^ ^')
         return
 
     userId = session.ctx['user_id']
@@ -237,11 +273,10 @@ async def GSellingAll(userId, gValues):
     return allKusa
 
 
-async def tradingTimeCheck(session: CommandSession):
+async def tradingTimeCheck():
     # 非交易周期：当前G值为第一周期，且时间在23：50分之前
     gValues = await gValueDB.getLatestGValues()
     if gValues.turn == 1 and datetime.datetime.now().minute < 50:
-        await session.send('当前是结算时间，无法进行G交易^ ^')
         return False
     return True
 
@@ -355,6 +390,53 @@ async def G_reset():
     await gValueDB.addNewGValue(gValues.cycle + 1, 1, areaStartValue('东'), areaStartValue('南'), areaStartValue('北'),
                                 areaStartValue('珠'), areaStartValue('深'))
     await bot.send_group_msg(group_id=config['group']['main'], message=f'新的G周期开始了！上个周期的G已经自动兑换为草。')
+
+
+@nonebot.scheduler.scheduled_job('cron', day='*/3', hour='23', minute='50')
+async def _():
+    summary = await getLastCycleSummary()
+    await sendGroupMsg(config['group']['main'], summary)
+
+
+async def getLastCycleSummary():
+    gValues = await gValueDB.getLatestGValues()
+    gThisCycleStartTs = getGCycleStartTs(gValues)
+    gLastCycleStartTs = gThisCycleStartTs - 3 * 86400
+    tradeRecordsBuying = await baseDB.getTradeRecord(startTime=gLastCycleStartTs, endTime=gThisCycleStartTs, tradeType='G市(买)')
+    tradeRecordsSelling = await baseDB.getTradeRecord(startTime=gLastCycleStartTs, endTime=gThisCycleStartTs, tradeType='G市(卖)')
+
+    allRecords = tradeRecordsBuying + tradeRecordsSelling
+    operatorRecordsMap = {}
+    for record in allRecords:
+        operatorRecordsMap.setdefault(record.operator, []).append(record)
+
+    operatorProfitMap = {}
+    for userId, records in operatorRecordsMap.items():
+        kusaProfit = 0
+        for record in records:
+            if record.tradeType == 'G市(买)':
+                kusaProfit -= record.costItemAmount
+            if record.tradeType == 'G市(卖)':
+                kusaProfit += record.gainItemAmount
+        operatorProfitMap[userId] = kusaProfit
+
+    maxProfitUserId = max(operatorProfitMap, key=operatorProfitMap.get)
+    minProfitUserId = min(operatorProfitMap, key=operatorProfitMap.get)
+    nameList = await baseDB.getNameListByQQ([maxProfitUserId, minProfitUserId])
+    maxUserName = nameList[maxProfitUserId] if nameList[maxProfitUserId] else maxProfitUserId
+    minUserName = nameList[minProfitUserId] if nameList[minProfitUserId] else minProfitUserId
+    outputStr = (f'上周期的G神为 {maxUserName} 和 {minUserName}：\n'
+                 f'{maxUserName}在G市盈利{operatorProfitMap[maxProfitUserId]}草\n'
+                 f'{minUserName}在G市盈利{operatorProfitMap[minProfitUserId]}草\n\n')
+
+    lastCycleGValues = await gValueDB.getLastCycleEndGValues()
+    outputStr += '上周期各G的收盘价为：\n'
+    outputStr += formatGValue(lastCycleGValues.eastValue, areaStartValue('东'), '东')
+    outputStr += formatGValue(lastCycleGValues.southValue, areaStartValue('南'), '南')
+    outputStr += formatGValue(lastCycleGValues.northValue, areaStartValue('北'), '北')
+    outputStr += formatGValue(lastCycleGValues.zhuhaiValue, areaStartValue('珠'), '珠海')
+    outputStr += formatGValue(lastCycleGValues.shenzhenValue, areaStartValue('深'), '深圳')
+    return outputStr
 
 
 def areaTranslateValue(areaName):
