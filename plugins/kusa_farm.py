@@ -588,7 +588,7 @@ async def _(session: CommandSession):
             await baseDB.changeAdvKusa(userId, 1)
             record += '额外获得了1草之精华！'
         robRecords.append(record)
-        if robInfo.robCount >= robInfo.robLimit:
+        if robInfo.robCount > robInfo.robLimit:
             stopRobbingIds.append(robId)
     print(f'{userId}的围殴节点-完成后台处理：{datetime.now().timestamp()}')
     if robRecords:
