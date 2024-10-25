@@ -2,6 +2,7 @@ import os
 import re
 import math
 import time
+import codecs
 import random
 import nonebot
 import datetime
@@ -38,7 +39,7 @@ async def _(session: CommandSession):
     else:
         st += f'当前为本周期的第一期数值！\n当前G值为：\n'
         st += f'东校区：{areaStartValue("东")}\n南校区：{areaStartValue("南")}\n北校区：{areaStartValue("北")}\n' \
-              f'珠海校区：{areaStartValue("珠")}\n深圳校区：{areaStartValue("深")}\n'
+              f'珠海校区：{areaStartValue("珠")}\n深圳校区：{areaStartValue("深")}\n\n'
 
     eastGAmount, southGAmount, northGAmount, zhuhaiGAmount, shenzhenGAmount = await getAllGAmounts(userId)
     st += f'您拥有的G：\n'
@@ -49,6 +50,8 @@ async def _(session: CommandSession):
     st += (f'深圳校区： {shenzhenGAmount}\n' if shenzhenGAmount else '')
     st += (f'您当前没有任何G!\n' if not (
                 eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '\n')
+
+    st += '\n使用 !G市帮助 可以查看G市交易相关指令。'
     await session.send(st[:-1])
 
 
@@ -57,6 +60,12 @@ def formatGValue(currentValue, lastValue, campusName):
     percentageChange = (change / lastValue * 100) if lastValue != 0 else 0
     pChangeSign = '+' if change >= 0 else ''
     return f'{campusName}校区：{currentValue:.3f}({pChangeSign}{percentageChange:.2f}%)\n'
+
+
+@on_command(name='G市帮助', only_to_me=False)
+async def GHelp(session: CommandSession):
+    with codecs.open(u'text/生草系统-G市帮助.txt', 'r', 'utf-8') as f:
+        await session.send(f.read().strip())
 
 
 @on_command(name='测F', only_to_me=False)
@@ -109,7 +118,6 @@ async def _(session: CommandSession):
         st += (f'珠海校区： {zhuhaiGAmount}G * {gValues.zhuhaiValue:.3f} = {zhuhaiGAmount * gValues.zhuhaiValue:.0f}草\n' if zhuhaiGAmount else '')
         st += (f'深圳校区： {shenzhenGAmount}G * {gValues.shenzhenValue:.3f} = {shenzhenGAmount * gValues.shenzhenValue:.0f}草\n' if shenzhenGAmount else '')
 
-    st += '\n如果需要查询本期的G市交易记录详情，请使用“!交易记录”指令。'
     await session.send(st[:-1])
 
 
