@@ -49,7 +49,7 @@ async def _(session: CommandSession):
     st += (f'珠海校区： {zhuhaiGAmount}\n' if zhuhaiGAmount else '')
     st += (f'深圳校区： {shenzhenGAmount}\n' if shenzhenGAmount else '')
     st += (f'您当前没有任何G!\n' if not (
-                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '\n')
+                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '')
 
     st += '\n使用 !G市帮助 可以查看G市交易相关指令。'
     await session.send(st[:-1])
@@ -135,7 +135,7 @@ async def _(session: CommandSession):
     allCostKusa = sum([record.costItemAmount for record in tradeRecordBuying])
     allGainKusa = sum([record.gainItemAmount for record in tradeRecordSelling])
     st = f'您上周期的G市交易总结：\n'
-    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。\n'
+    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。'
     await session.send(st)
 
 
