@@ -2,7 +2,7 @@ import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
 from datetime import datetime
-from nonebot import on_command, CommandSession
+from nonebot import on_command, CommandSession, get_bot
 from kusa_base import isSuperAdmin, config
 
 
@@ -19,6 +19,7 @@ async def _(session: CommandSession):
     outputStr += "TITLE_LIST 系统称号列表\n"
     outputStr += "GIVE_TITLE [qq号] [称号] 给予称号\n"
     outputStr += "SET_DONATION [qq号] [金额] (qq/ifd) 设置捐赠金额\n"
+    outputStr += "SET_NAME [qq号] (名字) 设置名称（默认从昵称取）\n"
     await session.send(outputStr)
 
 
@@ -193,3 +194,27 @@ async def _(session: CommandSession):
         return
     await baseDB.setDonateRecord(qqNum, amount, source)
     await session.send(f'成功添加{qqNum}通过{source}捐赠{amount}元的记录')
+
+
+@on_command(name='SET_NAME', only_to_me=False)
+async def _(session: CommandSession):
+    if not await isSuperAdmin(session.ctx['user_id']):
+        return
+
+    stripped_arg = session.current_arg_text.strip()
+    qqNum, name = stripped_arg.split(" ") if " " in stripped_arg else (stripped_arg, None)
+    if not name:
+        bot = get_bot()
+        try:
+            qqInfo = await bot.get_stranger_info(user_id=qqNum)
+            name = qqInfo['nickname']
+        except:
+            await session.send("获取用户信息失败")
+            return
+
+    user = await baseDB.getUser(qqNum)
+    if not user:
+        await session.send("用户不存在")
+        return
+    await baseDB.changeName(qqNum, name)
+    await session.send(f'成功修改{qqNum}的名字为{name}')
