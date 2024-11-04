@@ -364,8 +364,10 @@ def removeGPic():
         os.remove(cPath)
 
 
-@nonebot.scheduler.scheduled_job('cron', day='*/3', hour='23', minute='45')
+@nonebot.scheduler.scheduled_job('cron', hour='23', minute='45')
 async def G_reset():
+    if not resetDateCheck():
+        return
     allUsers = await baseDB.getAllUser()
     gValues = await gValueDB.getLatestGValues()
     bot = nonebot.get_bot()
@@ -392,8 +394,10 @@ async def G_reset():
     await bot.send_group_msg(group_id=config['group']['main'], message=f'新的G周期开始了！上个周期的G已经自动兑换为草。')
 
 
-@nonebot.scheduler.scheduled_job('cron', day='*/3', hour='23', minute='50')
+@nonebot.scheduler.scheduled_job('cron', hour='23', minute='50')
 async def _():
+    if not resetDateCheck():
+        return
     summary = await getLastCycleSummary()
     await sendGroupMsg(config['group']['main'], summary)
 
@@ -437,6 +441,13 @@ async def getLastCycleSummary():
     outputStr += formatGValue(lastCycleGValues.zhuhaiValue, areaStartValue('珠'), '珠海')
     outputStr += formatGValue(lastCycleGValues.shenzhenValue, areaStartValue('深'), '深圳')
     return outputStr
+
+
+def resetDateCheck():
+    # 以2024年11月1日为基准，每3天重置一次
+    resetDate = datetime.datetime(2024, 11, 1)
+    delta = datetime.datetime.now() - resetDate
+    return delta.days % 3 == 0
 
 
 def areaTranslateValue(areaName):
