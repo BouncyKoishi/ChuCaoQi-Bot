@@ -10,6 +10,8 @@ class User(Model):
     advKusa = IntField(default=0)
     vipLevel = IntField(default=0)
     isSuperAdmin = BooleanField(default=False)
+    isRobot = BooleanField(default=False)
+    relatedQQ = CharField(max_length=12, null=True)
     lastUseTime = DatetimeField(null=True)
 
 

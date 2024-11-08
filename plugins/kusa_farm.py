@@ -566,6 +566,10 @@ async def _(session: CommandSession):
     if not robDict:
         await session.send(f'{ms.at(userId)} 当前没有可围殴对象^ ^')
         return
+    user = await baseDB.getUser(userId)
+    if user.isRobot:
+        await session.send(f'{ms.at(userId)} 机械臂不能围殴^ ^')
+        return
     selfRobFlag, hasRobbedFlag, robRecords, stopRobbingIds = False, False, [], []
     for robId, robInfo in robDict.items():
         print(robId, robInfo)
