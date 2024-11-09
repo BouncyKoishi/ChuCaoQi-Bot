@@ -533,7 +533,7 @@ def getChainLengthStr(chainStr: str):
 def getChainBonusAmount(chainStr: str):
     chainNumber = int(chainStr[0])
     chainLength = len(chainStr)
-    return int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
+    return int(((chainNumber + 1) // 3 + 1) * (3 ** (chainLength - 2)))
 
 
 async def getOverloadBonus(field):
