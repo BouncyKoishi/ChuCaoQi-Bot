@@ -75,8 +75,11 @@ async def kusaSoilRecover(qqNum):
 async def kusaSoilUseUp(qqNum):
     kusaField = await getKusaField(qqNum)
     if kusaField:
+        usedCapacity = kusaField.soilCapacity
         kusaField.soilCapacity = 0
         await kusaField.save()
+        return usedCapacity
+    return 0
 
 
 async def kusaHistoryAdd(field: KusaField):
