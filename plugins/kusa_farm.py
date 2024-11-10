@@ -190,6 +190,9 @@ async def _(session: CommandSession):
         return
     await fieldDB.kusaStopGrowing(field, True)
     await itemDB.removeTimeLimitedItem(field.qq, '灵性标记')
+    fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+    if fallowSign:
+        await itemDB.changeItemAmount(field.qq, '休耕标记', -1)
     await session.send('除草成功^ ^')
 
     if await baseDB.getFlagValue(userId, '除草后自动生草'):
@@ -238,7 +241,8 @@ async def _(session: CommandSession):
         soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
         spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
         spiritualEffect = 2 if spiritualSign else 1
-
+        fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+        fallowEffect = [1, 2, 3][fallowSign] if 0 < fallowSign < 3 else 1
         kusaTypeEffect = kusaTypeEffectMap[field.kusaType] if field.kusaType in kusaTypeEffectMap else 1
         st += '\n生草数量计算详情:\n'
         st += f'基础生草量：0 ~ 10\n'
@@ -250,8 +254,8 @@ async def _(session: CommandSession):
         st += f'生草科技影响 * {kusaTechEffect}\n' if kusaTechEffect != 1 else ''
         st += f'当前草种影响 * {kusaTypeEffect}\n' if kusaTypeEffect != 1 else ''
         st += f'灵性保留 * {spiritualEffect}\n' if spiritualSign else ''
+        st += f'休耕肥力 * {fallowEffect}\n' if fallowSign else ''
         st += f'土壤承载力影响 * {soilEffect:.1f}\n' if soilEffect != 1 else ''
-
     await session.send(st[:-1])
 
 
@@ -358,6 +362,9 @@ async def kusaHarvest(field):
         await itemDB.updateTimeLimitedItem(field.qq, '灵性标记', 24 * 3600)
     else:
         await itemDB.removeTimeLimitedItem(field.qq, '灵性标记')
+    fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+    if fallowSign:
+        await itemDB.changeItemAmount(field.qq, '休耕标记', -1)
     await fieldDB.kusaHistoryAdd(field)
     await fieldDB.kusaStopGrowing(field, False)
 
@@ -403,6 +410,8 @@ async def getCreateKusaNum(field, baseKusa):
     fieldAmount = await itemDB.getItemAmount(field.qq, '草地')
     doubleMagic = await itemDB.getItemAmount(field.qq, '双生法术卷轴')
     spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
+    fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+    fallowEffect = [1, 2, 3][fallowSign] if 0 < fallowSign < 3 else 1
     kusaTechEffect = await getKusaTechEffect(field.qq)
     soilEffect = 1 - 0.1 * (10 - field.soilCapacity) if field.soilCapacity <= 10 else 1
 
@@ -416,6 +425,7 @@ async def getCreateKusaNum(field, baseKusa):
     kusaNum *= fieldAmount
     kusaNum *= soilEffect
     kusaNum *= kusaTechEffect
+    kusaNum *= fallowEffect
     kusaNum = math.ceil(kusaNum)
     return kusaNum
 
@@ -436,9 +446,14 @@ async def getCreateAdvKusaNum(field):
 
     mustGrowAdv = await itemDB.getItemAmount(field.qq, '生草控制论')
     spiritualSign = await itemDB.getItemStorageInfo(field.qq, '灵性标记')
+    fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+    fallowEffect = [1, 2, 3][fallowSign] if 0 < fallowSign < 3 else 1
+
     advKusaNum = 1 if mustGrowAdv and advKusaNum == 0 else advKusaNum
     advKusaNum *= advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
     advKusaNum *= 2 if spiritualSign and field.kusaType != '不灵草' else 1
+    advKusaNum *= fallowEffect
+    advKusaNum = math.floor(advKusaNum)
 
     return advKusaNum
 
@@ -468,8 +483,8 @@ async def goodNewsReport(field):
         advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
-    # 总草精数喜报：最终草精大于等于50
-    if field.advKusaResult >= 50:
+    # 总草精数喜报：最终草精大于等于50(仅当未触发基础草精喜报时发送)
+    elif field.advKusaResult >= 50:
         await sendReportMsg(field, '草精喜报')
 
 
@@ -533,7 +548,7 @@ def getChainLengthStr(chainStr: str):
 def getChainBonusAmount(chainStr: str):
     chainNumber = int(chainStr[0])
     chainLength = len(chainStr)
-    return int((chainNumber // 3 + 1) * (3 ** (chainLength - 2)))
+    return int(((chainNumber + 1) // 3 + 1) * (3 ** (chainLength - 2)))
 
 
 async def getOverloadBonus(field):
@@ -565,6 +580,10 @@ async def _(session: CommandSession):
         return
     if not robDict:
         await session.send(f'{ms.at(userId)} 当前没有可围殴对象^ ^')
+        return
+    user = await baseDB.getUser(userId)
+    if user.isRobot:
+        await session.send(f'{ms.at(userId)} 机械臂不能围殴^ ^')
         return
     selfRobFlag, hasRobbedFlag, robRecords, stopRobbingIds = False, False, [], []
     for robId, robInfo in robDict.items():

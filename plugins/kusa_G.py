@@ -49,7 +49,7 @@ async def _(session: CommandSession):
     st += (f'珠海校区： {zhuhaiGAmount}\n' if zhuhaiGAmount else '')
     st += (f'深圳校区： {shenzhenGAmount}\n' if shenzhenGAmount else '')
     st += (f'您当前没有任何G!\n' if not (
-                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '\n')
+                eastGAmount or southGAmount or northGAmount or zhuhaiGAmount or shenzhenGAmount) else '')
 
     st += '\n使用 !G市帮助 可以查看G市交易相关指令。'
     await session.send(st[:-1])
@@ -135,7 +135,7 @@ async def _(session: CommandSession):
     allCostKusa = sum([record.costItemAmount for record in tradeRecordBuying])
     allGainKusa = sum([record.gainItemAmount for record in tradeRecordSelling])
     st = f'您上周期的G市交易总结：\n'
-    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。\n'
+    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。'
     await session.send(st)
 
 
@@ -364,8 +364,10 @@ def removeGPic():
         os.remove(cPath)
 
 
-@nonebot.scheduler.scheduled_job('cron', day='*/3', hour='23', minute='45')
+@nonebot.scheduler.scheduled_job('cron', hour='23', minute='45')
 async def G_reset():
+    if not resetDateCheck():
+        return
     allUsers = await baseDB.getAllUser()
     gValues = await gValueDB.getLatestGValues()
     bot = nonebot.get_bot()
@@ -392,8 +394,10 @@ async def G_reset():
     await bot.send_group_msg(group_id=config['group']['main'], message=f'新的G周期开始了！上个周期的G已经自动兑换为草。')
 
 
-@nonebot.scheduler.scheduled_job('cron', day='*/3', hour='23', minute='50')
+@nonebot.scheduler.scheduled_job('cron', hour='23', minute='50')
 async def _():
+    if not resetDateCheck():
+        return
     summary = await getLastCycleSummary()
     await sendGroupMsg(config['group']['main'], summary)
 
@@ -437,6 +441,13 @@ async def getLastCycleSummary():
     outputStr += formatGValue(lastCycleGValues.zhuhaiValue, areaStartValue('珠'), '珠海')
     outputStr += formatGValue(lastCycleGValues.shenzhenValue, areaStartValue('深'), '深圳')
     return outputStr
+
+
+def resetDateCheck():
+    # 以2024年11月1日为基准，每3天重置一次
+    resetDate = datetime.datetime(2024, 11, 1)
+    delta = datetime.datetime.now() - resetDate
+    return delta.days % 3 == 0
 
 
 def areaTranslateValue(areaName):

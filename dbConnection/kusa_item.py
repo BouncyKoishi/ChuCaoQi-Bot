@@ -89,20 +89,22 @@ async def changeItemAllowUse(qqNum, itemName, allowUse):
         return True
 
 
-async def updateTimeLimitedItem(qqNum, itemName, duration):
+async def updateTimeLimitedItem(qqNum, itemName, duration, amount=1):
     item = await getItem(itemName)
     if not item:
         return False
+    if amount <= 0:
+        await removeTimeLimitedItem(qqNum, itemName)
 
     itemStorage = await KusaItemStorage.filter(qq=qqNum, item=item).first()
     if itemStorage:
-        itemStorage.amount = 1
+        itemStorage.amount = amount
         itemStorage.timeLimitTs += duration
         await itemStorage.save()
     else:
         now = datetime.datetime.now().timestamp()
         timeLimitTs = now + duration
-        await KusaItemStorage.create(qq=qqNum, item=item, amount=1, timeLimitTs=timeLimitTs)
+        await KusaItemStorage.create(qq=qqNum, item=item, amount=amount, timeLimitTs=timeLimitTs)
 
     return True
 

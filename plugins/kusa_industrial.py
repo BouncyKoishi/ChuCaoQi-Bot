@@ -144,16 +144,24 @@ async def dailyIndustrial():
         newAdvKusaAmount = await getDailyAdvKusaNum(user.qq)
         newCoreAmount = await getDailyCoreNum(user.qq, coreRandInt)
         newBlackTeaAmount = await getDailyBlackTeaNum(user.qq)
-        remiProductionInfo = await itemDB.getItemStorageInfo(user.qq, '蕾米球的生产魔法')
-        if remiProductionInfo and remiProductionInfo.allowUse:
+        remiMagicInfo = await itemDB.getItemStorageInfo(user.qq, '蕾米球的生产魔法')
+        if remiMagicInfo and remiMagicInfo.allowUse:
             kusaField = await fieldDB.getKusaField(user.qq)
             extraMagnification = max(0.04 * (kusaField.soilCapacity - 20), 0)
             newKusaAmount = math.ceil(newKusaAmount * (1 + extraMagnification))
             newAdvKusaAmount = math.ceil(newAdvKusaAmount * (1 + extraMagnification))
             newCoreAmount = math.ceil(newAdvKusaAmount * (1 + extraMagnification))
             newBlackTeaAmount = math.ceil(newAdvKusaAmount * (1 + extraMagnification))
-            await itemDB.updateTimeLimitedItem(user.qq, '过载标记', 12 * 3600)
-            await fieldDB.kusaSoilUseUp(user.qq)
+            overloadTime = 12 * 3600
+            usedCapacity = await fieldDB.kusaSoilUseUp(user.qq)
+            if usedCapacity:
+                print(f'{user.qq}消耗了{usedCapacity}承载量，发动了蕾米球的生草魔法！')
+                icyMagicInfo = await itemDB.getItemStorageInfo(user.qq, '冰雪酱的休耕魔法')
+                if icyMagicInfo and icyMagicInfo.allowUse:
+                    print(f'{user.qq}发动了冰雪酱的休耕魔法！')
+                    await itemDB.updateTimeLimitedItem(qqNum=user.qq, itemName='休耕标记', duration=86300, amount=2)
+                    overloadTime = 9 * 3600
+            await itemDB.updateTimeLimitedItem(user.qq, '过载标记', overloadTime)
         await baseDB.changeKusa(user.qq, newKusaAmount)
         await baseDB.changeAdvKusa(user.qq, newAdvKusaAmount)
         await itemDB.changeItemAmount(user.qq, '自动化核心', newCoreAmount)

@@ -14,6 +14,7 @@ itemRareDescribe = ['Easy', 'Normal', 'Hard', 'Lunatic']
 drawConfig = config['drawItem']
 sensitiveWords = config['sensitiveWords']
 
+
 @on_command(name='抽奖', only_to_me=False)
 async def itemDraw(session: CommandSession):
     groupId = session.ctx['group_id']
@@ -136,25 +137,25 @@ async def getItemFromDB(startRareRank=0, poolName=None):
     return await getItemFromDB(startRareRank, poolName)
 
 
-@on_command(name='添加-Easy', aliases='奖品添加-Easy', only_to_me=False)
+@on_command(name='添加-Easy', aliases='物品添加-Easy', only_to_me=False)
 @CQ_injection_check_command
 async def addItemEasy(session: CommandSession):
     await addItem(session, 0)
 
 
-@on_command(name='添加-Normal', aliases='奖品添加-Normal', only_to_me=False)
+@on_command(name='添加-Normal', aliases='物品添加-Normal', only_to_me=False)
 @CQ_injection_check_command
 async def addItemNormal(session: CommandSession):
     await addItem(session, 1)
 
 
-@on_command(name='添加-Hard', aliases='奖品添加-Hard', only_to_me=False)
+@on_command(name='添加-Hard', aliases='物品添加-Hard', only_to_me=False)
 @CQ_injection_check_command
 async def addItemHard(session: CommandSession):
     await addItem(session, 2)
 
 
-@on_command(name='添加-Lunatic', aliases='奖品添加-Lunatic', only_to_me=False)
+@on_command(name='添加-Lunatic', aliases='物品添加-Lunatic', only_to_me=False)
 @CQ_injection_check_command
 async def addItemLunatic(session: CommandSession):
     await addItem(session, 3)
@@ -169,6 +170,7 @@ async def addItem(session, rare):
         return
 
     itemName = itemName.strip()
+    itemName = itemName.replace('\n', '')
     if len(itemName) > 32:
         await session.send('物品名太长啦!最多32字')
         return
@@ -200,7 +202,7 @@ async def addItem(session, rare):
     await session.send(output)
 
 
-@on_command(name='奖品仓库', aliases='物品仓库', only_to_me=False)
+@on_command(name='物品仓库', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     arg = session.current_arg_text.strip()
@@ -212,7 +214,7 @@ async def _(session: CommandSession):
         await session.send(f'{poolInfo}{levelInfo}暂无可抽取物品^ ^')
         return
 
-    outputStr = ""
+    outputStr, replied = '', False
     # 展示全部等级的物品
     if level is None:
         groupedData = groupby(itemStorageList, key=lambda x: x.rareRank)
@@ -240,11 +242,11 @@ async def _(session: CommandSession):
                     outputStr += f'\n(当前最后一页)' if len(ownItem) > pageSize else ''
                     break
                 confirm = await session.aget(prompt=outputStr + f'\n(当前第{offset // pageSize}页，输入Next显示下一页)')
-                outputStr = ''
+                outputStr, replied = '', True
                 if confirm.lower() != 'next':
                     break
 
-    if not outputStr:
+    if not outputStr and not replied:
         argExistInfo = '在' if level is not None or poolName else ''
         poolInfo = f'{poolName}奖池' if poolName else ''
         levelInfo = f'{itemRareDescribe[level]}等级' if level is not None else ''
@@ -252,7 +254,7 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-@on_command(name='奖品详情', aliases='物品详情', only_to_me=False)
+@on_command(name='物品详情', only_to_me=False)
 async def _(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
@@ -274,7 +276,7 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-@on_command(name='奖品搜索', aliases='物品搜索', only_to_me=False)
+@on_command(name='物品搜索', only_to_me=False)
 async def _(session: CommandSession):
     await itemSearch(session)
 
@@ -303,7 +305,7 @@ async def itemSearch(session: CommandSession):
             return
 
 
-@on_command(name='奖品修改', aliases='物品修改', only_to_me=False)
+@on_command(name='物品修改', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     stripped_arg = session.current_arg_text.strip()
@@ -336,7 +338,7 @@ async def _(session: CommandSession):
     await session.send('删除成功！')
 
 
-@on_command(name='自制奖品列表', aliases='自制物品列表', only_to_me=False)
+@on_command(name='自制物品列表', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     strippedArg = session.current_arg_text.strip()
@@ -393,17 +395,17 @@ async def _(session: CommandSession):
     await session.send(outputStr)
 
 
-@on_command(name='最新奖品', aliases='最新物品', only_to_me=False)
+@on_command(name='最新物品', only_to_me=False)
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     prescientAmount = await usefulItemDB.getItemAmount(userId, '侦察凭证')
     if not prescientAmount:
-        await session.send('你没有侦察凭证，无法查看最新奖品^ ^')
+        await session.send('你没有侦察凭证，无法查看最新物品^ ^')
         return
     await usefulItemDB.changeItemAmount(userId, '侦察凭证', -1)
 
     latestItems = await drawItemDB.getLatestItems(5)
-    outputStr = '当前的最新奖品（倒序）：\n'
+    outputStr = '当前抽奖系统的最新物品（倒序）：\n'
     for item in latestItems:
         outputStr += f'[{itemRareDescribe[item.rareRank]}]{item.name}\n'
     await session.send(outputStr[:-1])
