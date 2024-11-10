@@ -214,7 +214,7 @@ async def _(session: CommandSession):
         await session.send(f'{poolInfo}{levelInfo}暂无可抽取物品^ ^')
         return
 
-    outputStr = ""
+    outputStr, replied = '', False
     # 展示全部等级的物品
     if level is None:
         groupedData = groupby(itemStorageList, key=lambda x: x.rareRank)
@@ -242,11 +242,11 @@ async def _(session: CommandSession):
                     outputStr += f'\n(当前最后一页)' if len(ownItem) > pageSize else ''
                     break
                 confirm = await session.aget(prompt=outputStr + f'\n(当前第{offset // pageSize}页，输入Next显示下一页)')
-                outputStr = ''
+                outputStr, replied = '', True
                 if confirm.lower() != 'next':
                     break
 
-    if not outputStr:
+    if not outputStr and not replied:
         argExistInfo = '在' if level is not None or poolName else ''
         poolInfo = f'{poolName}奖池' if poolName else ''
         levelInfo = f'{itemRareDescribe[level]}等级' if level is not None else ''
