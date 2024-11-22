@@ -23,7 +23,7 @@ async def func(bot: nonebot.NoneBot, event: aiocqhttp.Event, plugin_manager: non
         
         # 记录触发指令时间，屏蔽刷指令
         warningCount = repeatWarning.get(event.user_id)
-        if warningCount and warningCount >= 8:
+        if warningCount and warningCount >= 5:
             raise nonebot.message.CanceledException("刷指令人员，暂时屏蔽所有服务")
         if event.user_id in lastSpellRecord:
             recordTimeStamp = lastSpellRecord[event.user_id]
@@ -42,10 +42,9 @@ async def func(bot: nonebot.NoneBot, event: aiocqhttp.Event, plugin_manager: non
         lastSpellRecord[event.user_id] = time.time()
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=1)
+@nonebot.scheduler.scheduled_job('interval', minutes=67)  #写个质数防止被抓
 async def cleanWarning():
     global repeatWarning
     for key in repeatWarning:
-        if time.time() - lastSpellRecord[key] > 3600:
-            repeatWarning[key] = 0
+        repeatWarning[key] = 0
 
