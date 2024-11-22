@@ -105,7 +105,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     # 神灵草替换
     divinePlugin = await itemDB.getItemStorageInfo(userId, '神灵草基因模块')
     if divinePlugin and divinePlugin.allowUse and kusaType != '不灵草':
-        if random.random() < 0.05:
+        if systemRandom.random() < 0.05:
             kusaType = '神灵草'
 
     # 灵草相关处理
@@ -125,8 +125,8 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
 
     # 奈奈的时光魔法影响生长时间
     kusaSpeedMagic = await itemDB.getItemAmount(userId, '奈奈的时光魔法')
-    magicImmediate = kusaSpeedMagic and random.random() < 0.007
-    magicQuick = kusaSpeedMagic and random.random() < 0.07 and not magicImmediate
+    magicImmediate = kusaSpeedMagic and systemRandom.random() < 0.007
+    magicQuick = kusaSpeedMagic and systemRandom.random() < 0.07 and not magicImmediate
     if magicImmediate:
         growTime = 0
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
