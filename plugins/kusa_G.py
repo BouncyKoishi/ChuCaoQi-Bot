@@ -431,15 +431,22 @@ async def getLastCycleSummary():
     minUserName = nameList[minProfitUserId] if nameList[minProfitUserId] else minProfitUserId
     outputStr = (f'上周期的G神为 {maxUserName} 和 {minUserName}：\n'
                  f'{maxUserName}在G市盈利{operatorProfitMap[maxProfitUserId]}草\n'
-                 f'{minUserName}在G市盈利{operatorProfitMap[minProfitUserId]}草\n\n')
+                 f'{minUserName}在G市盈利{operatorProfitMap[minProfitUserId]}草\n')
 
-    lastCycleGValues = await gValueDB.getLastCycleEndGValues()
-    outputStr += '上周期各G的收盘价为：\n'
-    outputStr += formatGValue(lastCycleGValues.eastValue, areaStartValue('东'), '东')
-    outputStr += formatGValue(lastCycleGValues.southValue, areaStartValue('南'), '南')
-    outputStr += formatGValue(lastCycleGValues.northValue, areaStartValue('北'), '北')
-    outputStr += formatGValue(lastCycleGValues.zhuhaiValue, areaStartValue('珠'), '珠海')
-    outputStr += formatGValue(lastCycleGValues.shenzhenValue, areaStartValue('深'), '深圳')
+    lastCycleGValue = await gValueDB.getLastCycleGValues()
+    endGValues = lastCycleGValue[-1]
+    outputStr += '\n上周期各G的收盘价为：\n'
+    outputStr += formatGValue(endGValues.eastValue, areaStartValue('东'), '东')
+    outputStr += formatGValue(endGValues.southValue, areaStartValue('南'), '南')
+    outputStr += formatGValue(endGValues.northValue, areaStartValue('北'), '北')
+    outputStr += formatGValue(endGValues.zhuhaiValue, areaStartValue('珠'), '珠海')
+    outputStr += formatGValue(endGValues.shenzhenValue, areaStartValue('深'), '深圳')
+
+    outputStr += '\n上周期的G线图：'
+    gPicPath = G_PIC + '/G_lastCycle.png'
+    createGpicAll(getGValuesColMap(lastCycleGValue), gPicPath)
+    outputStr += imgLocalPathToBase64(gPicPath)
+
     return outputStr
 
 

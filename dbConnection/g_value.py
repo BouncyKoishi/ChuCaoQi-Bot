@@ -20,9 +20,10 @@ async def getThisCycleGValues():
     return await GValue.filter(cycle=cycle)
 
 
-async def getLastCycleEndGValues():
+async def getLastCycleGValues():
     cycle = await getLatestCycle()
-    return await GValue.filter(cycle=cycle - 1).order_by("-createTime").first()
+    return await GValue.filter(cycle=cycle - 1)
+
 
 
 async def addNewGValue(cycle, turn, eg, sg, ng, zg, szg):
