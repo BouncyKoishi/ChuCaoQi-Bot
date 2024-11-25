@@ -43,11 +43,10 @@ async def _(session: CommandSession):
         return
 
     userList = await baseDB.getAllUser()
+    userList = [user for user in userList if str(user.qq) != str(config['qq']['bot'])]
     userList = sorted(userList, key=lambda x: x.kusa, reverse=True)
     outputStr = "草排行榜：\n"
     for i, user in enumerate(userList[:25]):
-        if user.qq == config['qq']['bot']:
-            continue
         userName = user.name if user.name else user.qq
         outputStr += f'{i + 1}. {userName}: {user.kusa}\n'
     await session.send(outputStr[:-1])
