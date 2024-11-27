@@ -483,8 +483,9 @@ async def goodNewsReport(field):
         advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
+            return
     # 总草精数喜报：最终草精大于等于50(仅当未触发基础草精喜报时发送)
-    elif field.advKusaResult >= 50:
+    if field.advKusaResult >= 50:
         await sendReportMsg(field, '草精喜报')
 
 
