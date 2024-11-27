@@ -257,13 +257,16 @@ async def _(session: CommandSession):
 
 @on_command(name='物品详情', only_to_me=False)
 async def _(session: CommandSession):
+    userId = session.ctx['user_id']
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
+    itemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
     if not item:
         await itemSearch(session)
         return
 
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
+    outputStr += f'\n持有数：{itemStorage.amount}' if itemStorage else ''
     outputStr += f'\n物品说明：{item.detail}' if item.detail else '\n暂无物品说明。'
     try:
         sender_infor = await nonebot.get_bot().get_stranger_info(user_id=item.author)
@@ -272,8 +275,7 @@ async def _(session: CommandSession):
         outputStr += f'\n创作者：{item.author}'
     outputStr += f'\n所属奖池：{item.pool}'
     personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
-    outputStr += f'\n抽到该物品的人数：{personCount}\n被抽到的总次数：{numberCount}' if personCount else '\n还没有人抽到这个物品= ='
-
+    outputStr += f'\n已被{personCount}人抽中{numberCount}次！' if personCount else '\n还没有人抽到这个物品= ='
     await session.send(outputStr)
 
 
