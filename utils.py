@@ -20,12 +20,16 @@ async def imgUrlTobase64(url):
 
 
 # 输出MessageSegment类型的图片
-def imgLocalPathToBase64(path):
+def imgBytesToBase64(data: bytes):
+    pic_src = 'base64://' + base64.b64encode(data).decode()
+    pic = ms.image(pic_src)
+    return pic
+
+
+def imgLocalPathToBase64(path: str):
     with open(path, 'rb') as f:
         p = f.read()
-        pic_src = 'base64://' + str(base64.b64encode(p)).replace("b'", "").replace("'", "")
-        pic = ms.image(pic_src)
-        return pic
+    return imgBytesToBase64(p)
 
 
 def extractText(arg):
