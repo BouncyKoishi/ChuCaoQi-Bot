@@ -1,6 +1,5 @@
 import base64
 import io
-import os
 import re
 import math
 import time
@@ -8,6 +7,7 @@ import codecs
 import random
 import nonebot
 import datetime
+from collections import Counter
 from nonebot import on_command, CommandSession
 from kusa_base import buying, selling, config, sendGroupMsg
 from utils import rd3, imgBytesToBase64
@@ -199,30 +199,47 @@ async def _(session: CommandSession):
         return
 
     userId = session.ctx['user_id']
-    st = '购买成功！'
+    st = ''
     stripped_arg = session.current_arg_text.strip()
     buyingAmount = re.findall(r'\d+', stripped_arg)
-    schoolName = re.findall(r'[东南北珠深]', stripped_arg)
+    buyingAmount = int(buyingAmount[0]) if buyingAmount else 0
     isBuyingAll = re.findall(r'all', stripped_arg)
+    schoolRatio = Counter()
+    schoolRatio.update(re.findall(r'[东南北珠深]', stripped_arg))
+    gValues = await gValueDB.getLatestGValues()
 
-    if (buyingAmount or isBuyingAll) and schoolName:
-        schoolName = schoolName[0]
-        gValues = await gValueDB.getLatestGValues()
-        gType = areaTranslateItem(schoolName)
-        valueType = areaTranslateValue(schoolName)
-        gValue = getattr(gValues, valueType)
-        if buyingAmount:
-            buyingAmount = int(buyingAmount[0])
-        elif isBuyingAll:
-            user = await baseDB.getUser(userId)
-            buyingAmount = math.floor(user.kusa / gValue)
-            st += f'买入了{buyingAmount}G'
-        totalPrice = int(buyingAmount * gValue)
-        success = await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)')
-        if not success:
+    if isBuyingAll:
+        user = await baseDB.getUser(userId)
+        kusa = user.kusa
+        for schoolName in '东南北珠深':
+            if (ratio := schoolRatio.get(schoolName)) is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            buyingAmount = math.floor(math.floor(kusa / sum(schoolRatio.values()) * ratio) / gValue)
+            totalPrice = int(buyingAmount * gValue)
+            if await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)'):
+                st += f'买入了{buyingAmount}{gType}\n'
+        st = st.strip()
+        if not st:
+            st = '你不够草^ ^'
+    elif buyingAmount:
+        for schoolName in '东南北珠深':
+            if (ratio := schoolRatio.get(schoolName)) is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            totalPrice = int(buyingAmount * ratio * gValue)
+            if await buying(userId, gType, buyingAmount * ratio, totalPrice, 'G市(买)'):
+                st += f'买入了{buyingAmount * ratio}{gType}\n'
+        st = st.strip()
+        if not st:
             st = '你不够草^ ^'
     else:
         st = '参数不正确^ ^'
+
     await session.send(st)
 
 
