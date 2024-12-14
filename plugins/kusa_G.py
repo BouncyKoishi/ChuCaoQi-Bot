@@ -5,6 +5,8 @@ import math
 import time
 import codecs
 import random
+from typing import Optional, Dict
+
 import nonebot
 import datetime
 from collections import Counter
@@ -20,14 +22,15 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 systemRandom = random.SystemRandom()
-gPicBase64Cache: dict[str, str | None] = {
-    'east': None,
-    'south': None,
-    'north': None,
-    'zhuhai': None,
-    'sz': None,
+gPicCache: Dict[str, Optional[bytes]] = {
+    '东': None,
+    '南': None,
+    '北': None,
+    '珠': None,
+    '深': None,
     'all': None,
 }
+
 
 @on_command(name='测G', only_to_me=False)
 async def _(session: CommandSession):
@@ -212,7 +215,8 @@ async def _(session: CommandSession):
         user = await baseDB.getUser(userId)
         kusa = user.kusa
         for schoolName in '东南北珠深':
-            if (ratio := schoolRatio.get(schoolName)) is None:
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
                 continue
             gType = areaTranslateItem(schoolName)
             valueType = areaTranslateValue(schoolName)
@@ -226,7 +230,8 @@ async def _(session: CommandSession):
             st = '你不够草^ ^'
     elif buyingAmount:
         for schoolName in '东南北珠深':
-            if (ratio := schoolRatio.get(schoolName)) is None:
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
                 continue
             gType = areaTranslateItem(schoolName)
             valueType = areaTranslateValue(schoolName)
@@ -310,16 +315,10 @@ async def tradingTimeCheck():
 async def G_pic(session: CommandSession):
     stripped_arg = session.current_arg_text.strip()
     school = re.findall(r'[东南北珠深]', stripped_arg)
-    school = {
-        '东': 'east',
-        '南': 'south',
-        '北': 'north',
-        '珠': 'zhuhai',
-        '深': 'sz',
-    }.get(school[0], 'all')
-    if gPicBase64Cache[school] is None:
+    school = school[0] if school and school[0] in '东南北珠深' else 'all'
+    if gPicCache[school] is None:
         await createGpic()
-    pic = imgBytesToBase64(gPicBase64Cache[school])
+    pic = imgBytesToBase64(gPicCache[school])
     await session.send(pic)
 
 
@@ -335,13 +334,14 @@ def getGValuesColMap(gValuesList):
 
 
 async def createGpic():
+    global gPicCache
     startTs = datetime.datetime.now().timestamp()
     gValuesList = await gValueDB.getThisCycleGValues()
     gValuesColMap = getGValuesColMap(gValuesList)
     for school in '东南北珠深':
         gType = areaTranslateValue(school)
-        gPicBase64Cache[school] = base64.b64encode(createGpicSingle(gValuesColMap[gType])).decode()
-    gPicBase64Cache['all'] = base64.b64encode(createGpicAll(gValuesColMap)).decode()
+        gPicCache[school] = createGpicSingle(gValuesColMap[gType])
+    gPicCache['all'] = createGpicAll(gValuesColMap)
     endTs = datetime.datetime.now().timestamp()
     print(f'G线图生成时间：{endTs - startTs}')
 
@@ -352,7 +352,6 @@ def createGpicSingle(gValuesCol):
     plt.xticks([])
     plt.savefig(buf, format='png')
     plt.close()
-    buf.seek(0)
     return buf.getvalue()
 
 
@@ -368,7 +367,6 @@ def createGpicAll(gValuesColMap):
     plt.legend()
     plt.savefig(buf, format='png')
     plt.close()
-    buf.seek(0)
     return buf.getvalue()
 
 
