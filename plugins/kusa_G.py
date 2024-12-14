@@ -1,4 +1,5 @@
-import os
+import base64
+import io
 import re
 import math
 import time
@@ -6,9 +7,10 @@ import codecs
 import random
 import nonebot
 import datetime
+from collections import Counter
 from nonebot import on_command, CommandSession
 from kusa_base import buying, selling, config, sendGroupMsg
-from utils import rd3, imgLocalPathToBase64
+from utils import rd3, imgBytesToBase64
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.g_value as gValueDB
@@ -17,9 +19,15 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
-G_PIC = 'gPic'
 systemRandom = random.SystemRandom()
-
+gPicBase64Cache: dict[str, str | None] = {
+    'east': None,
+    'south': None,
+    'north': None,
+    'zhuhai': None,
+    'sz': None,
+    'all': None,
+}
 
 @on_command(name='测G', only_to_me=False)
 async def _(session: CommandSession):
@@ -191,30 +199,47 @@ async def _(session: CommandSession):
         return
 
     userId = session.ctx['user_id']
-    st = '购买成功！'
+    st = ''
     stripped_arg = session.current_arg_text.strip()
     buyingAmount = re.findall(r'\d+', stripped_arg)
-    schoolName = re.findall(r'[东南北珠深]', stripped_arg)
+    buyingAmount = int(buyingAmount[0]) if buyingAmount else 0
     isBuyingAll = re.findall(r'all', stripped_arg)
+    schoolRatio = Counter()
+    schoolRatio.update(re.findall(r'[东南北珠深]', stripped_arg))
+    gValues = await gValueDB.getLatestGValues()
 
-    if (buyingAmount or isBuyingAll) and schoolName:
-        schoolName = schoolName[0]
-        gValues = await gValueDB.getLatestGValues()
-        gType = areaTranslateItem(schoolName)
-        valueType = areaTranslateValue(schoolName)
-        gValue = getattr(gValues, valueType)
-        if buyingAmount:
-            buyingAmount = int(buyingAmount[0])
-        elif isBuyingAll:
-            user = await baseDB.getUser(userId)
-            buyingAmount = math.floor(user.kusa / gValue)
-            st += f'买入了{buyingAmount}G'
-        totalPrice = int(buyingAmount * gValue)
-        success = await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)')
-        if not success:
+    if isBuyingAll:
+        user = await baseDB.getUser(userId)
+        kusa = user.kusa
+        for schoolName in '东南北珠深':
+            if (ratio := schoolRatio.get(schoolName)) is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            buyingAmount = math.floor(math.floor(kusa / sum(schoolRatio.values()) * ratio) / gValue)
+            totalPrice = int(buyingAmount * gValue)
+            if await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)'):
+                st += f'买入了{buyingAmount}{gType}\n'
+        st = st.strip()
+        if not st:
+            st = '你不够草^ ^'
+    elif buyingAmount:
+        for schoolName in '东南北珠深':
+            if (ratio := schoolRatio.get(schoolName)) is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            totalPrice = int(buyingAmount * ratio * gValue)
+            if await buying(userId, gType, buyingAmount * ratio, totalPrice, 'G市(买)'):
+                st += f'买入了{buyingAmount * ratio}{gType}\n'
+        st = st.strip()
+        if not st:
             st = '你不够草^ ^'
     else:
         st = '参数不正确^ ^'
+
     await session.send(st)
 
 
@@ -283,26 +308,19 @@ async def tradingTimeCheck():
 
 @on_command(name='G线图', only_to_me=False)
 async def G_pic(session: CommandSession):
-    startTs = datetime.datetime.now().timestamp()
     stripped_arg = session.current_arg_text.strip()
     school = re.findall(r'[东南北珠深]', stripped_arg)
-    gValuesList = await gValueDB.getThisCycleGValues()
-    gValuesColMap = getGValuesColMap(gValuesList)
-
-    if school:
-        school = school[0]
-        gType = areaTranslateValue(school)
-        gPicPath = G_PIC + f'/G_{gType}.png'
-        if not os.path.exists(gPicPath):
-            createGpicSingle(gValuesColMap[gType], gPicPath)
-    else:
-        gPicPath = G_PIC + '/G_all.png'
-        createGpicAll(gValuesColMap, gPicPath)
-
-    pic = imgLocalPathToBase64(gPicPath)
+    school = {
+        '东': 'east',
+        '南': 'south',
+        '北': 'north',
+        '珠': 'zhuhai',
+        '深': 'sz',
+    }.get(school[0], 'all')
+    if gPicBase64Cache[school] is None:
+        await createGpic()
+    pic = imgBytesToBase64(gPicBase64Cache[school])
     await session.send(pic)
-    endTs = datetime.datetime.now().timestamp()
-    print(f'G线图生成时间：{endTs - startTs}')
 
 
 def getGValuesColMap(gValuesList):
@@ -316,14 +334,30 @@ def getGValuesColMap(gValuesList):
     return gValuesColMap
 
 
-def createGpicSingle(gValuesCol, gPicPath):
+async def createGpic():
+    startTs = datetime.datetime.now().timestamp()
+    gValuesList = await gValueDB.getThisCycleGValues()
+    gValuesColMap = getGValuesColMap(gValuesList)
+    for school in '东南北珠深':
+        gType = areaTranslateValue(school)
+        gPicBase64Cache[school] = base64.b64encode(createGpicSingle(gValuesColMap[gType])).decode()
+    gPicBase64Cache['all'] = base64.b64encode(createGpicAll(gValuesColMap)).decode()
+    endTs = datetime.datetime.now().timestamp()
+    print(f'G线图生成时间：{endTs - startTs}')
+
+
+def createGpicSingle(gValuesCol):
+    buf = io.BytesIO()
     plt.plot(gValuesCol)
     plt.xticks([])
-    plt.savefig(gPicPath)
+    plt.savefig(buf, format='png')
     plt.close()
+    buf.seek(0)
+    return buf.getvalue()
 
 
-def createGpicAll(gValuesColMap, gPicPath):
+def createGpicAll(gValuesColMap):
+    buf = io.BytesIO()
     plt.plot(list(map(lambda x: x / areaStartValue('东'), gValuesColMap['eastValue'])), label='East')
     plt.plot(list(map(lambda x: x / areaStartValue('南'), gValuesColMap['southValue'])), label='South')
     plt.plot(list(map(lambda x: x / areaStartValue('北'), gValuesColMap['northValue'])), label='North')
@@ -332,8 +366,10 @@ def createGpicAll(gValuesColMap, gPicPath):
     plt.xticks([])
     plt.yscale('log')
     plt.legend()
-    plt.savefig(gPicPath)
+    plt.savefig(buf, format='png')
     plt.close()
+    buf.seek(0)
+    return buf.getvalue()
 
 
 @nonebot.scheduler.scheduled_job('cron', minute='*/30', max_instances=3)
@@ -347,7 +383,7 @@ async def G_change():
     await gValueDB.addNewGValue(gValues.cycle, gValues.turn + 1, newEastG, newSouthG, newNorthG, newZhuhaiG, newSzG)
     nowTime = datetime.datetime.now().strftime('%H:%M')
     print(f'{nowTime}: G值已更新，新的值为：东{newEastG} 南{newSouthG} 北{newNorthG} 珠{newZhuhaiG} 深{newSzG}')
-    removeGPic()
+    await createGpic()
 
 
 def getNewG(oldG: float, changeRange: float):
@@ -355,13 +391,6 @@ def getNewG(oldG: float, changeRange: float):
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
-
-
-def removeGPic():
-    ls = os.listdir(G_PIC)
-    for fileName in ls:
-        cPath = os.path.join(G_PIC, fileName)
-        os.remove(cPath)
 
 
 @nonebot.scheduler.scheduled_job('cron', hour='23', minute='45')
@@ -443,9 +472,7 @@ async def getLastCycleSummary():
     outputStr += formatGValue(endGValues.shenzhenValue, areaStartValue('深'), '深圳')
 
     outputStr += '\n上周期的G线图：'
-    gPicPath = G_PIC + '/G_lastCycle.png'
-    createGpicAll(getGValuesColMap(lastCycleGValue), gPicPath)
-    outputStr += imgLocalPathToBase64(gPicPath)
+    outputStr += imgBytesToBase64(createGpicAll(getGValuesColMap(lastCycleGValue)))
 
     return outputStr
 
