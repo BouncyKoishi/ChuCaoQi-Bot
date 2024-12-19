@@ -265,11 +265,15 @@ async def kusa_compress(session: CommandSession):
     user = await baseDB.getUser(userId)
     stripped_arg = session.current_arg_text.strip()
     kusaAdvGain = int(stripped_arg) if stripped_arg else 1
+    kusaAdvGain = abs(kusaAdvGain)
     kusaUse = 1000000 * kusaAdvGain
     if user.kusa >= kusaUse:
         await baseDB.changeAdvKusa(userId, kusaAdvGain)
         await baseDB.changeKusa(userId, -kusaUse)
         await session.send(f'压缩成功！你的草压缩基地消耗了{kusaUse}草，产出了{kusaAdvGain}个草之精华！')
+        await baseDB.setTradeRecord(operator=userId, tradeType='草压缩',
+                                    gainItemName='草之精华', gainItemAmount=kusaAdvGain,
+                                    costItemName='草', costItemAmount=kusaUse)
     else:
         await session.send('你不够草^ ^')
 
