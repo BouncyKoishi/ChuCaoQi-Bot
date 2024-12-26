@@ -203,12 +203,12 @@ async def _(session: CommandSession):
 
     userId = session.ctx['user_id']
     st = ''
-    stripped_arg = session.current_arg_text.strip()
-    buyingAmount = re.findall(r'\d+', stripped_arg)
+    strippedArg = session.current_arg_text.strip()
+    buyingAmount = re.findall(r'\d+', strippedArg)
     buyingAmount = int(buyingAmount[0]) if buyingAmount else 0
-    isBuyingAll = re.findall(r'all', stripped_arg)
+    isBuyingAll = re.findall(r'all', strippedArg)
     schoolRatio = Counter()
-    schoolRatio.update(re.findall(r'[东南北珠深]', stripped_arg))
+    schoolRatio.update(re.findall(r'[东南北珠深]', strippedArg))
     gValues = await gValueDB.getLatestGValues()
 
     if isBuyingAll:
@@ -224,7 +224,7 @@ async def _(session: CommandSession):
             buyingAmount = math.floor(math.floor(kusa / sum(schoolRatio.values()) * ratio) / gValue)
             totalPrice = int(buyingAmount * gValue)
             if await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)'):
-                st += f'买入了{buyingAmount}{gType}\n'
+                st += f'花费{totalPrice}草，买入了{buyingAmount}{gType}\n'
         st = st.strip()
         if not st:
             st = '你不够草^ ^'
@@ -238,7 +238,7 @@ async def _(session: CommandSession):
             gValue = getattr(gValues, valueType)
             totalPrice = int(buyingAmount * ratio * gValue)
             if await buying(userId, gType, buyingAmount * ratio, totalPrice, 'G市(买)'):
-                st += f'买入了{buyingAmount * ratio}{gType}\n'
+                st += f'花费{totalPrice}草，买入了{buyingAmount * ratio}{gType}\n'
         st = st.strip()
         if not st:
             st = '你不够草^ ^'
@@ -255,25 +255,49 @@ async def _(session: CommandSession):
         return
 
     userId = session.ctx['user_id']
-    st = '卖出成功！'
-    stripped_arg = session.current_arg_text.strip()
-    sellingAmount = re.findall(r'\d+', stripped_arg)
-    schoolName = re.findall(r'[东南北珠深]', stripped_arg)
-    isSellingAll = re.findall(r'all', stripped_arg)
+    st = ''
+    strippedArg = session.current_arg_text.strip()
+    sellingAmount = re.findall(r'\d+', strippedArg)
+    sellingAmount = int(sellingAmount[0]) if sellingAmount else 0
+    isSellingAll = re.findall(r'all', strippedArg)
+    schoolRatio = Counter()
+    schoolRatio.update(re.findall(r'[东南北珠深]', strippedArg))
     gValues = await gValueDB.getLatestGValues()
-    if sellingAmount and schoolName:
-        sellingAmount = int(sellingAmount[0])
-        schoolName = schoolName[0]
-        gType = areaTranslateItem(schoolName)
-        valueType = areaTranslateValue(schoolName)
-        gValue = getattr(gValues, valueType)
-        totalPrice = int(sellingAmount * gValue)
-        success = await selling(userId, gType, sellingAmount, totalPrice, 'G市(卖)')
-        if not success:
+
+    if isSellingAll:
+        if not schoolRatio:
+            allKusa = await GSellingAll(userId, gValues)
+            await session.send(f'已卖出所有G，获得了{allKusa}草')
+            return
+        EGAmount, SGAmount, NGAmount, ZGAmount, SZGAmount = await getAllGAmounts(userId)
+        for schoolName in '东南北珠深':
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            sellingAmount = {'东': EGAmount, '南': SGAmount, '北': NGAmount, '珠': ZGAmount, '深': SZGAmount}[schoolName]
+            totalPrice = int(sellingAmount * gValue)
+            if await selling(userId, gType, sellingAmount, totalPrice, 'G市(卖)'):
+                st += f'卖出了{sellingAmount}{gType}，获得了{totalPrice}草\n'
+        st = st.strip()
+        if not st:
+            st = '你没有可卖出的G^ ^'
+    elif sellingAmount:
+        for schoolName in '东南北珠深':
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            totalPrice = int(sellingAmount * ratio * gValue)
+            if await selling(userId, gType, sellingAmount * ratio, totalPrice, 'G市(卖)'):
+                st += f'卖出了{sellingAmount * ratio}{gType}，获得了{totalPrice}草\n'
+        st = st.strip()
+        if not st:
             st = '你不够G^ ^'
-    elif isSellingAll:
-        allKusa = await GSellingAll(userId, gValues)
-        st += f'获得了{allKusa}草'
     else:
         st = '参数不正确^ ^'
     await session.send(st)
