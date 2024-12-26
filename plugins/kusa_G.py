@@ -175,10 +175,10 @@ async def _(session: CommandSession):
             recordTime = datetime.datetime.fromtimestamp(record.timestamp).strftime('%m-%d %H:%M')
             if record.tradeType == 'G市(买)':
                 unitPrice = rd3(record.costItemAmount / record.gainItemAmount)
-                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，等效单价为{unitPrice}\n'
             if record.tradeType == 'G市(卖)':
                 unitPrice = rd3(record.gainItemAmount / record.costItemAmount)
-                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，等效单价为{unitPrice}\n'
         if totalPages > 1 and currentPage < totalPages:
             confirm = await session.aget(prompt=outputStr + f'(当前第{currentPage}/{totalPages}页，输入Next显示下一页)')
             if confirm.lower() != 'next':
@@ -212,6 +212,9 @@ async def _(session: CommandSession):
     gValues = await gValueDB.getLatestGValues()
 
     if isBuyingAll:
+        if not schoolRatio:
+            await session.send('参数不正确^ ^')
+            return
         user = await baseDB.getUser(userId)
         kusa = user.kusa
         for schoolName in '东南北珠深':
@@ -278,8 +281,8 @@ async def _(session: CommandSession):
             valueType = areaTranslateValue(schoolName)
             gValue = getattr(gValues, valueType)
             sellingAmount = {'东': EGAmount, '南': SGAmount, '北': NGAmount, '珠': ZGAmount, '深': SZGAmount}[schoolName]
-            totalPrice = int(sellingAmount * gValue)
-            if await selling(userId, gType, sellingAmount, totalPrice, 'G市(卖)'):
+            totalPrice = int(sellingAmount * gValue * (1 - 0.0005))
+            if await selling(userId, gType, sellingAmount * ratio, totalPrice, 'G市(卖)'):
                 st += f'卖出了{sellingAmount}{gType}，获得了{totalPrice}草\n'
         st = st.strip()
         if not st:
@@ -292,7 +295,7 @@ async def _(session: CommandSession):
             gType = areaTranslateItem(schoolName)
             valueType = areaTranslateValue(schoolName)
             gValue = getattr(gValues, valueType)
-            totalPrice = int(sellingAmount * ratio * gValue)
+            totalPrice = int(sellingAmount * ratio * gValue * (1 - 0.0005))
             if await selling(userId, gType, sellingAmount * ratio, totalPrice, 'G市(卖)'):
                 st += f'卖出了{sellingAmount * ratio}{gType}，获得了{totalPrice}草\n'
         st = st.strip()
@@ -309,7 +312,8 @@ async def GSellingAll(userId, gValues):
         EGAmount * gValues.eastValue, SGAmount * gValues.southValue,
         NGAmount * gValues.northValue, ZGAmount * gValues.zhuhaiValue,
         SZGAmount * gValues.shenzhenValue
-    ]))
+    ]) * (1 - 0.0005))
+
     await baseDB.changeKusa(userId, allKusa)
     await baseDB.changeKusa(config['qq']['bot'], -allKusa)
     await itemDB.cleanAllG(userId)
@@ -319,9 +323,10 @@ async def GSellingAll(userId, gValues):
         [gValues.eastValue, gValues.southValue, gValues.northValue, gValues.zhuhaiValue, gValues.shenzhenValue]
     ):
         if amount > 0:
+            kusaAmount = math.ceil(amount * values * (1 - 0.0005))
             await baseDB.setTradeRecord(
                 operator=userId, tradeType='G市(卖)',
-                gainItemName='草', gainItemAmount=amount * values,
+                gainItemName='草', gainItemAmount=kusaAmount,
                 costItemName=f'G({area})', costItemAmount=amount
             )
     return allKusa
@@ -425,7 +430,7 @@ async def G_reset():
     for user in allUsers:
         allKusaFromG = await GSellingAll(user.qq, gValues)
         if allKusaFromG:
-            print(f'用户{user.qq}的G已经兑换为草，数量为{allKusaFromG}')
+            print(f'用户{user.qq}的G已经兑换为{allKusaFromG}草')
             if await baseDB.getFlagValue(user.qq, 'G市重置提示'):
                 await bot.send_private_msg(user_id=user.qq, message=f'G周期已结束，您的所有G已经兑换为{allKusaFromG}草。')
         gCreatorAmount = await itemDB.getItemAmount(user.qq, '扭秤装置')
