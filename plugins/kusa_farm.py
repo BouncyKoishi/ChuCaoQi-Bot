@@ -87,14 +87,9 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
 
     # 原始生长时间和金坷垃、沼气池效果
     growTime = systemRandom.randint(40, 80)
-    isUsingKela, bioGasEffect = False, 1
-    kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
+    bioGasEffect = 1
     biogasStorage = await itemDB.getItemStorageInfo(userId, '沼气池')
     fieldAmount = await itemDB.getItemAmount(userId, '草地')
-    if kelaStorage and kelaStorage.allowUse and kelaStorage.amount >= fieldAmount:
-        isUsingKela = True
-        growTime = math.ceil(growTime / 2)
-        await itemDB.changeItemAmount(userId, '金坷垃', -fieldAmount)
     if biogasStorage and biogasStorage.allowUse:
         bioGasEffect = round(random.uniform(0.5, 2), 2)
         blackTeaStorage = await itemDB.getItemStorageInfo(userId, '红茶')
@@ -102,10 +97,21 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
             bioGasEffect = round(random.uniform(1.2, 2), 2)
             await itemDB.changeItemAmount(userId, '红茶', -1)
 
+    # 肥料影响生草时间
+    isUsingKela = False
+    kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
+    if kelaStorage and kelaStorage.allowUse and kelaStorage.amount >= fieldAmount:
+        isUsingKela = True
+        growTime = math.ceil(growTime / 2)
+        await itemDB.changeItemAmount(userId, '金坷垃', -fieldAmount)
+
     # 神灵草替换
     divinePlugin = await itemDB.getItemStorageInfo(userId, '神灵草基因模块')
     if divinePlugin and divinePlugin.allowUse and kusaType != '不灵草':
-        if systemRandom.random() < 0.05:
+        linglessDivinePlugin = await itemDB.getItemStorageInfo(userId, '不灵草灵生模块')
+        spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
+        divinePercent = 0.1 if linglessDivinePlugin and spiritualSign else 0.05
+        if systemRandom.random() < divinePercent:
             kusaType = '神灵草'
 
     # 灵草相关处理
@@ -132,6 +138,11 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
+
+    # 模块影响生长时间
+    linglessSpeedPlugin = await itemDB.getItemAmount(userId, '不灵草速生模块')
+    if linglessSpeedPlugin and kusaType == "不灵草" and systemRandom.random() < 0.5:
+        growTime = 0
 
     # 生草预知判断
     juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
