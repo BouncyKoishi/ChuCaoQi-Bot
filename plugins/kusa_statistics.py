@@ -166,6 +166,38 @@ async def getKusaAdv(user):
     return nowKusaAdv + titleKusaAdv + itemKusaAdv, nowKusaAdv, titleKusaAdv, itemKusaAdv
 
 
+@on_command(name='生草打分榜', only_to_me=False)
+async def _(session: CommandSession):
+    if not await permissionCheck(session):
+        return
+    if '-self' in session.current_arg_text:
+        rankList = await fieldDB.kusaOnceRanking(userId=session.ctx['user_id'])
+    else:
+        rankList = await fieldDB.kusaOnceRanking()
+    outputStr = "生草打分榜：\n"
+    for i, rank in enumerate(rankList):
+        user = await baseDB.getUser(rank.qq)
+        userName = user.name if user.name else user.qq
+        timeStr = rank.createTime.strftime("%Y-%m-%d %H:%M")
+        outputStr += f"{i + 1}. {userName}：{rank.kusaResult}草({timeStr})\n"
+    await session.send(outputStr[:-1])
+
+
+@on_command(name='草精打分榜', only_to_me=False)
+async def _(session: CommandSession):
+    if '-self' in session.current_arg_text:
+        rankList = await fieldDB.kusaAdvOnceRanking(userId=session.ctx['user_id'])
+    else:
+        rankList = await fieldDB.kusaAdvOnceRanking()
+    outputStr = "草精打分榜：\n"
+    for i, rank in enumerate(rankList):
+        user = await baseDB.getUser(rank.qq)
+        userName = user.name if user.name else user.qq
+        timeStr = rank.createTime.strftime("%Y-%m-%d %H:%M")
+        outputStr += f"{i + 1}. {userName}：{rank.advKusaResult}草精({timeStr})\n"
+    await session.send(outputStr[:-1])
+
+
 @on_command(name='TITLE_LIST', only_to_me=False)
 async def _(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
