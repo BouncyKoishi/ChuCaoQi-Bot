@@ -108,9 +108,9 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     # 神灵草替换
     divinePlugin = await itemDB.getItemStorageInfo(userId, '神灵草基因模块')
     if divinePlugin and divinePlugin.allowUse and kusaType != '不灵草':
-        linglessDivinePlugin = await itemDB.getItemStorageInfo(userId, '不灵草灵生模块')
+        spiritlessDivinePlugin = await itemDB.getItemStorageInfo(userId, '不灵草灵生模块')
         spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
-        divinePercent = 0.1 if linglessDivinePlugin and spiritualSign else 0.05
+        divinePercent = 0.1 if spiritlessDivinePlugin and spiritualSign else 0.05
         if systemRandom.random() < divinePercent:
             kusaType = '神灵草'
 
@@ -140,8 +140,9 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         growTime = math.ceil(growTime * (1 - 0.777))
 
     # 模块影响生长时间
-    linglessSpeedPlugin = await itemDB.getItemAmount(userId, '不灵草速生模块')
-    if linglessSpeedPlugin and kusaType == "不灵草" and systemRandom.random() < 0.5:
+    spiritlessImmediatePlugin = await itemDB.getItemAmount(userId, '不灵草速生模块')
+    spiritlessImmediate = spiritlessImmediatePlugin and kusaType == "不灵草" and systemRandom.random() < 0.5
+    if spiritlessImmediate:
         growTime = 0
 
     # 生草预知判断
@@ -170,11 +171,13 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     outputStr = f"开始生{kusaType}。"
     if magicImmediate:
         outputStr += '\n时光魔法吟唱中……\n(ﾉ≧∀≦)ﾉ ‥…━━━★\n'
+    elif spiritlessImmediate:
+        outputStr += '不灵草速生模块生效中，你的不灵草将在一分钟内长成！\n'
     elif magicQuick:
         outputStr += f'剩余时间：{growTime}min(-77.7%)\n'
     else:
         outputStr += f'剩余时间：{growTime}min\n'
-    if not magicImmediate:
+    if not magicImmediate and not spiritlessImmediate:
         predictTime = datetime.now() + timedelta(minutes=growTime + 1)
         outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
 
@@ -289,7 +292,7 @@ async def getKusaType(userId, strippedArg, defaultType=None):
     kusaTypeName = strippedArg + "基因图谱"
     kusaItemExist = await itemDB.getItem(kusaTypeName)
     if not kusaItemExist:
-        return '', False, '你选择的草种类不存在^ ^'
+        return '', False, '你选择的草种类不存在或无法直接种植^ ^'
     kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
     if not kusaItemAmount:
         return '', False, '你无法种植这种类型的草^ ^'
