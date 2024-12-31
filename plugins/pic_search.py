@@ -13,6 +13,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageFilter
 from utils import imgLocalPathToBase64, extractImgUrls
 from kusa_base import config
 from nonebot import on_command, CommandSession
+from nonebot import on_natural_language, NLPSession
 
 proxy = config['web']['proxy']
 saucenaoApiKey = config['web']['saucenao']['key']
@@ -68,6 +69,22 @@ async def picUrlGet(session: CommandSession):
         return
     imgUrls = extractImgUrls(imgCq)
     await session.send('\n'.join(imgUrls))
+
+
+@on_natural_language(keywords=None, only_to_me=False)
+async def _(session: NLPSession):
+    if session.ctx['message'][0].type != 'reply':
+        return
+    strippedText = session.ctx['message'][1].data['text'].strip()
+    if not strippedText.startswith('#'):
+        return
+
+    replyId = session.ctx['message'][0].data['id']
+    replyMessageCtx = await session.bot.call_action('get_msg', message_id=replyId)
+    # print(replyMessageCtx)
+    if strippedText == '#picurl':
+        imgUrls = extractImgUrls(replyMessageCtx['message'])
+        await session.send('\n'.join(imgUrls))
 
 
 class ImgExploration:
