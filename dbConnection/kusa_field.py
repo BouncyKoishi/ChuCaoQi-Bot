@@ -147,3 +147,15 @@ async def kusaFarmChampion():
     maxAvgAdvKusa = await executeChampionQuery(conn, "avg(advKusaResult) AS avgAdvKusa", "avgAdvKusa")
     maxOnceAdvKusa = await executeChampionQuery(conn, "max(advKusaResult) AS maxAdvKusa", "maxAdvKusa")
     return maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa, maxOnceAdvKusa
+
+
+async def kusaOnceRanking(userId=None, limit=25):
+    if userId:
+        return await KusaHistory.filter(qq=userId).order_by('-kusaResult').limit(limit)
+    return await KusaHistory.all().order_by('-kusaResult').limit(limit)
+
+
+async def kusaAdvOnceRanking(userId=None, limit=25):
+    if userId:
+        return await KusaHistory.filter(qq=userId).order_by('-advKusaResult').limit(limit)
+    return await KusaHistory.all().order_by('-advKusaResult').limit(limit)

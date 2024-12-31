@@ -1,14 +1,18 @@
-import os
+import base64
+import io
 import re
 import math
 import time
 import codecs
 import random
+from typing import Optional, Dict
+
 import nonebot
 import datetime
+from collections import Counter
 from nonebot import on_command, CommandSession
 from kusa_base import buying, selling, config, sendGroupMsg
-from utils import rd3, imgLocalPathToBase64
+from utils import rd3, imgBytesToBase64
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.g_value as gValueDB
@@ -17,8 +21,15 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
-G_PIC = 'gPic'
 systemRandom = random.SystemRandom()
+gPicCache: Dict[str, Optional[bytes]] = {
+    '东': None,
+    '南': None,
+    '北': None,
+    '珠': None,
+    '深': None,
+    'all': None,
+}
 
 
 @on_command(name='测G', only_to_me=False)
@@ -164,10 +175,10 @@ async def _(session: CommandSession):
             recordTime = datetime.datetime.fromtimestamp(record.timestamp).strftime('%m-%d %H:%M')
             if record.tradeType == 'G市(买)':
                 unitPrice = rd3(record.costItemAmount / record.gainItemAmount)
-                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，等效单价为{unitPrice}\n'
             if record.tradeType == 'G市(卖)':
                 unitPrice = rd3(record.gainItemAmount / record.costItemAmount)
-                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，等效单价为{unitPrice}\n'
         if totalPages > 1 and currentPage < totalPages:
             confirm = await session.aget(prompt=outputStr + f'(当前第{currentPage}/{totalPages}页，输入Next显示下一页)')
             if confirm.lower() != 'next':
@@ -191,30 +202,52 @@ async def _(session: CommandSession):
         return
 
     userId = session.ctx['user_id']
-    st = '购买成功！'
-    stripped_arg = session.current_arg_text.strip()
-    buyingAmount = re.findall(r'\d+', stripped_arg)
-    schoolName = re.findall(r'[东南北珠深]', stripped_arg)
-    isBuyingAll = re.findall(r'all', stripped_arg)
+    st = ''
+    strippedArg = session.current_arg_text.strip()
+    buyingAmount = re.findall(r'\d+', strippedArg)
+    buyingAmount = int(buyingAmount[0]) if buyingAmount else 0
+    isBuyingAll = re.findall(r'all', strippedArg)
+    schoolRatio = Counter()
+    schoolRatio.update(re.findall(r'[东南北珠深]', strippedArg))
+    gValues = await gValueDB.getLatestGValues()
 
-    if (buyingAmount or isBuyingAll) and schoolName:
-        schoolName = schoolName[0]
-        gValues = await gValueDB.getLatestGValues()
-        gType = areaTranslateItem(schoolName)
-        valueType = areaTranslateValue(schoolName)
-        gValue = getattr(gValues, valueType)
-        if buyingAmount:
-            buyingAmount = int(buyingAmount[0])
-        elif isBuyingAll:
-            user = await baseDB.getUser(userId)
-            buyingAmount = math.floor(user.kusa / gValue)
-            st += f'买入了{buyingAmount}G'
-        totalPrice = int(buyingAmount * gValue)
-        success = await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)')
-        if not success:
+    if isBuyingAll:
+        if not schoolRatio:
+            await session.send('参数不正确^ ^')
+            return
+        user = await baseDB.getUser(userId)
+        kusa = user.kusa
+        for schoolName in '东南北珠深':
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            buyingAmount = math.floor(math.floor(kusa / sum(schoolRatio.values()) * ratio) / gValue)
+            totalPrice = int(buyingAmount * gValue)
+            if await buying(userId, gType, buyingAmount, totalPrice, 'G市(买)'):
+                st += f'花费{totalPrice}草，买入了{buyingAmount}{gType}\n'
+        st = st.strip()
+        if not st:
+            st = '你不够草^ ^'
+    elif buyingAmount:
+        for schoolName in '东南北珠深':
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            totalPrice = int(buyingAmount * ratio * gValue)
+            if await buying(userId, gType, buyingAmount * ratio, totalPrice, 'G市(买)'):
+                st += f'花费{totalPrice}草，买入了{buyingAmount * ratio}{gType}\n'
+        st = st.strip()
+        if not st:
             st = '你不够草^ ^'
     else:
         st = '参数不正确^ ^'
+
     await session.send(st)
 
 
@@ -225,25 +258,49 @@ async def _(session: CommandSession):
         return
 
     userId = session.ctx['user_id']
-    st = '卖出成功！'
-    stripped_arg = session.current_arg_text.strip()
-    sellingAmount = re.findall(r'\d+', stripped_arg)
-    schoolName = re.findall(r'[东南北珠深]', stripped_arg)
-    isSellingAll = re.findall(r'all', stripped_arg)
+    st = ''
+    strippedArg = session.current_arg_text.strip()
+    sellingAmount = re.findall(r'\d+', strippedArg)
+    sellingAmount = int(sellingAmount[0]) if sellingAmount else 0
+    isSellingAll = re.findall(r'all', strippedArg)
+    schoolRatio = Counter()
+    schoolRatio.update(re.findall(r'[东南北珠深]', strippedArg))
     gValues = await gValueDB.getLatestGValues()
-    if sellingAmount and schoolName:
-        sellingAmount = int(sellingAmount[0])
-        schoolName = schoolName[0]
-        gType = areaTranslateItem(schoolName)
-        valueType = areaTranslateValue(schoolName)
-        gValue = getattr(gValues, valueType)
-        totalPrice = int(sellingAmount * gValue)
-        success = await selling(userId, gType, sellingAmount, totalPrice, 'G市(卖)')
-        if not success:
+
+    if isSellingAll:
+        if not schoolRatio:
+            allKusa = await GSellingAll(userId, gValues)
+            await session.send(f'已卖出所有G，获得了{allKusa}草')
+            return
+        EGAmount, SGAmount, NGAmount, ZGAmount, SZGAmount = await getAllGAmounts(userId)
+        for schoolName in '东南北珠深':
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            sellingAmount = {'东': EGAmount, '南': SGAmount, '北': NGAmount, '珠': ZGAmount, '深': SZGAmount}[schoolName]
+            totalPrice = int(sellingAmount * gValue * (1 - 0.0005))
+            if await selling(userId, gType, sellingAmount * ratio, totalPrice, 'G市(卖)'):
+                st += f'卖出了{sellingAmount}{gType}，获得了{totalPrice}草\n'
+        st = st.strip()
+        if not st:
+            st = '你没有可卖出的G^ ^'
+    elif sellingAmount:
+        for schoolName in '东南北珠深':
+            ratio = schoolRatio.get(schoolName)
+            if ratio is None:
+                continue
+            gType = areaTranslateItem(schoolName)
+            valueType = areaTranslateValue(schoolName)
+            gValue = getattr(gValues, valueType)
+            totalPrice = int(sellingAmount * ratio * gValue * (1 - 0.0005))
+            if await selling(userId, gType, sellingAmount * ratio, totalPrice, 'G市(卖)'):
+                st += f'卖出了{sellingAmount * ratio}{gType}，获得了{totalPrice}草\n'
+        st = st.strip()
+        if not st:
             st = '你不够G^ ^'
-    elif isSellingAll:
-        allKusa = await GSellingAll(userId, gValues)
-        st += f'获得了{allKusa}草'
     else:
         st = '参数不正确^ ^'
     await session.send(st)
@@ -255,7 +312,8 @@ async def GSellingAll(userId, gValues):
         EGAmount * gValues.eastValue, SGAmount * gValues.southValue,
         NGAmount * gValues.northValue, ZGAmount * gValues.zhuhaiValue,
         SZGAmount * gValues.shenzhenValue
-    ]))
+    ]) * (1 - 0.0005))
+
     await baseDB.changeKusa(userId, allKusa)
     await baseDB.changeKusa(config['qq']['bot'], -allKusa)
     await itemDB.cleanAllG(userId)
@@ -265,9 +323,10 @@ async def GSellingAll(userId, gValues):
         [gValues.eastValue, gValues.southValue, gValues.northValue, gValues.zhuhaiValue, gValues.shenzhenValue]
     ):
         if amount > 0:
+            kusaAmount = math.ceil(amount * values * (1 - 0.0005))
             await baseDB.setTradeRecord(
                 operator=userId, tradeType='G市(卖)',
-                gainItemName='草', gainItemAmount=amount * values,
+                gainItemName='草', gainItemAmount=kusaAmount,
                 costItemName=f'G({area})', costItemAmount=amount
             )
     return allKusa
@@ -283,26 +342,13 @@ async def tradingTimeCheck():
 
 @on_command(name='G线图', only_to_me=False)
 async def G_pic(session: CommandSession):
-    startTs = datetime.datetime.now().timestamp()
     stripped_arg = session.current_arg_text.strip()
     school = re.findall(r'[东南北珠深]', stripped_arg)
-    gValuesList = await gValueDB.getThisCycleGValues()
-    gValuesColMap = getGValuesColMap(gValuesList)
-
-    if school:
-        school = school[0]
-        gType = areaTranslateValue(school)
-        gPicPath = G_PIC + f'/G_{gType}.png'
-        if not os.path.exists(gPicPath):
-            createGpicSingle(gValuesColMap[gType], gPicPath)
-    else:
-        gPicPath = G_PIC + '/G_all.png'
-        createGpicAll(gValuesColMap, gPicPath)
-
-    pic = imgLocalPathToBase64(gPicPath)
+    school = school[0] if school and school[0] in '东南北珠深' else 'all'
+    if gPicCache[school] is None:
+        await createGpic()
+    pic = imgBytesToBase64(gPicCache[school])
     await session.send(pic)
-    endTs = datetime.datetime.now().timestamp()
-    print(f'G线图生成时间：{endTs - startTs}')
 
 
 def getGValuesColMap(gValuesList):
@@ -316,14 +362,30 @@ def getGValuesColMap(gValuesList):
     return gValuesColMap
 
 
-def createGpicSingle(gValuesCol, gPicPath):
+async def createGpic():
+    global gPicCache
+    startTs = datetime.datetime.now().timestamp()
+    gValuesList = await gValueDB.getThisCycleGValues()
+    gValuesColMap = getGValuesColMap(gValuesList)
+    for school in '东南北珠深':
+        gType = areaTranslateValue(school)
+        gPicCache[school] = createGpicSingle(gValuesColMap[gType])
+    gPicCache['all'] = createGpicAll(gValuesColMap)
+    endTs = datetime.datetime.now().timestamp()
+    print(f'G线图生成时间：{endTs - startTs}')
+
+
+def createGpicSingle(gValuesCol):
+    buf = io.BytesIO()
     plt.plot(gValuesCol)
     plt.xticks([])
-    plt.savefig(gPicPath)
+    plt.savefig(buf, format='png')
     plt.close()
+    return buf.getvalue()
 
 
-def createGpicAll(gValuesColMap, gPicPath):
+def createGpicAll(gValuesColMap):
+    buf = io.BytesIO()
     plt.plot(list(map(lambda x: x / areaStartValue('东'), gValuesColMap['eastValue'])), label='East')
     plt.plot(list(map(lambda x: x / areaStartValue('南'), gValuesColMap['southValue'])), label='South')
     plt.plot(list(map(lambda x: x / areaStartValue('北'), gValuesColMap['northValue'])), label='North')
@@ -332,8 +394,9 @@ def createGpicAll(gValuesColMap, gPicPath):
     plt.xticks([])
     plt.yscale('log')
     plt.legend()
-    plt.savefig(gPicPath)
+    plt.savefig(buf, format='png')
     plt.close()
+    return buf.getvalue()
 
 
 @nonebot.scheduler.scheduled_job('cron', minute='*/30', max_instances=3)
@@ -347,7 +410,7 @@ async def G_change():
     await gValueDB.addNewGValue(gValues.cycle, gValues.turn + 1, newEastG, newSouthG, newNorthG, newZhuhaiG, newSzG)
     nowTime = datetime.datetime.now().strftime('%H:%M')
     print(f'{nowTime}: G值已更新，新的值为：东{newEastG} 南{newSouthG} 北{newNorthG} 珠{newZhuhaiG} 深{newSzG}')
-    removeGPic()
+    await createGpic()
 
 
 def getNewG(oldG: float, changeRange: float):
@@ -355,13 +418,6 @@ def getNewG(oldG: float, changeRange: float):
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
-
-
-def removeGPic():
-    ls = os.listdir(G_PIC)
-    for fileName in ls:
-        cPath = os.path.join(G_PIC, fileName)
-        os.remove(cPath)
 
 
 @nonebot.scheduler.scheduled_job('cron', hour='23', minute='45')
@@ -374,7 +430,7 @@ async def G_reset():
     for user in allUsers:
         allKusaFromG = await GSellingAll(user.qq, gValues)
         if allKusaFromG:
-            print(f'用户{user.qq}的G已经兑换为草，数量为{allKusaFromG}')
+            print(f'用户{user.qq}的G已经兑换为{allKusaFromG}草')
             if await baseDB.getFlagValue(user.qq, 'G市重置提示'):
                 await bot.send_private_msg(user_id=user.qq, message=f'G周期已结束，您的所有G已经兑换为{allKusaFromG}草。')
         gCreatorAmount = await itemDB.getItemAmount(user.qq, '扭秤装置')
@@ -443,9 +499,7 @@ async def getLastCycleSummary():
     outputStr += formatGValue(endGValues.shenzhenValue, areaStartValue('深'), '深圳')
 
     outputStr += '\n上周期的G线图：'
-    gPicPath = G_PIC + '/G_lastCycle.png'
-    createGpicAll(getGValuesColMap(lastCycleGValue), gPicPath)
-    outputStr += imgLocalPathToBase64(gPicPath)
+    outputStr += imgBytesToBase64(createGpicAll(getGValuesColMap(lastCycleGValue)))
 
     return outputStr
 

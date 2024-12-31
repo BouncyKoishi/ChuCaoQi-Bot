@@ -167,7 +167,7 @@ class DB:
                     "engine": "tortoise.backends.sqlite",
                     "credentials": {
                         "file_path": "database/chuchu.sqlite",
-                        "isolation_level": 'IMMEDIATE'
+                        "isolation_level": 'EXCLUSIVE'
                     }
                 }
             },

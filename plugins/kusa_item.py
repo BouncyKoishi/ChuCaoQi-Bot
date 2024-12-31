@@ -213,6 +213,9 @@ async def usefulItemTransfer(session: CommandSession):
     await itemDB.changeItemAmount(userId, itemName, -transferAmount)
     await itemDB.changeItemAmount(receiverQQ, itemName, transferAmount)
     await session.send(f'转让成功！转让了{transferAmount}个{itemName}给{receiverQQ}。')
+    if await baseDB.getFlagValue(receiverQQ, '物品转让提示'):
+        nickname = session.ctx['sender']['nickname']
+        await sendPrivateMsg(receiverQQ, f'{nickname}({userId})转让了{transferAmount}个{itemName}给你！')
 
 
 @on_command(name='启用', aliases='道具启用', only_to_me=False)

@@ -27,7 +27,7 @@ class RobInfo:
 
 systemRandom = random.SystemRandom()
 robDict: typing.Dict[str, RobInfo] = {}
-advKusaProbabilityDict = {0: 0, 1: 0.125, 2: 0.5, 3: 0.5, 4: 0.6}
+advKusaProbabilityDict = {0: 0, 1: 0.125, 2: 0.5, 3: 0.5, 4: 0.625}
 kusaTypeEffectMap = {'巨草': 2, '巨巨草': 3, '巨灵草': 4, '速草': 0.75, '速速草': 0.5,
                      '灵草': 2, '不灵草': 0, '灵草II': 3, '灵草III': 4, '灵草IV': 5,
                      '灵草V': 6, '灵草VI': 7, '灵草VII': 8, '灵草VIII': 9, '神灵草': 10}
@@ -87,14 +87,9 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
 
     # 原始生长时间和金坷垃、沼气池效果
     growTime = systemRandom.randint(40, 80)
-    isUsingKela, bioGasEffect = False, 1
-    kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
+    bioGasEffect = 1
     biogasStorage = await itemDB.getItemStorageInfo(userId, '沼气池')
     fieldAmount = await itemDB.getItemAmount(userId, '草地')
-    if kelaStorage and kelaStorage.allowUse and kelaStorage.amount >= fieldAmount:
-        isUsingKela = True
-        growTime = math.ceil(growTime / 2)
-        await itemDB.changeItemAmount(userId, '金坷垃', -fieldAmount)
     if biogasStorage and biogasStorage.allowUse:
         bioGasEffect = round(random.uniform(0.5, 2), 2)
         blackTeaStorage = await itemDB.getItemStorageInfo(userId, '红茶')
@@ -102,10 +97,21 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
             bioGasEffect = round(random.uniform(1.2, 2), 2)
             await itemDB.changeItemAmount(userId, '红茶', -1)
 
+    # 肥料影响生草时间
+    isUsingKela = False
+    kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
+    if kelaStorage and kelaStorage.allowUse and kelaStorage.amount >= fieldAmount:
+        isUsingKela = True
+        growTime = math.ceil(growTime / 2)
+        await itemDB.changeItemAmount(userId, '金坷垃', -fieldAmount)
+
     # 神灵草替换
     divinePlugin = await itemDB.getItemStorageInfo(userId, '神灵草基因模块')
     if divinePlugin and divinePlugin.allowUse and kusaType != '不灵草':
-        if systemRandom.random() < 0.05:
+        spiritlessDivinePlugin = await itemDB.getItemStorageInfo(userId, '不灵草灵生模块')
+        spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
+        divinePercent = 0.1 if spiritlessDivinePlugin and spiritualSign else 0.05
+        if systemRandom.random() < divinePercent:
             kusaType = '神灵草'
 
     # 灵草相关处理
@@ -133,6 +139,12 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     if magicQuick:
         growTime = math.ceil(growTime * (1 - 0.777))
 
+    # 模块影响生长时间
+    spiritlessImmediatePlugin = await itemDB.getItemAmount(userId, '不灵草速生模块')
+    spiritlessImmediate = spiritlessImmediatePlugin and kusaType == "不灵草" and systemRandom.random() < 0.5
+    if spiritlessImmediate:
+        growTime = 0
+
     # 生草预知判断
     juniorPrescient = await itemDB.getItemStorageInfo(userId, '初级生草预知')
     seniorPrescient = await itemDB.getItemStorageInfo(userId, '生草预知')
@@ -159,11 +171,13 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     outputStr = f"开始生{kusaType}。"
     if magicImmediate:
         outputStr += '\n时光魔法吟唱中……\n(ﾉ≧∀≦)ﾉ ‥…━━━★\n'
+    elif spiritlessImmediate:
+        outputStr += '不灵草速生模块生效中，你的不灵草将在一分钟内长成！\n'
     elif magicQuick:
         outputStr += f'剩余时间：{growTime}min(-77.7%)\n'
     else:
         outputStr += f'剩余时间：{growTime}min\n'
-    if not magicImmediate:
+    if not magicImmediate and not spiritlessImmediate:
         predictTime = datetime.now() + timedelta(minutes=growTime + 1)
         outputStr += f'预计生草完成时间：{predictTime.hour:02}:{predictTime.minute:02}\n'
 
@@ -278,7 +292,7 @@ async def getKusaType(userId, strippedArg, defaultType=None):
     kusaTypeName = strippedArg + "基因图谱"
     kusaItemExist = await itemDB.getItem(kusaTypeName)
     if not kusaItemExist:
-        return '', False, '你选择的草种类不存在^ ^'
+        return '', False, '你选择的草种类不存在或无法直接种植^ ^'
     kusaItemAmount = await itemDB.getItemStorageInfo(userId, kusaTypeName)
     if not kusaItemAmount:
         return '', False, '你无法种植这种类型的草^ ^'
@@ -483,8 +497,9 @@ async def goodNewsReport(field):
         advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
+            return
     # 总草精数喜报：最终草精大于等于50(仅当未触发基础草精喜报时发送)
-    elif field.advKusaResult >= 50:
+    if field.advKusaResult >= 50:
         await sendReportMsg(field, '草精喜报')
 
 

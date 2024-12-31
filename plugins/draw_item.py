@@ -26,7 +26,7 @@ async def itemDraw(session: CommandSession):
         await session.send('本群暂不支持抽奖^ ^')
         return
     if groupId not in drawConfig['groupAllowItem']:
-        await ban(groupId, userId)
+        await ban(groupId, userId, True)
         return
 
     banRisk = drawConfig['banRisk']
@@ -79,12 +79,13 @@ async def itemDraw10(session: CommandSession):
     await session.send(outputStr)
 
 
-async def ban(groupNum, userId):
+async def ban(groupNum, userId, isRandomBan=False):
     bot = nonebot.get_bot()
     dur_time = int(1.1 ** (5 + random.random() * 70))
 
     print(f'抽奖口球-{dur_time}s, id:{userId}, group:{groupNum}')
     msg = f'获得了：口球({dur_time}s)！'
+    msg += '\n注：本群抽奖只能抽到禁言！' if isRandomBan else ''
     await bot.set_group_ban(group_id=groupNum, user_id=userId, duration=dur_time)
     await bot.send_group_msg(group_id=groupNum, message=msg)
 
@@ -256,13 +257,16 @@ async def _(session: CommandSession):
 
 @on_command(name='物品详情', only_to_me=False)
 async def _(session: CommandSession):
+    userId = session.ctx['user_id']
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
+    itemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
     if not item:
         await itemSearch(session)
         return
 
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
+    outputStr += f'\n持有数：{itemStorage.amount}' if itemStorage else ''
     outputStr += f'\n物品说明：{item.detail}' if item.detail else '\n暂无物品说明。'
     try:
         sender_infor = await nonebot.get_bot().get_stranger_info(user_id=item.author)
@@ -271,8 +275,7 @@ async def _(session: CommandSession):
         outputStr += f'\n创作者：{item.author}'
     outputStr += f'\n所属奖池：{item.pool}'
     personCount, numberCount = await drawItemDB.getItemStorageCount(item.id)
-    outputStr += f'\n抽到该物品的人数：{personCount}\n被抽到的总次数：{numberCount}' if personCount else '\n还没有人抽到这个物品= ='
-
+    outputStr += f'\n已被{personCount}人抽中{numberCount}次！' if personCount else '\n还没有人抽到这个物品= ='
     await session.send(outputStr)
 
 
