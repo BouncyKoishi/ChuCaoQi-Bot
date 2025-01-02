@@ -179,10 +179,10 @@ async def getDailyKusaNum(userId, machineRandInt):
 
     factoryAmount = await itemDB.getItemAmount(userId, '生草工厂')
     mobileFactoryAmount = await itemDB.getItemAmount(userId, '流动生草工厂')
-    factoryNewDevice = await itemDB.getItemAmount(userId, '生草工厂新型设备I')
+    factoryNewDeviceLevel = await itemDB.getTechLevel(userId, '生草工厂新型设备')
     factoryTechLevel = await itemDB.getTechLevel(userId, '生草工厂效率')
     factoryAddKusa = 640 * (factoryAmount + mobileFactoryAmount)
-    factoryAddKusa *= 2 if factoryNewDevice else 1
+    factoryAddKusa *= (2 ** factoryNewDeviceLevel)
     factoryAddKusa *= (2 ** factoryTechLevel)
 
     advFactoryInfo = await itemDB.getItemStorageInfo(userId, '草精炼厂')
