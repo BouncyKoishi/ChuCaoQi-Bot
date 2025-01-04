@@ -399,7 +399,7 @@ def createGpicAll(gValuesColMap):
     return buf.getvalue()
 
 
-@nonebot.scheduler.scheduled_job('cron', minute='*/30', max_instances=3)
+@nonebot.scheduler.scheduled_job('cron', minute='*/30', max_instances=3, jitter=2)
 async def G_change():
     gValues = await gValueDB.getLatestGValues()
     newEastG = getNewG(gValues.eastValue, 0.1)
