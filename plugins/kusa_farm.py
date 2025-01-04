@@ -494,12 +494,12 @@ async def goodNewsReport(field):
         spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
         spiritualEffect = 2 if spiritualSign else 1
         baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect
-        advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
+        advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为12
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
             return
-    # 总草精数喜报：最终草精大于等于50(仅当未触发基础草精喜报时发送)
-    if field.advKusaResult >= 50:
+    # 总草精数喜报：最终草精大于等于80(仅当未触发基础草精喜报时发送)
+    if field.advKusaResult >= 80:
         await sendReportMsg(field, '草精喜报')
 
 
@@ -512,7 +512,7 @@ async def getChainBonus(field):
         chainBonusTotal += chainBonus
         await sendPrivateMsg(field.qq,
                              f'{getChainLengthStr(chainStr)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
-        if len(chainStr) >= 4:
+        if len(chainStr) >= 4 and chainBonus > 18:
             await sendReportMsg(field, '连号喜报', chainStr=chainStr)
     await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
     field.advKusaResult += chainBonusTotal
