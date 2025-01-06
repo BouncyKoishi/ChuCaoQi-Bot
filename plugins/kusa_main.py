@@ -1,4 +1,9 @@
+import dataclasses
 import re
+import string
+from typing import Dict
+
+import asyncio
 import nonebot
 import random
 import dbConnection.db as baseDB
@@ -8,7 +13,7 @@ from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession
 from nonebot import MessageSegment as ms
 from datetime import datetime, timedelta
-from kusa_base import config, isUserExist, sendPrivateMsg
+from kusa_base import config, isUserExist, sendPrivateMsg, sendGroupMsg
 from .kusa_statistics import getKusaAdvRank
 
 
@@ -306,16 +311,16 @@ async def give(session: CommandSession):
     numberStr = re.search(r'(?<=(num|Num|NUM)=)\d+', stripped_arg)
     totalKusaStr = re.search(r'(?<=(kusa|Kusa|KUSA)=)\d+[kmbKMB]?', stripped_arg)
 
-    number = int(numberStr) if numberStr else None
+    number = convertNumStrToInt(numberStr.group(0)) if numberStr else None
     totalKusa = convertNumStrToInt(totalKusaStr.group(0)) if totalKusaStr else 0
 
     if not number:
         await session.send('需要发放草包的个数！')
         return
-    if number < 5:
-        await session.send('草包个数至少为5个！')
+    if number <= 0:
+        await session.send('草包个数不合法！')
         return
-    if not totalKusa or totalKusa < number:
+    if totalKusa < number:
         await session.send('待发的草数不合法！')
         return
 
@@ -328,7 +333,7 @@ async def give(session: CommandSession):
     kusaEnvelopeInfo = KusaEnvelopeInfo(userId=userId, participantIds=set(),
                                         kusaLimit=totalKusa, userLimit=number,
                                         maxGot=0, maxUserId='', startTime=datetime.now())
-    envelopeId = userId + "_" + ''.join(random.choice(string.ascii_letters) for _ in range(8))
+    envelopeId = str(userId) + "_" + ''.join(random.choice(string.ascii_letters) for _ in range(8))
     stopTask = asyncio.create_task(stopEnvelopeTimer(3600, envelopeId))
     kusaEnvelopeDict[envelopeId] = kusaEnvelopeInfo
     await session.send(f'发出总额为{totalKusa}的{number}人草包成功！')
@@ -353,8 +358,8 @@ async def _(session: CommandSession):
         if str(userId) in envelopeInfo.participantIds:
             hasGotFlag = True
             continue
-        if envelopeInfo.uesrLimit > 1:
-            maxKusa = (envelopeInfo.kusaLimit - envelopeInfo.uesrLimit) / envelopeInfo.uesrLimit * 2
+        if envelopeInfo.userLimit > 1:
+            maxKusa = (envelopeInfo.kusaLimit - envelopeInfo.userLimit) / envelopeInfo.userLimit * 2
             r = random.random()
             maxKusa *= 0.6 if r < 0.05 else 1
             maxKusa *= 0.5 if r < 0.03 else 1
@@ -364,7 +369,7 @@ async def _(session: CommandSession):
             kusaGot = envelopeInfo.kusaLimit
 
         envelopeInfo.kusaLimit -= kusaGot
-        envelopeInfo.uesrLimit -= 1
+        envelopeInfo.userLimit -= 1
         envelopeInfo.participantIds.add(str(userId))
         await baseDB.changeKusa(userId, kusaGot)
 
@@ -373,7 +378,7 @@ async def _(session: CommandSession):
             envelopeInfo.maxUserId = str(userId)
 
         outputStrs.append(f'你抢到了{kusaGot}草！')
-        if envelopeInfo.uesrLimit <= 0:
+        if envelopeInfo.userLimit <= 0:
             stopIds.append(envelopeId)
 
     if outputStrs:
@@ -397,12 +402,13 @@ async def stopEnvelope(envelopeId: str):
     envelopeInfo = kusaEnvelopeDict.pop(envelopeId)
     user = await baseDB.getUser(envelopeInfo.userId)
     userName = user.name if user.name else user.qq
-    if envelopeInfo.uesrLimit == 0:
+    if envelopeInfo.userLimit == 0:
         maxUser = await baseDB.getUser(envelopeInfo.maxUserId)
         maxUserName = maxUser.name if maxUser.name else maxUser.qq
         dTime = datetime.now() - envelopeInfo.startTime
+        sTotal = int(dTime.total_seconds())
         await sendGroupMsg(config['group']['main'],
-                           f'玩家 {userName} 发的草包已被抢完，耗时{dTime.minute}min{dTime.second}s\n'
+                           f'玩家 {userName} 发的草包已被抢完，耗时{sTotal // 60}min{sTotal % 60}s\n'
                            f'玩家 {maxUserName} 是手气王，抢到了{envelopeInfo.maxGot}草')
     else:
         await baseDB.changeKusa(envelopeInfo.userId, envelopeInfo.kusaLimit)
