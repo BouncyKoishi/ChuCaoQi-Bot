@@ -4,12 +4,33 @@ import dbConnection.kusa_field as fieldDB
 from datetime import datetime
 from nonebot import on_command, CommandSession, get_bot
 from kusa_base import isSuperAdmin, config
+from functools import wraps
+
+
+def permissionCheck(onlyAdmin=False, costCredentials=0):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(session: CommandSession, *args, **kwargs):
+            userId = session.ctx['user_id']
+            superAdmin = await isSuperAdmin(userId)
+            if superAdmin:
+                return await func(session, *args, **kwargs)
+            if onlyAdmin and not superAdmin:
+                return
+            amount = await itemDB.getItemAmount(userId, "侦察凭证")
+            if amount >= costCredentials:
+                await itemDB.changeItemAmount(userId, '侦察凭证', -costCredentials)
+                return await func(session, *args, **kwargs)
+            else:
+                await session.send(f'查看该信息需要消耗{costCredentials}个侦察凭证，你的侦察凭证不足^ ^')
+                return
+        return wrapper
+    return decorator
 
 
 @on_command(name="admin_help", only_to_me=False)
+@permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
     outputStr = "管理员命令列表：\n"
     outputStr += "TOTAL_KUSA 系统总草数\n"
     outputStr += "KUSA_RANK 草排行榜\n"
@@ -24,6 +45,7 @@ async def _(session: CommandSession):
 
 
 @on_command(name='TOTAL_KUSA', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=1)
 async def _(session: CommandSession):
     userList = await baseDB.getAllUser()
     totalKusa, totalKusaAdv, availableKusa, availableKusaAdv = 0, 0, 0, 0
@@ -38,10 +60,8 @@ async def _(session: CommandSession):
 
 
 @on_command(name='KUSA_RANK', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=1)
 async def _(session: CommandSession):
-    if not await permissionCheck(session):
-        return
-
     userList = await baseDB.getAllUser()
     userList = [user for user in userList if str(user.qq) != str(config['qq']['bot'])]
     userList = sorted(userList, key=lambda x: x.kusa, reverse=True)
@@ -53,10 +73,8 @@ async def _(session: CommandSession):
 
 
 @on_command(name='FACTORY_RANK', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=1)
 async def _(session: CommandSession):
-    if not await permissionCheck(session):
-        return
-
     factoryList = await itemDB.getStoragesOrderByAmountDesc("生草工厂")
     outputStr = "工厂数排行榜：\n"
     for i, info in enumerate(factoryList[:25]):
@@ -67,10 +85,8 @@ async def _(session: CommandSession):
 
 
 @on_command(name='KUSA_ADV', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=1)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
-
     qqNum = session.current_arg_text.strip()
     qqNum = session.ctx['user_id'] if not qqNum else qqNum
     user = await baseDB.getUser(qqNum)
@@ -84,25 +100,22 @@ async def _(session: CommandSession):
 
 
 @on_command(name='草精排行榜', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=10)
 async def _(session: CommandSession):
-    if not await permissionCheck(session):
-        return
     outputStr = '总草精排行榜：' + await getKusaAdvRank()
     await session.send(outputStr)
 
 
 @on_command(name='草精新星榜', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=10)
 async def _(session: CommandSession):
-    if not await permissionCheck(session):
-        return
     outputStr = '草精新星排行榜：' + await getKusaAdvRank(levelMax=6)
     await session.send(outputStr)
 
 
 @on_command(name='KUSA_ADV_RANK', only_to_me=False)
+@permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
     strippedArg = session.current_arg_text.strip()
     showInactiveUsers = True if '-i' in strippedArg else False
     showSubAccount = True if '-s' in strippedArg else False
@@ -115,19 +128,6 @@ async def _(session: CommandSession):
             return
     outputStr = '草精排行榜（自定义）：' + await getKusaAdvRank(levelMax, showInactiveUsers, showSubAccount)
     await session.send(outputStr)
-
-
-async def permissionCheck(session: CommandSession) -> bool:
-    userId = session.ctx['user_id']
-    if await isSuperAdmin(userId):
-        return True
-    amount = await itemDB.getItemAmount(userId, "侦察凭证")
-    if amount >= 10:
-        await itemDB.changeItemAmount(userId, '侦察凭证', -10)
-        return True
-    else:
-        await session.send("查看排行榜需要消耗10个侦察凭证，你的侦察凭证不足")
-        return False
 
 
 async def getKusaAdvRank(levelMax: int = 10, showInactiveUsers: bool = False, showSubAccount: bool = True) -> str:
@@ -167,9 +167,8 @@ async def getKusaAdv(user):
 
 
 @on_command(name='生草打分榜', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=5)
 async def _(session: CommandSession):
-    if not await permissionCheck(session):
-        return
     if '-self' in session.current_arg_text:
         rankList = await fieldDB.kusaOnceRanking(userId=session.ctx['user_id'])
     else:
@@ -184,6 +183,7 @@ async def _(session: CommandSession):
 
 
 @on_command(name='草精打分榜', only_to_me=False)
+@permissionCheck(onlyAdmin=False, costCredentials=5)
 async def _(session: CommandSession):
     if '-self' in session.current_arg_text:
         rankList = await fieldDB.kusaAdvOnceRanking(userId=session.ctx['user_id'])
@@ -199,10 +199,8 @@ async def _(session: CommandSession):
 
 
 @on_command(name='TITLE_LIST', only_to_me=False)
+@permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
-
     itemTitle = await itemDB.getItemsByType("称号")
     outputStr = "系统称号列表：\n"
     outputStr += "\n".join([f"{item.name}" for item in itemTitle])
@@ -210,12 +208,10 @@ async def _(session: CommandSession):
 
 
 @on_command(name='GIVE_TITLE', only_to_me=False)
+@permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
-
-    stripped_arg = session.current_arg_text.strip()
-    qqNum, title = stripped_arg.split(" ")
+    strippedArg = session.current_arg_text.strip()
+    qqNum, title = strippedArg.split(" ")
     user = await baseDB.getUser(qqNum)
     if not user:
         await session.send("用户不存在")
@@ -229,12 +225,10 @@ async def _(session: CommandSession):
 
 
 @on_command(name='SET_DONATION', only_to_me=False)
+@permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
-
-    stripped_arg = session.current_arg_text.strip()
-    qqNum, amount, source = stripped_arg.split(" ")
+    strippedArg = session.current_arg_text.strip()
+    qqNum, amount, source = strippedArg.split(" ")
     source = source if source else "qq"
     user = await baseDB.getUser(qqNum)
     if not user:
@@ -245,12 +239,10 @@ async def _(session: CommandSession):
 
 
 @on_command(name='SET_NAME', only_to_me=False)
+@permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.ctx['user_id']):
-        return
-
-    stripped_arg = session.current_arg_text.strip()
-    qqNum, name = stripped_arg.split(" ") if " " in stripped_arg else (stripped_arg, None)
+    strippedArg = session.current_arg_text.strip()
+    qqNum, name = strippedArg.split(" ") if " " in strippedArg else (strippedArg, None)
     if not name:
         bot = get_bot()
         try:
