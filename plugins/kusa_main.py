@@ -334,7 +334,7 @@ async def give(session: CommandSession):
                                         kusaLimit=totalKusa, userLimit=number,
                                         maxGot=0, maxUserId='', startTime=datetime.now())
     envelopeId = str(userId) + "_" + ''.join(random.choice(string.ascii_letters) for _ in range(8))
-    stopTask = asyncio.create_task(stopEnvelopeTimer(3600, envelopeId))
+    await asyncio.create_task(stopEnvelopeTimer(3600, envelopeId))
     kusaEnvelopeDict[envelopeId] = kusaEnvelopeInfo
     await session.send(f'发出总额为{totalKusa}的{number}人草包成功！')
 
@@ -360,10 +360,7 @@ async def _(session: CommandSession):
             continue
         if envelopeInfo.userLimit > 1:
             maxKusa = (envelopeInfo.kusaLimit - envelopeInfo.userLimit) / envelopeInfo.userLimit * 2
-            r = random.random()
-            maxKusa *= 0.6 if r < 0.05 else 1
-            maxKusa *= 0.5 if r < 0.03 else 1
-            maxKusa *= 0.1 if r < 0.01 else 1
+            maxKusa = 1 if random.random() < 0.01 else maxKusa
             kusaGot = random.randint(1, max(int(maxKusa), 1))
         else:
             kusaGot = envelopeInfo.kusaLimit
