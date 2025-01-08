@@ -21,39 +21,32 @@ generalHeader = {
     "sec-ch-ua": '"Chromium";v="104", " Not A;Brand";v="99", "Google Chrome";v="104"',
     "user-agent": config['web']['userAgent']
 }
+picSearchResults = {}
 
 
 @on_command(name='搜图', aliases='picsearch', only_to_me=False)
 async def _(session: CommandSession):
+    global picSearchResults
     imgCq = await session.aget(prompt='已启用图片搜索，请发送图片')
-    if imgCq is None or not imgCq.startswith('[CQ:image'):
+    imgUrls = extractImgUrls(imgCq)
+    if not imgUrls:
         await session.send("非图片，取消搜图")
         return
     await session.send("正在搜索……")
-    imgUrl = extractImgUrls(imgCq)[0]
+    resultDict = await getSearchResult(imgUrls[0])
+    if not resultDict or not resultDict["info"]:
+        await session.send('没有搜索到结果^ ^')
+        return
+    sendMsgInfo = await session.send(imgLocalPathToBase64('picsearch.jpg'))
+    picSearchResults[str(sendMsgInfo['message_id'])] = resultDict['info']
+
+
+async def getSearchResult(imgUrl):
     async with httpx.AsyncClient(proxies=proxy) as client:
         search = ImgExploration(pic_url=imgUrl, client=client, proxies=proxy,
                                 saucenao_apikey=saucenaoApiKey, header=generalHeader)
         await search.doSearch()
-    resultDict = search.getResultDict()
-    if not resultDict or not resultDict["info"]:
-        await session.send('没有搜索到结果^ ^')
-        return
-    await session.send(imgLocalPathToBase64('picsearch.jpg'))
-    imgNum = await session.aget(prompt="若需要提取图片链接，请在60s内发送对应结果的序号(如:1 2 3)")
-    try:
-        args = list(map(int, str(imgNum).split()))
-        args = list(set(args))
-        for arg in args:
-            if arg > len(resultDict["info"]) or arg < 1:
-                args.remove(arg)
-        msg = ""
-        for index in args:
-            url = resultDict["info"][index - 1]["url"]
-            msg += f"{index} - {url}\n"
-        await session.send(msg[:-1] if msg else "未找到对应图片链接")
-    except (IndexError, ValueError):
-        return
+    return search.getResultDict()
 
 
 @on_command(name='saucenao', aliases=('yandex', 'google'), only_to_me=False)
@@ -64,10 +57,10 @@ async def _(session: CommandSession):
 @on_command(name='picurl', only_to_me=False)
 async def picUrlGet(session: CommandSession):
     imgCq = await session.aget(prompt='请发送图片')
-    if imgCq is None or '[CQ:image' not in imgCq:
+    imgUrls = extractImgUrls(imgCq)
+    if not imgUrls:
         await session.send("非图片，取消图片链接获取")
         return
-    imgUrls = extractImgUrls(imgCq)
     await session.send('\n'.join(imgUrls))
 
 
@@ -80,11 +73,66 @@ async def _(session: NLPSession):
         return
 
     replyId = session.ctx['message'][0].data['id']
-    replyMessageCtx = await session.bot.call_action('get_msg', message_id=replyId)
-    # print(replyMessageCtx)
+    replyMessageCtx = await session.bot.get_msg(message_id=replyId)
+    print(replyId, replyMessageCtx)
+    global picSearchResults
     if strippedText == '#picurl':
         imgUrls = extractImgUrls(replyMessageCtx['message'])
         await session.send('\n'.join(imgUrls))
+    if strippedText in ['#picsearch', '#搜图']:
+        imgUrls = extractImgUrls(replyMessageCtx['message'])
+        if not imgUrls:
+            return
+        await session.send("正在搜索……")
+        resultDict = await getSearchResult(imgUrls[0])
+        if not resultDict or not resultDict["info"]:
+            await session.send('没有搜索到结果^ ^')
+            return
+        sendMsgInfo = await session.send(imgLocalPathToBase64('picsearch.jpg'))
+        picSearchResults[str(sendMsgInfo['message_id'])] = resultDict['info']
+        print(picSearchResults.keys())
+    if strippedText == '#nsfw':
+        imgUrls = extractImgUrls(replyMessageCtx['message'])
+        if not imgUrls:
+            return
+        await session.send("正在检测……")
+        moderateContentApiKey = config['web']['moderateContent']['key']
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(imgUrls[0])
+                image = Image.open(BytesIO(response.content))
+                image = image.resize((600, 600), Image.LANCZOS)
+                buffer = BytesIO()
+                image.save(buffer, format='WEBP', quality=80)
+                buffer.seek(0)
+
+                files = {'file': ('image.webp', buffer, 'image/webp')}
+                data = {'key': moderateContentApiKey}
+                r = await client.post('https://api.moderatecontent.com/moderate/', data=data, files=files)
+                result = r.json()
+                print(f'NSFW检测结果：{result}')
+
+                if 'predictions' not in result:
+                    await session.send(
+                        f'[CQ:reply,id={session.ctx["message_id"]}]API没有返回检测结果，请稍后再来…_φ(･ω･` )\n{result.get("error")}')
+                else:
+                    await session.send(
+                        f'[CQ:reply,id={session.ctx["message_id"]}]检测结果：\n' + '\n'.join(
+                            [f'{k} {v:.4f}' for k, v in result['predictions'].items()]))
+        except Exception as e:
+            await session.send(
+                f'[CQ:reply,id={session.ctx["message_id"]}]检测失败了…_φ(･ω･` )\n{str(e)}')
+    if str(replyId) in picSearchResults and strippedText.startswith('#url'):
+        resultDict = picSearchResults[str(replyId)]
+        imgNum = re.sub(r'#url', '', strippedText).strip()
+        try:
+            args = list(set(map(int, imgNum.split())))
+            args = [arg for arg in args if 1 <= arg <= len(resultDict)]
+            msg = "\n".join(f"{index} - {resultDict[index - 1]['url']}" for index in args)
+            await session.send(msg[:-1] if msg else "未找到对应图片链接")
+        except (IndexError, ValueError):
+            await session.send("未找到对应图片链接, 请检查输入是否正确")
+            return
 
 
 class ImgExploration:
@@ -123,7 +171,7 @@ class ImgExploration:
             line_width = 2
             line_fill = (200, 200, 200)
             text_x = 300
-            img = Image.new(mode="RGB", size=(width, total_height), color=(255, 255, 255))
+            img = Image.new(mode="RGB", size=(width, total_height + 75), color=(255, 255, 255))
 
             draw = ImageDraw.Draw(img)
             margin = 20
@@ -193,6 +241,11 @@ class ImgExploration:
                     url = single["url"]
                     draw.text(xy=(text_x, vernier + text_ver), text=f"{url[:80]}{'......' if len(url)>=80 else ''}", fill=(100, 100, 100), font=font3, anchor="la")
                 vernier += height
+
+            bottom_text = "若需要提取url，请回复此消息，在回复中输入 #url [图片编号] ，如 #url 1 2"
+            draw.text(xy=(width // 2, total_height + 25), text=bottom_text,
+                fill=(0, 0, 0), font=font, anchor="mm",
+            )
 
             save = BytesIO()
             img.save("picsearch.jpg", format="JPEG", quality=95)
