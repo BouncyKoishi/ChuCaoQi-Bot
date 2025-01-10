@@ -493,7 +493,9 @@ async def goodNewsReport(field):
         advKusaEffect = advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
         spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
         spiritualEffect = 2 if spiritualSign else 1
-        baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect
+        fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+        fallowEffect = [1, 2, 3][fallowSign] if 0 < fallowSign < 3 else 1
+        baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect / fallowEffect
         advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为12
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
