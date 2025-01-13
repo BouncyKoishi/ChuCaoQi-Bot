@@ -37,7 +37,6 @@ async def shop(session: CommandSession, priceType):
             if item.amountLimit and itemCount >= item.amountLimit:
                 continue
         itemPriceDict[item.name] = getItemPrice(item, itemCount)
-    print(itemPriceDict)
     if priceType == '自动化核心':
         itemPriceDict['生草工厂'] = await getNextFactoryCost(session.ctx['user_id'])
     sortedPriceDict = sorted(itemPriceDict.items(), key=lambda x: x[1])
@@ -75,8 +74,8 @@ async def usefulItemQuery(session: CommandSession):
         output += f'当前价格：{getItemPrice(item, ownItemAmount)}{item.priceType}\n' if item.priceRate else ''
         output += f'价格倍率：{item.priceRate}\n' if item.priceRate else ''
         output += f'商店售价：{item.sellingPrice}{item.priceType}\n' if item.sellingPrice else ''
-    output += '不可转让 ' if not item.isTransferable else ''
-    output += '不可禁用 ' if not item.isControllable else ''
+    output += '可转让 ' if item.isTransferable else '不可转让'
+    output += '可禁用 ' if item.isControllable else '不可禁用'
     output += '\n'
     output += f'物品说明：{item.detail}\n' if item.detail else '暂无物品说明= =\n'
 
