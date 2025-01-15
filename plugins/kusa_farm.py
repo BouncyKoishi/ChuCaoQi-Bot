@@ -85,6 +85,12 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         return
     kusaType = "草" if not kusaType else kusaType
 
+    spiritualMachine = await itemDB.getItemStorageInfo(userId, '灵性自动分配装置')
+    if spiritualMachine and spiritualMachine.allowUse:
+        spiritualSign = await itemDB.getItemAmount(userId, '灵性标记')
+        if not spiritualSign:
+            kusaType = '不灵草'
+
     # 原始生长时间和金坷垃、沼气池效果
     growTime = systemRandom.randint(40, 80)
     bioGasEffect = 1
