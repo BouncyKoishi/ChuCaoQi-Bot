@@ -1,10 +1,10 @@
-import base64
 import io
 import re
 import math
 import time
 import codecs
 import random
+import asyncio
 from typing import Optional, Dict
 
 import nonebot
@@ -414,7 +414,7 @@ async def G_change():
 
 
 def getNewG(oldG: float, changeRange: float):
-    rank = changeRange * (systemRandom.random() - 0.498)
+    rank = changeRange * (systemRandom.random() - 0.5)
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
