@@ -55,8 +55,8 @@ async def _(session: CommandSession):
         if str(user.qq) != str(config['qq']['bot']):
             availableKusa += user.kusa
             availableKusaAdv += user.advKusa
-    await session.send(f'历史总草数: {totalKusa}\n当前总草数: {availableKusa}\n'
-                       f'历史总草精数: {totalKusaAdv}\n当前总草精数: {availableKusaAdv}')
+    await session.send(f'系统总草数: {totalKusa}\n可用总草数: {availableKusa}\n'
+                       f'历史总草精数: {totalKusaAdv}\n可用总草精数: {availableKusaAdv}')
 
 
 @on_command(name='KUSA_RANK', only_to_me=False)
@@ -169,32 +169,48 @@ async def getKusaAdv(user):
 @on_command(name='生草打分榜', only_to_me=False)
 @permissionCheck(onlyAdmin=False, costCredentials=5)
 async def _(session: CommandSession):
-    if '-self' in session.current_arg_text:
-        rankList = await fieldDB.kusaOnceRanking(userId=session.ctx['user_id'])
+    userId = session.ctx['user_id']
+    selfMode = '-self' in session.current_arg_text
+    if selfMode:
+        rankList = await fieldDB.kusaOnceRanking(userId=userId)
+        user = await baseDB.getUser(userId)
+        userName = user.name if user.name else user.qq
+        outputStr = f"生草打分榜({userName})：\n"
     else:
         rankList = await fieldDB.kusaOnceRanking()
-    outputStr = "生草打分榜：\n"
+        outputStr = "生草打分榜：\n"
     for i, rank in enumerate(rankList):
-        user = await baseDB.getUser(rank.qq)
-        userName = user.name if user.name else user.qq
         timeStr = rank.createTime.strftime("%Y-%m-%d %H:%M")
-        outputStr += f"{i + 1}. {userName}：{rank.kusaResult}草({timeStr})\n"
+        if selfMode:
+            outputStr += f"{i + 1}. {rank.kusaResult}草({timeStr})\n"
+        else:
+            rankUser = await baseDB.getUser(rank.qq)
+            userName = rankUser.name if rankUser.name else rankUser.qq
+            outputStr += f"{i + 1}. {userName}：{rank.kusaResult}草({timeStr})\n"
     await session.send(outputStr[:-1])
 
 
 @on_command(name='草精打分榜', only_to_me=False)
 @permissionCheck(onlyAdmin=False, costCredentials=5)
 async def _(session: CommandSession):
-    if '-self' in session.current_arg_text:
-        rankList = await fieldDB.kusaAdvOnceRanking(userId=session.ctx['user_id'])
+    userId = session.ctx['user_id']
+    selfMode = '-self' in session.current_arg_text
+    if selfMode:
+        rankList = await fieldDB.kusaAdvOnceRanking(userId=userId)
+        user = await baseDB.getUser(userId)
+        userName = user.name if user.name else user.qq
+        outputStr = f"草精打分榜({userName})：\n"
     else:
         rankList = await fieldDB.kusaAdvOnceRanking()
-    outputStr = "草精打分榜：\n"
+        outputStr = "草精打分榜：\n"
     for i, rank in enumerate(rankList):
-        user = await baseDB.getUser(rank.qq)
-        userName = user.name if user.name else user.qq
         timeStr = rank.createTime.strftime("%Y-%m-%d %H:%M")
-        outputStr += f"{i + 1}. {userName}：{rank.advKusaResult}草精({timeStr})\n"
+        if selfMode:
+            outputStr += f"{i + 1}. {rank.advKusaResult}草精({timeStr})\n"
+        else:
+            rankUser = await baseDB.getUser(rank.qq)
+            userName = rankUser.name if rankUser.name else rankUser.qq
+            outputStr += f"{i + 1}. {userName}：{rank.advKusaResult}草精({timeStr})\n"
     await session.send(outputStr[:-1])
 
 
