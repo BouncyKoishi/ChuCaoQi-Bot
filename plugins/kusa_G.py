@@ -431,8 +431,8 @@ async def G_reset():
         allKusaFromG = await GSellingAll(user.qq, gValues)
         if allKusaFromG:
             print(f'用户{user.qq}的G已经兑换为{allKusaFromG}草')
-            if await baseDB.getFlagValue(user.qq, 'G市重置提示'):
-                await bot.send_private_msg(user_id=user.qq, message=f'G周期已结束，您的所有G已经兑换为{allKusaFromG}草。')
+            # if await baseDB.getFlagValue(user.qq, 'G市重置提示'):
+            #     await bot.send_private_msg(user_id=user.qq, message=f'G周期已结束，您的所有G已经兑换为{allKusaFromG}草。')
         gCreatorAmount = await itemDB.getItemAmount(user.qq, '扭秤装置')
         gCreatorStable = await itemDB.getItemAmount(user.qq, '扭秤稳定理论')
         if gCreatorAmount:

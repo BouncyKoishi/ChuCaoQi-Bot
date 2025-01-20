@@ -345,11 +345,12 @@ async def _(session: CommandSession):
 
 
 # 生草结算
-@nonebot.scheduler.scheduled_job('interval', minutes=1, max_instances=10)
+@nonebot.scheduler.scheduled_job('interval', seconds=15, max_instances=10)
 async def save():
     finishedFields = await fieldDB.getAllKusaField(onlyFinished=True)
     timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
-    for field in finishedFields:
+    # 每次只处理最多两个用户，防止消息发送过多触发审查
+    for field in finishedFields[:2]:
         # 时光魔法收获逻辑
         if field.qq in timeCapsuleUserIds:
             await sendPrivateMsg(field.qq,
@@ -413,10 +414,11 @@ async def soilCapacityIncreaseForInactive():
 
 
 async def sendFieldRecoverInfo(userId):
-    isRecoverMsgSend = await baseDB.getFlagValue(userId, '发送承载力回满信息')
-    if not isRecoverMsgSend:
-        return
-    await sendPrivateMsg(userId, '你的草地承载力已回满！')
+    # isRecoverMsgSend = await baseDB.getFlagValue(userId, '发送承载力回满信息')
+    # if not isRecoverMsgSend:
+    #     return
+    # await sendPrivateMsg(userId, '你的草地承载力已回满！')
+    pass
 
 
 async def getKusaPredict(fieldInfo):
@@ -543,13 +545,14 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
     if not reportStr:
         return
 
-    # 小礼炮通知发送
-    cannonUserIdList = await itemDB.getUserIdListByItem('小礼炮')
-    for userId in cannonUserIdList:
-        if userId == field.qq:
-            continue
-        await itemDB.changeItemAmount(userId, '小礼炮', -1)
-        await sendPrivateMsg(userId, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+    # # 小礼炮通知发送
+    # cannonUserIdList = await itemDB.getUserIdListByItem('小礼炮')
+    # for userId in cannonUserIdList:
+    #     if userId == field.qq:
+    #         continue
+    #     await itemDB.changeItemAmount(userId, '小礼炮', -1)
+    #     await sendPrivateMsg(userId, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+
     # 群聊喜报发送
     await sendGroupMsg(config['group']['main'], reportStr)
     # 分享魔法额外奖励效果

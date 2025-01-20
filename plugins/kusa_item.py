@@ -336,9 +336,9 @@ def getItemPrice(item, itemAmount):
 
 @scheduler.scheduled_job('interval', seconds=50)
 async def cleanTimeLimitedItem():
-    overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
-    for storage in overloadStorageList:
-        if storage.timeLimitTs < datetime.datetime.now().timestamp():
-            if await baseDB.getFlagValue(storage.qq, '过载结束提示'):
-                await sendPrivateMsg(storage.qq, '你的百草园过载已结束！')
+    # overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
+    # for storage in overloadStorageList:
+    #     if storage.timeLimitTs < datetime.datetime.now().timestamp():
+    #         if await baseDB.getFlagValue(storage.qq, '过载结束提示'):
+    #             await sendPrivateMsg(storage.qq, '你的百草园过载已结束！')
     await itemDB.cleanTimeLimitedItems()
