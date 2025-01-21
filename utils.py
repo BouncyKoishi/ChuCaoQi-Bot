@@ -2,8 +2,8 @@ import re
 import httpx
 import base64
 import nonebot
+from nonebot import Message
 from nonebot import MessageSegment as ms
-from nonebot.command.argfilter.extractors import extract_text, extract_image_urls
 
 
 def rd3(floatNumber: float):
@@ -32,12 +32,13 @@ def imgLocalPathToBase64(path: str):
     return imgBytesToBase64(p)
 
 
-def extractText(arg):
-    return extract_text(arg)
-
-
 def extractImgUrls(picInfo):
-    urls = extract_image_urls(picInfo)
+    picInfoMsg = Message(picInfo)
+    urls = [
+        s.data['url']
+        for s in picInfoMsg
+        if s.type in ['image', 'mface'] and 'url' in s.data
+    ]
     urls = [url.replace('amp;', '') for url in urls]
     return urls
 
