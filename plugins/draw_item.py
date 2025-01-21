@@ -260,10 +260,10 @@ async def _(session: CommandSession):
     userId = session.ctx['user_id']
     stripped_arg = session.current_arg_text.strip()
     item = await drawItemDB.getItemByName(stripped_arg)
-    itemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
     if not item:
         await itemSearch(session)
         return
+    itemStorage = await drawItemDB.getSingleItemStorage(userId, item.id)
 
     outputStr = f'[{itemRareDescribe[item.rareRank]}]{item.name}'
     outputStr += f'\n持有数：{itemStorage.amount}' if itemStorage else ''
