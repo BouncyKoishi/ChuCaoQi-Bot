@@ -1,10 +1,10 @@
-import base64
 import io
 import re
 import math
 import time
 import codecs
 import random
+import asyncio
 from typing import Optional, Dict
 
 import nonebot
@@ -414,7 +414,7 @@ async def G_change():
 
 
 def getNewG(oldG: float, changeRange: float):
-    rank = changeRange * (systemRandom.random() - 0.498)
+    rank = changeRange * (systemRandom.random() - 0.5)
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
@@ -431,8 +431,8 @@ async def G_reset():
         allKusaFromG = await GSellingAll(user.qq, gValues)
         if allKusaFromG:
             print(f'用户{user.qq}的G已经兑换为{allKusaFromG}草')
-            if await baseDB.getFlagValue(user.qq, 'G市重置提示'):
-                await bot.send_private_msg(user_id=user.qq, message=f'G周期已结束，您的所有G已经兑换为{allKusaFromG}草。')
+            # if await baseDB.getFlagValue(user.qq, 'G市重置提示'):
+            #     await bot.send_private_msg(user_id=user.qq, message=f'G周期已结束，您的所有G已经兑换为{allKusaFromG}草。')
         gCreatorAmount = await itemDB.getItemAmount(user.qq, '扭秤装置')
         gCreatorStable = await itemDB.getItemAmount(user.qq, '扭秤稳定理论')
         if gCreatorAmount:

@@ -1,15 +1,36 @@
+import dataclasses
 import re
+import string
+from typing import Dict
+
+import asyncio
 import nonebot
+import random
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
 from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession
-from kusa_base import config, isUserExist, sendPrivateMsg
+from nonebot import MessageSegment as ms
+from datetime import datetime, timedelta
+from kusa_base import config, isUserExist, sendPrivateMsg, sendGroupMsg
 from .kusa_statistics import getKusaAdvRank
+
+
+@dataclasses.dataclass
+class KusaEnvelopeInfo:
+    userId: str
+    participantIds: set
+    kusaLimit: int
+    userLimit: int
+    startTime: datetime
+    maxGot: int
+    maxUserId: str
+
 
 vipTitleName = ['用户', '信息员', '高级信息员', '特级信息员', '后浪信息员', '天琴信息员', '天琴信息节点',
                 '天琴信息矩阵', '天琴信息网络', '???', '???', '???', '???']
+kusaEnvelopeDict: Dict[str, KusaEnvelopeInfo] = {}
 
 
 @on_command(name='仓库', only_to_me=False)
@@ -276,6 +297,120 @@ async def kusa_compress(session: CommandSession):
                                     costItemName='草', costItemAmount=kusaUse)
     else:
         await session.send('你不够草^ ^')
+
+
+@on_command(name='发草包', only_to_me=False)
+async def give(session: CommandSession):
+    global kusaEnvelopeDict
+    userId = session.ctx['user_id']
+    if "group_id" not in session.ctx or session.ctx['group_id'] != config['group']['main']:
+        await session.send('只能在除草器主群中进行发草包^ ^')
+        return
+
+    stripped_arg = session.current_arg_text.strip()
+    numberStr = re.search(r'(?<=(num|Num|NUM)=)\d+', stripped_arg)
+    totalKusaStr = re.search(r'(?<=(kusa|Kusa|KUSA)=)\d+[kmbKMB]?', stripped_arg)
+
+    number = convertNumStrToInt(numberStr.group(0)) if numberStr else None
+    totalKusa = convertNumStrToInt(totalKusaStr.group(0)) if totalKusaStr else 0
+
+    if not number:
+        await session.send('需要发放草包的个数！')
+        return
+    if number <= 0:
+        await session.send('草包个数不合法！')
+        return
+    if totalKusa < number:
+        await session.send('待发的草数不合法！')
+        return
+
+    user = await baseDB.getUser(userId)
+    if user.kusa < totalKusa:
+        await session.send('你不够草^ ^')
+        return
+
+    await baseDB.changeKusa(userId, -totalKusa)
+    kusaEnvelopeInfo = KusaEnvelopeInfo(userId=userId, participantIds=set(),
+                                        kusaLimit=totalKusa, userLimit=number,
+                                        maxGot=0, maxUserId='', startTime=datetime.now())
+    envelopeId = str(userId) + "_" + ''.join(random.choice(string.ascii_letters) for _ in range(8))
+    await asyncio.create_task(stopEnvelopeTimer(3600, envelopeId))
+    kusaEnvelopeDict[envelopeId] = kusaEnvelopeInfo
+    await session.send(f'发出总额为{totalKusa}的{number}人草包成功！')
+
+
+@on_command(name='抢草包', only_to_me=False)
+async def _(session: CommandSession):
+    global kusaEnvelopeDict
+    userId = session.ctx['user_id']
+    if "group_id" not in session.ctx or session.ctx['group_id'] != config['group']['main']:
+        await session.send('只能在除草器主群中进行抢草包^ ^')
+        return
+    if not kusaEnvelopeDict:
+        await session.send(f'{ms.at(userId)} 当前没有草包^ ^')
+        return
+    user = await baseDB.getUser(userId)
+    if user.relatedQQ:
+        userId = user.relatedQQ
+
+    hasGotFlag, outputStrs, stopIds = False, [], []
+    for envelopeId, envelopeInfo in kusaEnvelopeDict.items():
+        if str(userId) in envelopeInfo.participantIds:
+            hasGotFlag = True
+            continue
+        if envelopeInfo.userLimit > 1:
+            maxKusa = (envelopeInfo.kusaLimit - envelopeInfo.userLimit) / envelopeInfo.userLimit * 2
+            maxKusa = 1 if random.random() < 0.01 else maxKusa
+            kusaGot = random.randint(1, max(int(maxKusa), 1))
+        else:
+            kusaGot = envelopeInfo.kusaLimit
+
+        envelopeInfo.kusaLimit -= kusaGot
+        envelopeInfo.userLimit -= 1
+        envelopeInfo.participantIds.add(str(userId))
+        await baseDB.changeKusa(userId, kusaGot)
+
+        if kusaGot > envelopeInfo.maxGot:
+            envelopeInfo.maxGot = kusaGot
+            envelopeInfo.maxUserId = str(userId)
+
+        outputStrs.append(f'你抢到了{kusaGot}草！')
+        if envelopeInfo.userLimit <= 0:
+            stopIds.append(envelopeId)
+
+    if outputStrs:
+        await session.send(f'{ms.at(userId)}' + '\n'.join(outputStrs))
+    elif hasGotFlag:
+        await session.send(f'{ms.at(userId)} 你已经抢过草包了^ ^')
+
+    for envelopeId in stopIds:
+        await stopEnvelope(envelopeId)
+
+
+async def stopEnvelopeTimer(duration: int, envelopeId: str):
+    await asyncio.sleep(duration)
+    await stopEnvelope(envelopeId)
+
+
+async def stopEnvelope(envelopeId: str):
+    global kusaEnvelopeDict
+    if envelopeId not in kusaEnvelopeDict:
+        return
+    envelopeInfo = kusaEnvelopeDict.pop(envelopeId)
+    user = await baseDB.getUser(envelopeInfo.userId)
+    userName = user.name if user.name else user.qq
+    if envelopeInfo.userLimit == 0:
+        maxUser = await baseDB.getUser(envelopeInfo.maxUserId)
+        maxUserName = maxUser.name if maxUser.name else maxUser.qq
+        dTime = datetime.now() - envelopeInfo.startTime
+        sTotal = int(dTime.total_seconds())
+        await sendGroupMsg(config['group']['main'],
+                           f'玩家 {userName} 发的草包已被抢完，耗时{sTotal // 60}min{sTotal % 60}s\n'
+                           f'玩家 {maxUserName} 是手气王，抢到了{envelopeInfo.maxGot}草')
+    else:
+        await baseDB.changeKusa(envelopeInfo.userId, envelopeInfo.kusaLimit)
+        await sendGroupMsg(config['group']['main'],
+                           f'玩家 {userName} 发的草包超时未抢完，剩余{envelopeInfo.kusaLimit}草已退回')
 
 
 @on_command(name='信息员升级', only_to_me=False)

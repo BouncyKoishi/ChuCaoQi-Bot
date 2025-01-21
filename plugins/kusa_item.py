@@ -37,7 +37,6 @@ async def shop(session: CommandSession, priceType):
             if item.amountLimit and itemCount >= item.amountLimit:
                 continue
         itemPriceDict[item.name] = getItemPrice(item, itemCount)
-    print(itemPriceDict)
     if priceType == '自动化核心':
         itemPriceDict['生草工厂'] = await getNextFactoryCost(session.ctx['user_id'])
     sortedPriceDict = sorted(itemPriceDict.items(), key=lambda x: x[1])
@@ -64,7 +63,8 @@ async def usefulItemQuery(session: CommandSession):
     if not item:
         await session.send('此物品不存在!（如果需要查看抽奖物品信息，请使用!物品详情）')
         return
-    ownItemAmount = await itemDB.getItemAmount(session.ctx['user_id'], itemName)
+    ownItemInfo = await itemDB.getItemStorageInfo(session.ctx['user_id'], itemName)
+    ownItemAmount = ownItemInfo.amount if ownItemInfo else 0
     output = f'{item.name}\n'
     output += f'拥有数量：{ownItemAmount} / {item.amountLimit}\n' if item.amountLimit else f'拥有数量：{ownItemAmount}\n'
     output += f'前置购买条件：{getPreItemStr(item)}\n' if item.shopPreItems else ''
@@ -75,8 +75,10 @@ async def usefulItemQuery(session: CommandSession):
         output += f'当前价格：{getItemPrice(item, ownItemAmount)}{item.priceType}\n' if item.priceRate else ''
         output += f'价格倍率：{item.priceRate}\n' if item.priceRate else ''
         output += f'商店售价：{item.sellingPrice}{item.priceType}\n' if item.sellingPrice else ''
-    output += '不可转让 ' if not item.isTransferable else ''
-    output += '不可禁用 ' if not item.isControllable else ''
+    output += '可转让 ' if item.isTransferable else '不可转让 '
+    output += '可禁用' if item.isControllable else '不可禁用'
+    if item.isControllable and ownItemInfo:
+        output += f'（当前已{"启用" if ownItemInfo.allowUse else "禁用"}）'
     output += '\n'
     output += f'物品说明：{item.detail}\n' if item.detail else '暂无物品说明= =\n'
 
@@ -337,9 +339,9 @@ def getItemPrice(item, itemAmount):
 
 @scheduler.scheduled_job('interval', seconds=50)
 async def cleanTimeLimitedItem():
-    overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
-    for storage in overloadStorageList:
-        if storage.timeLimitTs < datetime.datetime.now().timestamp():
-            if await baseDB.getFlagValue(storage.qq, '过载结束提示'):
-                await sendPrivateMsg(storage.qq, '你的百草园过载已结束！')
+    # overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
+    # for storage in overloadStorageList:
+    #     if storage.timeLimitTs < datetime.datetime.now().timestamp():
+    #         if await baseDB.getFlagValue(storage.qq, '过载结束提示'):
+    #             await sendPrivateMsg(storage.qq, '你的百草园过载已结束！')
     await itemDB.cleanTimeLimitedItems()

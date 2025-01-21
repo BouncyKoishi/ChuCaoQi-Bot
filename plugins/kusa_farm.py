@@ -85,6 +85,12 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         return
     kusaType = "草" if not kusaType else kusaType
 
+    spiritualMachine = await itemDB.getItemStorageInfo(userId, '灵性自动分配装置')
+    if spiritualMachine and spiritualMachine.allowUse:
+        spiritualSign = await itemDB.getItemAmount(userId, '灵性标记')
+        if not spiritualSign:
+            kusaType = '不灵草'
+
     # 原始生长时间和金坷垃、沼气池效果
     growTime = systemRandom.randint(40, 80)
     bioGasEffect = 1
@@ -339,11 +345,12 @@ async def _(session: CommandSession):
 
 
 # 生草结算
-@nonebot.scheduler.scheduled_job('interval', minutes=1, max_instances=10)
+@nonebot.scheduler.scheduled_job('interval', seconds=15, max_instances=10)
 async def save():
     finishedFields = await fieldDB.getAllKusaField(onlyFinished=True)
     timeCapsuleUserIds = await itemDB.getUserIdListByItem('时光胶囊标记')
-    for field in finishedFields:
+    # 每次只处理最多两个用户，防止消息发送过多触发审查
+    for field in finishedFields[:2]:
         # 时光魔法收获逻辑
         if field.qq in timeCapsuleUserIds:
             await sendPrivateMsg(field.qq,
@@ -407,10 +414,11 @@ async def soilCapacityIncreaseForInactive():
 
 
 async def sendFieldRecoverInfo(userId):
-    isRecoverMsgSend = await baseDB.getFlagValue(userId, '发送承载力回满信息')
-    if not isRecoverMsgSend:
-        return
-    await sendPrivateMsg(userId, '你的草地承载力已回满！')
+    # isRecoverMsgSend = await baseDB.getFlagValue(userId, '发送承载力回满信息')
+    # if not isRecoverMsgSend:
+    #     return
+    # await sendPrivateMsg(userId, '你的草地承载力已回满！')
+    pass
 
 
 async def getKusaPredict(fieldInfo):
@@ -493,13 +501,15 @@ async def goodNewsReport(field):
         advKusaEffect = advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
         spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
         spiritualEffect = 2 if spiritualSign else 1
-        baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect
-        advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为11
+        fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
+        fallowEffect = [1, 2, 3][fallowSign] if 0 < fallowSign < 3 else 1
+        baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect / fallowEffect
+        advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为12
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
             return
-    # 总草精数喜报：最终草精大于等于50(仅当未触发基础草精喜报时发送)
-    if field.advKusaResult >= 50:
+    # 总草精数喜报：最终草精大于等于80(仅当未触发基础草精喜报时发送)
+    if field.advKusaResult >= 80:
         await sendReportMsg(field, '草精喜报')
 
 
@@ -512,7 +522,7 @@ async def getChainBonus(field):
         chainBonusTotal += chainBonus
         await sendPrivateMsg(field.qq,
                              f'{getChainLengthStr(chainStr)}！魔法少女纯酱召唤了额外的{chainBonus}个草之精华喵(*^▽^)/★*☆')
-        if len(chainStr) >= 4:
+        if len(chainStr) >= 4 and chainBonus > 18:
             await sendReportMsg(field, '连号喜报', chainStr=chainStr)
     await baseDB.changeAdvKusa(field.qq, chainBonusTotal)
     field.advKusaResult += chainBonusTotal
@@ -535,13 +545,14 @@ async def sendReportMsg(field, reportType, sadNewsCount=0, chainStr=""):
     if not reportStr:
         return
 
-    # 小礼炮通知发送
-    cannonUserIdList = await itemDB.getUserIdListByItem('小礼炮')
-    for userId in cannonUserIdList:
-        if userId == field.qq:
-            continue
-        await itemDB.changeItemAmount(userId, '小礼炮', -1)
-        await sendPrivateMsg(userId, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+    # # 小礼炮通知发送
+    # cannonUserIdList = await itemDB.getUserIdListByItem('小礼炮')
+    # for userId in cannonUserIdList:
+    #     if userId == field.qq:
+    #         continue
+    #     await itemDB.changeItemAmount(userId, '小礼炮', -1)
+    #     await sendPrivateMsg(userId, f'[CQ:face,id=144]一个喜报产生了！[CQ:face,id=144]')
+
     # 群聊喜报发送
     await sendGroupMsg(config['group']['main'], reportStr)
     # 分享魔法额外奖励效果

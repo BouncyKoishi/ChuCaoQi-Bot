@@ -23,7 +23,7 @@ class SysuNetworkReport(typing.NamedTuple):
 latestReport: SysuNetworkReport = None
 
 
-@nonebot.scheduler.scheduled_job('cron', minute='0', hour='8-23')
+@nonebot.scheduler.scheduled_job('cron', hour='8-23', minute='0', second='5')
 async def _():
     global latestReport
 
@@ -52,7 +52,7 @@ async def _(session: CommandSession):
     await session.send(str(latestReport))
 
 
-@nonebot.scheduler.scheduled_job('cron', minute='0', hour='23', day='7-15/4', month='1,7')
+@nonebot.scheduler.scheduled_job('cron', minute='0', hour='23', day='7-15/4', month='1,7', second='5')
 async def _():
     bot = nonebot.get_bot()
     await bot.send_group_msg(group_id=config['group']['sysu'],
