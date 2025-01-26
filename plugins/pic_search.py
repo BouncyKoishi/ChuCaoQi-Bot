@@ -282,7 +282,7 @@ class ImgExploration:
                     resList.append(sin_di)
                 return resList
         except IndexError as e:
-            print(e)
+            print(f"saucenao: {e}")
             return []
         finally:
             print(f"saucenao result:{len(resList)}")
@@ -302,7 +302,7 @@ class ImgExploration:
                 "url": self.__pic_url,
             }
             google_lens_text = (await self.client.get(f"https://lens.google.com/uploadbyurl", params=params, headers=google_header, follow_redirects=True, timeout=50)).text
-
+            print(google_lens_text)
             req_tex = re.findall(r"var AF_dataServiceRequests = (.+?); var AF_initDataChunkQueue", google_lens_text)
             if req_tex:
                 ds1 = re.findall(r"'ds:1' : (.*)}", req_tex[0])
@@ -373,7 +373,7 @@ class ImgExploration:
                 i += 1
             return resList
         except Exception as e:
-            print(e)
+            print(f"google: {e}")
         finally:
             print(f"google result:{len(resList)}")
             return resList
@@ -426,7 +426,7 @@ class ImgExploration:
                     single["thumbnail_bytes"] = thumbnail_bytes[i]
                     i += 1
         except Exception as e:
-            print(e)
+            print(f"ascii2d: {e}")
             return []
         finally:
             print(f"ascii2d result:{len(result_li)}")
@@ -474,7 +474,7 @@ class ImgExploration:
             print(f"yandex result:{len(result_li)}")
             return result_li
         except Exception as e:
-            print(e)
+            print(f"yandex: {e}")
         finally:
             return result_li
 
@@ -482,8 +482,9 @@ class ImgExploration:
         task_saucenao = asyncio.create_task(self.__saucenao_build_result())
         task_google = asyncio.create_task(self.__google_build_result())
         task_yandex = asyncio.create_task(self.__yandex_build_result())
+        task_ascii2d = asyncio.create_task(self.__ascii2d_build_result())
 
-        self.__result_info = (await task_saucenao) + (await task_google) + (await task_yandex)
+        self.__result_info = (await task_saucenao) + (await task_google) + (await task_yandex) + (await task_ascii2d)
         result_pic = await self.__draw()
 
         self.__picNinfo = {
