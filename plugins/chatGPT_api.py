@@ -8,10 +8,12 @@ import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
 from utils import nameDetailSplit, imgUrlTobase64
+from openai import OpenAI
 
 os.environ["http_proxy"] = config['web']['proxy']
 os.environ["https_proxy"] = config['web']['proxy']
 openai.api_key = config['web']['openai']['key']
+deepseekApiKey = config['web']['deepseek']['key']
 HISTORY_PATH = u"chatHistory/"
 
 unlimitedGroup = config['web']['openai']['gpt3AllowGroups']
@@ -254,6 +256,8 @@ async def changeModel(session: CommandSession):
             newModel = "gpt-4o-mini"
         elif strippedText == "gpt-3.5" or strippedText == "gpt3.5":
             newModel = "gpt-3.5-turbo-0301"
+        elif "deepseek" in strippedText:
+            newModel = "deepseek-reasoner"
         else:
             newModel = strippedText
             await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
@@ -278,7 +282,7 @@ async def chatHelp(session: CommandSession):
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o）"
+        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o/deepseek-r）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
     output += "\n\n当前默认使用的模型：gpt-4o-mini\n当前使用的是收费api，请勿滥用！"
@@ -289,7 +293,6 @@ async def getChatContent(session: CommandSession):
     inputText = session.current_arg_text
     inputPicUrls = session.current_arg_images
     userContent = [{"type": "text", "text": inputText}]
-    print(inputPicUrls)
     if not inputPicUrls:
         return userContent
     for picUrl in inputPicUrls:
@@ -314,12 +317,12 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
-        gpt4Sign = "(GPT-4o)" if model == "gpt-4o" else ""
-        tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
+        modelSign = "(GPT-4o)" if model == "gpt-4o" else ("(deepseek)" if "deepseek" in model else "")
+        tokenSign = f"\nTokens{modelSign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
         reason = str(e) if str(e) else "Timeout"
-        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
+        await sendLog(f"userId: {userId} 的 {model} api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
         if retryCount < 1:
             return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
         else:
@@ -328,6 +331,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
 
 async def getChatReply(model, history, maxTokens=None):
     response = await getResponseAsync(model, history, maxTokens)
+    print(response)
     reply = response['choices'][0]['message']['content']
     finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
@@ -343,6 +347,9 @@ async def getResponseAsync(model, history, maxTokens=None):
 
 
 def getResponse(model, history, maxTokens):
+    if 'deepseek' in model:
+        client = OpenAI(api_key=deepseekApiKey, base_url="https://api.deepseek.com")
+        return client.chat.completions.create( model=model, messages=history, timeout=60)
     if maxTokens:
         return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
     else:
