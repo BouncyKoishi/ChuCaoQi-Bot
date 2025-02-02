@@ -1,8 +1,10 @@
 import re
 import os
+import time
 import json
 import openai
 import asyncio
+import traceback
 
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
@@ -268,6 +270,21 @@ async def changeModel(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='save_conversation', only_to_me=False)
+async def _(session: CommandSession):
+    if not await isSuperAdmin(session.event.user_id):
+        return
+    userId = session.event.user_id
+    userInfo = await db.getChatUser(userId)
+    history = await readOldConversation(userId)
+    timeStr = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
+    fileName = f"{userId}_{timeStr}_{userInfo.chosenModel}.json"
+    savePath = HISTORY_PATH + fileName
+    with open(savePath, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=4)
+    await session.send(f"已保存当前对话记录至{fileName}")
+
+
 @on_command(name='chat_help', only_to_me=False)
 async def chatHelp(session: CommandSession):
     if not await permissionCheck(session, "base"):
@@ -285,6 +302,7 @@ async def chatHelp(session: CommandSession):
         output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o/deepseek-r）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
+        output += "\nsave_conversation: 保存当前对话记录"
     output += "\n\n当前默认使用的模型：gpt-4o-mini\n当前使用的是收费api，请勿滥用！"
     await session.send(output)
 
@@ -323,6 +341,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
     except Exception as e:
         reason = str(e) if str(e) else "Timeout"
         await sendLog(f"userId: {userId} 的 {model} api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
+        print(traceback.format_exc())
         if retryCount < 1:
             return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
         else:
@@ -331,11 +350,13 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
 
 async def getChatReply(model, history, maxTokens=None):
     response = await getResponseAsync(model, history, maxTokens)
-    print(response)
+    response = response.to_dict()
     reply = response['choices'][0]['message']['content']
     finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
-    history.append({"role": "assistant", "content": [{"type": "text", "text": reply}]})
+    history.append({"role": "assistant", "content": reply})
+    if model == "deepseek-reasoner":
+        print(f"Reasoning Content:{response['choices'][0]['message']['reasoning_content']}")
     if finishReason != "stop":
         print(response)
     return reply, tokenUsage
@@ -349,7 +370,7 @@ async def getResponseAsync(model, history, maxTokens=None):
 def getResponse(model, history, maxTokens):
     if 'deepseek' in model:
         client = OpenAI(api_key=deepseekApiKey, base_url="https://api.deepseek.com")
-        return client.chat.completions.create( model=model, messages=history, timeout=60)
+        return client.chat.completions.create(model=model, messages=history, timeout=60)
     if maxTokens:
         return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
     else:
