@@ -1,3 +1,4 @@
+import datetime
 import re
 import os
 import time
@@ -14,9 +15,13 @@ from openai import OpenAI
 
 os.environ["http_proxy"] = config['web']['proxy']
 os.environ["https_proxy"] = config['web']['proxy']
+HISTORY_PATH = u"chatHistory/"
+
 openai.api_key = config['web']['openai']['key']
 deepseekApiKey = config['web']['deepseek']['key']
-HISTORY_PATH = u"chatHistory/"
+deepseekBaseUrl = "https://api.deepseek.com"  # tencentDs:"https://api.lkeap.cloud.tencent.com/v1"
+openaiClient = OpenAI(api_key=config['web']['openai']['key'])
+deepseekClient = OpenAI(api_key=deepseekApiKey, base_url=deepseekBaseUrl)
 
 unlimitedGroup = config['web']['openai']['gpt3AllowGroups']
 groupCallCounts = {}
@@ -341,7 +346,8 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
     except Exception as e:
         reason = str(e) if str(e) else "Timeout"
         await sendLog(f"userId: {userId} 的 {model} api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
-        print(traceback.format_exc())
+        # print(traceback.format_exc())
+        print(f"Catch Time: {datetime.datetime.now().timestamp()}")
         if retryCount < 1:
             return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
         else:
@@ -349,16 +355,21 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
 
 
 async def getChatReply(model, history, maxTokens=None):
+    startTimeStamp = datetime.datetime.now().timestamp()
+    print(f"Start Time: {startTimeStamp}")
     response = await getResponseAsync(model, history, maxTokens)
+    endTimeStamp = datetime.datetime.now().timestamp()
+    print(f"Response Time: {endTimeStamp}, Used Time: {endTimeStamp - startTimeStamp}")
+    print(f"Response: {response}")
     response = response.to_dict()
     reply = response['choices'][0]['message']['content']
     finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
     history.append({"role": "assistant", "content": reply})
-    if model == "deepseek-reasoner":
+    if "deepseek" in model:
         print(f"Reasoning Content:{response['choices'][0]['message']['reasoning_content']}")
     if finishReason != "stop":
-        print(response)
+        print(f"Finish Reason: {finishReason}")
     return reply, tokenUsage
 
 
@@ -369,12 +380,11 @@ async def getResponseAsync(model, history, maxTokens=None):
 
 def getResponse(model, history, maxTokens):
     if 'deepseek' in model:
-        client = OpenAI(api_key=deepseekApiKey, base_url="https://api.deepseek.com")
-        return client.chat.completions.create(model=model, messages=history, timeout=60)
+        return deepseekClient.chat.completions.create(model=model, messages=history, timeout=59)
     if maxTokens:
-        return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
+        return openaiClient.chat.completions.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
     else:
-        return openai.ChatCompletion.create(model=model, messages=history, timeout=60)
+        return openaiClient.chat.completions.create(model=model, messages=history, timeout=60)
 
 
 async def undo(userId):
