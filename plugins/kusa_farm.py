@@ -96,7 +96,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     bioGasEffect = 1
     biogasStorage = await itemDB.getItemStorageInfo(userId, '沼气池')
     fieldAmount = await itemDB.getItemAmount(userId, '草地')
-    if biogasStorage and biogasStorage.allowUse:
+    if biogasStorage and biogasStorage.allowUse and kusaType != '不灵草':
         bioGasEffect = round(random.uniform(0.5, 2), 2)
         blackTeaStorage = await itemDB.getItemStorageInfo(userId, '红茶')
         if blackTeaStorage and blackTeaStorage.allowUse:
@@ -104,12 +104,13 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
             await itemDB.changeItemAmount(userId, '红茶', -1)
 
     # 肥料影响生草时间
-    isUsingKela = False
-    kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
-    if kelaStorage and kelaStorage.allowUse and kelaStorage.amount >= fieldAmount:
-        isUsingKela = True
-        growTime = math.ceil(growTime / 2)
-        await itemDB.changeItemAmount(userId, '金坷垃', -fieldAmount)
+    if kusaType != '不灵草':
+        isUsingKela = False
+        kelaStorage = await itemDB.getItemStorageInfo(userId, '金坷垃')
+        if kelaStorage and kelaStorage.allowUse and kelaStorage.amount >= fieldAmount:
+            isUsingKela = True
+            growTime = math.ceil(growTime / 2)
+            await itemDB.changeItemAmount(userId, '金坷垃', -fieldAmount)
 
     # 神灵草替换
     divinePlugin = await itemDB.getItemStorageInfo(userId, '神灵草基因模块')
