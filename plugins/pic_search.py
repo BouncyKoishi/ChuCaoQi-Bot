@@ -71,14 +71,26 @@ async def picUrlGet(session: CommandSession):
 async def _(session: NLPSession):
     if session.ctx['message'][0].type != 'reply':
         return
-    strippedText = session.ctx['message'][1].data['text'].strip()
-    if not strippedText.startswith('#'):
+
+    global picSearchResults
+    strippedText = session.ctx['message'][-1].data['text'].strip()
+    replyId = session.ctx['message'][0].data['id']
+    if not strippedText.startswith('#') and str(replyId) not in picSearchResults:
         return
 
-    replyId = session.ctx['message'][0].data['id']
     replyMessageCtx = await session.bot.get_msg(message_id=replyId)
     # print(replyId, replyMessageCtx)
-    global picSearchResults
+
+    if str(replyId) in picSearchResults:
+        resultDict = picSearchResults[str(replyId)]
+        try:
+            args = list(set(map(int, strippedText.split())))
+            args = [arg for arg in args if 1 <= arg <= len(resultDict)]
+            msg = "\n".join(f"{index} - {resultDict[index - 1]['url']}" for index in args)
+            await session.send(drawTextToImage(msg[:-1]) if msg else "未找到对应图片链接")
+        except (IndexError, ValueError):
+            await session.send("未找到对应图片链接, 请检查输入是否正确")
+            return
     if strippedText == '#picurl':
         imgUrls = extractImgUrls(replyMessageCtx['message'])
         await session.send('\n'.join(imgUrls))
@@ -125,17 +137,23 @@ async def _(session: NLPSession):
         except Exception as e:
             await session.send(
                 f'[CQ:reply,id={session.ctx["message_id"]}]检测失败了…_φ(･ω･` )\n{str(e)}')
-    if str(replyId) in picSearchResults and strippedText.startswith('#url'):
-        resultDict = picSearchResults[str(replyId)]
-        imgNum = re.sub(r'#url', '', strippedText).strip()
-        try:
-            args = list(set(map(int, imgNum.split())))
-            args = [arg for arg in args if 1 <= arg <= len(resultDict)]
-            msg = "\n".join(f"{index} - {resultDict[index - 1]['url']}" for index in args)
-            await session.send(msg[:-1] if msg else "未找到对应图片链接")
-        except (IndexError, ValueError):
-            await session.send("未找到对应图片链接, 请检查输入是否正确")
-            return
+
+
+def drawTextToImage(text: str):
+    splitText = text.split('\n')
+    fontSize, splitSize = 20, 15
+    width = max([len(i) for i in splitText]) * int(fontSize * 0.6) + 50
+    height = len(splitText) * fontSize + (len(splitText) - 1) * splitSize + 50
+
+    img = Image.new('RGB', (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("HarmonyOS_Sans_SC_Regular", fontSize)
+    for i, line in enumerate(splitText):
+        y = 25 + i * fontSize + i * splitSize
+        draw.text((25, y), line, font=font, fill=(0, 0, 0))
+
+    img.save("picsearchUrl.jpg", format="JPEG", quality=95)
+    return imgLocalPathToBase64('picsearchUrl.jpg')
 
 
 class ImgExploration:
@@ -254,7 +272,7 @@ class ImgExploration:
                               fill=(100, 100, 100), font=font3, anchor="la")
                 vernier += height
 
-            bottom_text = "若需要提取url，请回复此消息，在回复中输入 #url [图片编号] ，如 #url 1 2"
+            bottom_text = "若需要提取url，请回复此消息，在回复中输入[图片编号] ，如：1 2"
             draw.text(xy=(width // 2, total_height + 25), text=bottom_text,
                       fill=(0, 0, 0), font=font, anchor="mm",
                       )
