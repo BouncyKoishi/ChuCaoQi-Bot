@@ -6,6 +6,7 @@ import asyncio
 from nonebot import on_natural_language, NLPSession
 from nonebot import on_command, CommandSession
 from kusa_base import config, sendLog, isSuperAdmin
+from plugins.chatGPT_api import getChatReply
 
 
 sentenceList = []
@@ -34,7 +35,12 @@ async def gh_frozen(session: CommandSession):
 
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
-    await session.send(getRandomSentence())
+    strippedText = session.current_arg_text.strip()
+    if strippedText and random.random() < 0.5:
+        reply = await getSentenceAdvance(strippedText)
+        await session.send(reply)
+    else:
+        await session.send(getRandomSentence())
 
 
 @on_command(name='话怪点说', only_to_me=False)
@@ -82,6 +88,19 @@ async def saySentenceShuffle(session: CommandSession):
         random.shuffle(msg_list)
         msg_shuffle = ''.join(msg_list)
         await session.send(msg_shuffle)
+
+
+async def getSentenceAdvance(inputStr: str):
+    systemPrompt = '你需要从怪话库中选择一句语义适宜的话来回答用户说的内容。你的回答内容只能是怪话库中的某一句话，不包括任何其它内容。以下是怪话库列表：\n'
+    for sentence in sentenceList:
+        systemPrompt += f'【{sentence}】'
+    systemPrompt += '\n你的最终输出中不需要带括号（即【】）。'
+    print(systemPrompt)
+    prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": inputStr}]
+    reply, tokenUsage = await getChatReply("gpt-4o-mini", prompt)
+    reply = reply.replace('【', '').replace('】', '')
+    print(f'GPT-4o TokenUsage: {tokenUsage}')
+    return reply
 
 
 @on_natural_language(keywords=None, only_to_me=False)
