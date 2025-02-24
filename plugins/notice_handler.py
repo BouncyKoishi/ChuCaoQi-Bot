@@ -19,7 +19,7 @@ async def newMemberHandle(session: RequestSession):
     await bot.send_group_msg(group_id=groupNum, message=st)
     await sendLog(f'群聊{groupNum}:' + st)
     if session.event.sub_type == 'add':
-        for keyword in ('交流学习', ):
+        for keyword in ('交流学习', '通过一下', '管理员你好', '朋友推荐', ):
             if keyword in session.event.comment:
                 await bot.set_group_add_request(
                     flag=session.event.flag,
