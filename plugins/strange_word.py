@@ -4,23 +4,29 @@ import re
 import nonebot
 import asyncio
 from nonebot import on_natural_language, NLPSession
-from nonebot import on_command, CommandSession
+from nonebot import on_command, CommandSession, on_startup
 from kusa_base import config, sendLog, isSuperAdmin
 from plugins.chatGPT_api import getChatReply
 
 
 sentenceList = []
+modelSentenceList = []
 notRecordWords = config['guaihua']['notRecordWords']
 notRecordMembers = config['guaihua']['notRecordMembers']
 previousSentence = ''
 freeze = False
 
-with open(u'database/guaihua.txt', 'r', encoding='utf-8') as f:
-    for sentence in f.readlines():
-        sentence = sentence.strip()
-        if sentence:
-            sentenceList.append(sentence)
-print(f'怪话条目数：{len(sentenceList)}')
+
+@on_startup
+async def _():
+    global sentenceList
+    with open(u'database/guaihua.txt', 'r', encoding='utf-8') as f:
+        for sentence in f.readlines():
+            sentence = sentence.strip()
+            if sentence:
+                sentenceList.append(sentence)
+    print(f'当前怪话条目数：{len(sentenceList)}')
+    await setModelSentenceList()
 
 
 @on_command(name='gh_freeze', only_to_me=False)
@@ -92,7 +98,7 @@ async def saySentenceShuffle(session: CommandSession):
 
 async def getSentenceAdvance(inputStr: str):
     systemPrompt = '你需要从怪话库中选择一句语义适宜的话来回答用户说的内容。你的回答内容只能是怪话库中的某一句话，不包括任何其它内容。以下是怪话库列表：\n'
-    for sentence in sentenceList:
+    for sentence in modelSentenceList:
         systemPrompt += f'【{sentence}】'
     systemPrompt += '\n你的最终输出中不需要带括号（即【】）。'
     print(systemPrompt)
@@ -166,9 +172,29 @@ def repeat(latestSentence):
     return False
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=1)
+@nonebot.scheduler.scheduled_job('interval', minutes=2)
 async def saveToFile():
     with open(u'database/guaihua.txt', 'w', encoding='utf-8') as file:
         for sentence in sentenceList:
             file.write(sentence + '\n')
+
+
+@nonebot.scheduler.scheduled_job('interval', hours=1)
+async def _():
+    await setModelSentenceList()
+
+
+async def setModelSentenceList():
+    global modelSentenceList
+    modelSentenceList = []
+    for sentence in sentenceList:
+        if len(sentence) <= 2:
+            continue
+        if '[CQ:' in sentence:
+            continue
+        # 过滤纯符号
+        if re.match(r'^[\s!@#$%^&*()_+\-=\[\]{};:\'",.<>/?\\|`~]*$', sentence):
+            continue
+        modelSentenceList.append(sentence)
+    print(f'模型怪话条目数：{len(modelSentenceList)}')
 
