@@ -42,7 +42,7 @@ async def gh_frozen(session: CommandSession):
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < 0.5:
+    if strippedText and random.random() < 0.2:
         reply = await getSentenceAdvance(strippedText)
         await session.send(reply)
     else:
@@ -179,7 +179,7 @@ async def saveToFile():
             file.write(sentence + '\n')
 
 
-@nonebot.scheduler.scheduled_job('interval', hours=1)
+@nonebot.scheduler.scheduled_job('interval', hours=3)
 async def _():
     await setModelSentenceList()
 
