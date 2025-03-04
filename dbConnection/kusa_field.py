@@ -83,7 +83,9 @@ async def kusaSoilUseUp(qqNum):
 
 
 async def kusaHistoryAdd(field: KusaField):
-    await KusaHistory.create(qq=field.qq, kusaType=field.kusaType, kusaResult=field.kusaResult, advKusaResult=field.advKusaResult)
+    createTimeTs = datetime.datetime.now().timestamp()
+    await KusaHistory.create(qq=field.qq, kusaType=field.kusaType, createTimeTs=createTimeTs,
+                             kusaResult=field.kusaResult, advKusaResult=field.advKusaResult)
 
 
 async def kusaHistoryReport(qqNum, endTime: datetime.datetime, interval):
@@ -99,18 +101,19 @@ async def kusaHistoryReport(qqNum, endTime: datetime.datetime, interval):
             FROM
                 KusaHistory
             WHERE
-                qq = ? AND strftime('%s', createTime) - 0 < ? AND strftime('%s', createTime) - 0 > ?
+                qq = ? AND createTimeTs < ? AND createTimeTs > ?
         ''', [qqNum, endTime.timestamp(), startTime.timestamp()])
     return rows[0]
 
 
 async def noKusaAdvHistory(qqNum, limit: int):
-    rows = await KusaHistory.filter(qq=qqNum).order_by('-createTime').limit(limit)
+    rows = await KusaHistory.filter(qq=qqNum).order_by('-createTimeTs').limit(limit)
     return rows
 
 
 async def kusaHistoryTotalReport(interval):
     conn = Tortoise.get_connection('default')
+    currentTimestamp = datetime.datetime.now().timestamp()
     rows = await conn.execute_query_dict(f'''
         SELECT
             count(*) AS count,
@@ -119,13 +122,14 @@ async def kusaHistoryTotalReport(interval):
         FROM
             KusaHistory
         WHERE
-            strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < ?
+            {currentTimestamp} - createTimeTs < ?
     ''', [interval])
     return rows[0]
 
 
 async def kusaFarmChampion():
     async def executeChampionQuery(conn, select: str, orderBy: str):
+        currentTimestamp = datetime.datetime.now().timestamp()
         rows = await conn.execute_query_dict(f'''
                 SELECT
                     qq,
@@ -133,7 +137,7 @@ async def kusaFarmChampion():
                 FROM
                     KusaHistory
                 WHERE
-                    strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', createTime) < 86400
+                    {currentTimestamp} - createTimeTs < 86400
                 GROUP BY
                     qq
                 ORDER BY
