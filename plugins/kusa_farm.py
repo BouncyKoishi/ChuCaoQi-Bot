@@ -88,7 +88,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     spiritualMachine = await itemDB.getItemStorageInfo(userId, '灵性自动分配装置')
     if spiritualMachine and spiritualMachine.allowUse:
         spiritualSign = await itemDB.getItemAmount(userId, '灵性标记')
-        if not spiritualSign:
+        if not spiritualSign and not session.current_arg_text:
             kusaType = '不灵草'
 
     # 原始生长时间和金坷垃、沼气池效果
@@ -376,7 +376,6 @@ async def kusaHarvest(field):
     outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
     outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
     # time1 = datetime.now().timestamp()
-    await sendPrivateMsg(field.qq, outputMsg)
     # time2 = datetime.now().timestamp()
     if field.advKusaResult > 0:
         await goodNewsReport(field)
@@ -393,6 +392,7 @@ async def kusaHarvest(field):
         await itemDB.changeItemAmount(field.qq, '休耕标记', -1)
     await fieldDB.kusaHistoryAdd(field)
     await fieldDB.kusaStopGrowing(field, False)
+    await sendPrivateMsg(field.qq, outputMsg)
     # time3 = datetime.now().timestamp()
     # timerStr = f'生草收获Msg发送用时：{time2 - time1}，生草收获流程处理用时：{time3 - time2}'
     # await sendGroupMsg(config['group']['main'], timerStr)
