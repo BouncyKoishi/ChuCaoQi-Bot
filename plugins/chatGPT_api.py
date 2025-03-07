@@ -366,7 +366,7 @@ async def getChatReply(model, history, maxTokens=None):
     finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
     history.append({"role": "assistant", "content": reply})
-    if "deepseek" in model:
+    if "deepseek" in model and 'reasoning_content' in response['choices'][0]['message']:
         print(f"Reasoning Content:{response['choices'][0]['message']['reasoning_content']}")
     if finishReason != "stop":
         print(f"Finish Reason: {finishReason}")
