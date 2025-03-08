@@ -22,10 +22,9 @@ async def _(session: CommandSession):
 
     poolName = session.current_arg_text.strip()
     nameExist = await isPoolNameExist(poolName) if poolName else False
-    ownItems = await getItemsWithStorage(qqNum=userId, poolName=poolName) \
+    itemList = await getItemsWithStorage(qqNum=userId, poolName=poolName) \
         if nameExist else await getItemsWithStorage(qqNum=userId)
-    print(ownItems)
-    print('ItemLen:', len(ownItems))
+    ownItems = [item for item in itemList if item.storage]
     if len(ownItems) == 0:
         await session.send('您没有可选物品，不能进行对战哦。')
         return
