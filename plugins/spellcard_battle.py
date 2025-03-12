@@ -110,7 +110,7 @@ async def _(session: CommandSession):
     await newBattle.setCreator()
     await newBattle.setSingleBattleEnemy('Cirno', [14, 14, 14, 14, 14])
     battleList[userId] = newBattle
-    await session.send('已创建单机对战，请选择对战符卡。\n当前所有符卡列表：https://docs.qq.com/sheet/DSHNYTW9mWEhTVWJx')
+    await session.send('已创建单机对战，请选择对战符卡。\n')
     await arenaCardSelection(session, newBattle, True)
 
 
@@ -119,40 +119,81 @@ async def arenaCardSelection(session: CommandSession, battle: Battle, singleMode
 
     selectedCards = []
     for cost in range(0, 5):
-        cardOptions = getRandomCardsWithSameCost(cost // 2 + 1)
-        cardDescriptions = [f"{i + 1}. {card.name}: ATK{card.atkPoint} DEF{card.defPoint} DOD{card.dodPoint} 特殊效果：{card.describe}" for i, card in enumerate(cardOptions)]
+        # cardOptions = getRandomCardsWithSameCost(cost // 2 + 1)
+        cardOptions = getRandomCardsWithSameCost(0)
+        cardDescriptions = [
+            f"{i + 1}. {card.name}: HP{card.cardHp} 攻击{card.atkPoint} 命中{card.hitPoint} 回避{card.dodPoint} 特殊效果：{card.describe}"
+            for i, card in enumerate(cardOptions)]
         print(f"请选择一张符卡:\n" + "\n".join(cardDescriptions))
         userResponse = await session.aget(prompt=f"请选择一张符卡:\n" + "\n".join(cardDescriptions))
+        if not re.match(r'^\d+$', userResponse):
+            await session.send('非序号：符卡选择失败，请重新选择。')
+            cost -= 1
+            continue
         selectedIndex = int(userResponse) - 1
         if selectedIndex < 0 or selectedIndex >= len(cardOptions):
-            await session.send('无效的序号：符卡选择失败。')
-            return
-        selectedCard = cardOptions[selectedIndex].id
-        if selectedCard:
-            selectedCards.append(selectedCard)
+            await session.send('无效的序号：符卡选择失败，请重新选择。')
+            cost -= 1
+            continue
+        selectedCard = cardOptions[selectedIndex]
+        selectedCards.append(selectedCard)
 
     battler = battle.creator if userId == battle.creatorId else battle.joiner
-    battler.cardIdList = selectedCards
-    await session.send(f'竞技场符卡选择成功！选择的符卡ID为: {selectedCards}')
+    battler.chosenCard = selectedCards
+    cardInfos = [f"{i + 1}. {card.name}" for i, card in enumerate(selectedCards)]
+    await session.send(f'竞技场符卡选择成功！您选择的五张符卡为: {cardInfos}')
 
     if userId not in battle.spellCardSettled:
         battle.spellCardSettled.append(userId)
     if len(battle.spellCardSettled) == 1 and not singleMode:
         info = '你完成了符卡配置！等待另一位玩家进行配置。'
         await bot.send_group_msg(group_id=battle.groupId, message=info)
-        print('OnSetCard1:' + str(battleList))
     else:
-        info = '所有玩家已完成符卡配置，对战启动中……'
+        info = '已完成符卡配置，对战启动中……\n请使用!符卡选择 [序号]指令选择第一张需要宣言的符卡。'
         await bot.send_group_msg(group_id=battle.groupId, message=info)
-        print('OnSetCard2:' + str(battleList))
-        await battleMain(battle)
 
 
-def getRandomCardsWithSameCost(cardCost: int):
+def getRandomCardsWithSameCost(cardCost: int) -> list:
     allCards = utils.getAllCards()
     sameCostCards = [card for card in allCards if card.cost == cardCost]
-    print(sameCostCards)
     return random.sample(sameCostCards, 3)
+
+
+@on_command(name='对战信息', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    battle = inBattle(userId)
+    if not battle:
+        await session.send('您不在一场符卡对战中！')
+        return
+    # 需要展示的信息：己方剩余可选符卡、对方剩余可选符卡、己方状态、对方当前符卡和状态、当前回合信息
+    # todo
+
+
+@on_command(name='符卡选择', only_to_me=False)
+async def spellCardSelect(session: CommandSession):
+    global battleList
+    userId = session.ctx['user_id']
+    battle = inBattle(userId)
+    if not battle:
+        await session.send('您不在一场符卡对战中！')
+        return
+    if userId not in battle.spellCardSettled:
+        await session.send('您还未选择符卡！')
+        return
+
+    cardIndex = int(session.current_arg_text.strip()) - 1
+    battler = battle.creator if userId == battle.creatorId else battle.joiner
+    success, failReason = battler.setNewMainCard(cardIndex)
+    if not success:
+        await session.send(f'{failReason}')
+        return
+
+    selectedCard = battler.chosenCard[cardIndex]
+    battler.nowCard = selectedCard
+    await session.send(f'已选择符卡：{selectedCard.name}。')
+    if battle.creator.nowCard and battle.joiner.nowCard:
+        await battleMain(battle)
 
 
 async def battleMain(battle: Battle):
@@ -193,5 +234,3 @@ async def battleEnd(battle: Battle, loserName):
     await bot.send_group_msg(group_id=battle.groupId, message=message)
     print('BeforeEndGame:' + str(battleList))
     battleList.pop(battle.creatorId)
-
-

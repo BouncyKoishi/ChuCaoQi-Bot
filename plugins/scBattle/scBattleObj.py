@@ -1,15 +1,17 @@
 from plugins.scBattle.scBattlerObj import Battler
 from plugins.scBattle.scBattleUtils import getBattlerName
+from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
 from utils import imgLocalPathToBase64
 import time
+
 
 class Battle:
     def __init__(self, creatorId, groupId) -> None:
         self.creatorId = creatorId
         self.joinerId = None
-        self.creator: Battler or None = None
-        self.joiner: Battler or None = None
+        self.creator: Optional[Battler] = None
+        self.joiner: Optional[Battler] = None
         self.lastTurnInfoImg = None
         self.groupId = groupId
         self.gameRound = None
@@ -39,11 +41,16 @@ class Battle:
     async def setSingleBattleEnemy(self, enemyName, enemyCardList):
         self.joinerId = -1
         self.joiner = Battler(self.joinerId, enemyName)
-        self.joiner.cardIdList = enemyCardList
+        self.joiner.chosenCard = enemyCardList
         self.creator.setEnemy(self.joiner)
         self.joiner.setEnemy(self.creator)
         self.spellCardSettled.append(self.joinerId)
         self.gameRound = 0
+
+
+    def run(self):
+        pass
+
 
     def gameStart(self) -> None:
         self.creator.setNewMainCard()
@@ -100,15 +107,8 @@ class Battle:
         creatorBreak = self.creator.shouldChangeCard()
         joinerBreak = self.joiner.shouldChangeCard()
         if creatorBreak and joinerBreak:
-            self.turnInfoMsg += f'-------------------------------------------------------\n'
-            self.turnInfoMsg += f'{self.creator.name} 当前符卡被击破！\n'
-            self.turnInfoMsg += self.creator.runEffect("onCardBreak")
-            self.turnInfoMsg += self.joiner.runEffect("onEnemyCardBreak")
-            self.turnInfoMsg += self.creator.nowCard.onCardBreak()
-            self.turnInfoMsg += f'{self.joiner.name} 当前符卡被击破！\n'
-            self.turnInfoMsg += self.joiner.runEffect("onCardBreak")
-            self.turnInfoMsg += self.creator.runEffect("onEnemyCardBreak")
-            self.turnInfoMsg += self.joiner.nowCard.onCardBreak()
+            self.__setCreatorBreakMsg__()
+            self.__setJoinerBreakMsg__()
             self.lastTurnInfoImg = self.getTurnInfoImg()
             self.cleanTurnTempData()
             time.sleep(4)
@@ -126,11 +126,7 @@ class Battle:
             self.turnInfoMsg += f'-------------------------------------------------------\n'
             return True, False
         elif creatorBreak:
-            self.turnInfoMsg += f'-------------------------------------------------------\n'
-            self.turnInfoMsg += f'{self.creator.name} 当前符卡被击破！\n'
-            self.turnInfoMsg += self.creator.runEffect("onCardBreak")
-            self.turnInfoMsg += self.joiner.runEffect("onEnemyCardBreak")
-            self.turnInfoMsg += self.creator.nowCard.onCardBreak()
+            self.__setCreatorBreakMsg__()
             self.lastTurnInfoImg = self.getTurnInfoImg()
             self.cleanTurnTempData()
             time.sleep(4)
@@ -144,11 +140,7 @@ class Battle:
             self.turnInfoMsg += f'-------------------------------------------------------\n'
             return True, False
         elif joinerBreak:
-            self.turnInfoMsg += f'-------------------------------------------------------\n'
-            self.turnInfoMsg += f'{self.joiner.name} 当前符卡被击破！\n'
-            self.turnInfoMsg += self.joiner.runEffect("onCardBreak")
-            self.turnInfoMsg += self.creator.runEffect("onEnemyCardBreak")
-            self.turnInfoMsg += self.joiner.nowCard.onCardBreak()
+            self.__setJoinerBreakMsg__()
             self.lastTurnInfoImg = self.getTurnInfoImg()
             self.cleanTurnTempData()
             time.sleep(4)
@@ -162,6 +154,20 @@ class Battle:
             self.turnInfoMsg += f'-------------------------------------------------------\n'
             return True, False
         return False, False
+
+    def __setCreatorBreakMsg__(self):
+        self.turnInfoMsg += f'-------------------------------------------------------\n'
+        self.turnInfoMsg += f'{self.creator.name} 当前符卡被击破！\n'
+        self.turnInfoMsg += self.creator.runEffect("onCardBreak")
+        self.turnInfoMsg += self.joiner.runEffect("onEnemyCardBreak")
+        self.turnInfoMsg += self.creator.nowCard.onCardBreak()
+
+    def __setJoinerBreakMsg__(self):
+        self.turnInfoMsg += f'-------------------------------------------------------\n'
+        self.turnInfoMsg += f'{self.joiner.name} 当前符卡被击破！\n'
+        self.turnInfoMsg += self.joiner.runEffect("onCardBreak")
+        self.turnInfoMsg += self.creator.runEffect("onEnemyCardBreak")
+        self.turnInfoMsg += self.joiner.nowCard
 
     def getTurnInfoImg(self):
         sizeBig = 25

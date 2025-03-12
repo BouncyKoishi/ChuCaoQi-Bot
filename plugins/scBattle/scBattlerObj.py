@@ -1,4 +1,6 @@
+from typing import Optional
 from plugins.scBattle.AbstractBorder import AbstractBorder
+from plugins.scBattle.AbstractCard import AbstractCard
 import plugins.scBattle.scBattleUtils as utils
 
 
@@ -6,12 +8,12 @@ class Battler:
     def __init__(self, userId, userName) -> None:
         self.id = userId
         self.name = userName
-        self.cardIdList = [0, 0, 0, 0, 0]
-        self.nowCardOrder = 0
+        self.chosenCard: list[AbstractCard] = []
+        self.usedCardIndex: list[int] = []
         self.states = []
         self.effects = []
-        self.nowHp = 0
-        self.nowCard = None
+        self.nowHp: int = 0
+        self.nowCard: Optional[AbstractCard] = None
         self.enemy = None
         self.attack, self.defence, self.dodge = 0, 0, 0
         self.dodSuccess, self.defSuccess = None, None
@@ -128,7 +130,7 @@ class Battler:
         return hurtValue, calcInfo
 
     def getCardDescribe(self):
-        return self.nowCard.getCardDescribe(self.nowCardOrder)
+        return self.nowCard.getCardDescribe()
 
     def cleanTurnTempData(self):
         self.attack, self.defence, self.dodge = 0, 0, 0
@@ -138,15 +140,17 @@ class Battler:
         return self.nowHp <= 0
 
     def shouldEnd(self):
-        return self.nowCardOrder > 5
+        return len(self.usedCardIndex) == 5
 
-    def setNewMainCard(self):
-        self.nowCardOrder += 1
-        if self.nowCardOrder > 5:
-            return False
-        nowCardId = self.cardIdList[self.nowCardOrder - 1]
-        self.nowCard = utils.getCardObjById(nowCardId)
+    def setNewMainCard(self, cardIndex) -> (bool, str):
+        if cardIndex < 0 or cardIndex >= 5:
+            return False, "无效的序号，请输入1-5之间的序号！"
+        if cardIndex in self.usedCardIndex:
+            return False, "该符卡已经使用过了！"
+
+        self.nowCard = self.chosenCard[cardIndex]
         self.nowCard.setPlayerInfo(self, self.enemy)
         self.nowHp = self.nowCard.cardHp
+        self.usedCardIndex.append(cardIndex)
         print(self.nowCard)
         return True
