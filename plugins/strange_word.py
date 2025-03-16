@@ -42,7 +42,7 @@ async def gh_frozen(session: CommandSession):
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < 0.2:
+    if strippedText and random.random() < .25:
         reply = await getSentenceAdvance(strippedText)
         await session.send(reply)
     else:
@@ -97,14 +97,15 @@ async def saySentenceShuffle(session: CommandSession):
 
 
 async def getSentenceAdvance(inputStr: str):
-    systemPrompt = '你需要从怪话库中选择一句语义适宜的话来回答用户说的内容。你的回答内容只能是怪话库中的某一句话，不包括任何其它内容。以下是怪话库列表：\n'
-    for sentence in modelSentenceList:
-        systemPrompt += f'【{sentence}】'
-    systemPrompt += '\n你的最终输出中不需要带括号（即【】）。'
-    print(systemPrompt)
-    prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": inputStr}]
+    systemPrompt = '你需要从以下怪话中选择一句语义最适宜的话来回答用户说的内容。你的回答内容只能是怪话列表中的某一句话，不包括任何其它内容。\n'
+    userPrompt = f"用户发言：{inputStr}\n\n怪话列表：\n"
+    for i in range(10):
+        userPrompt += random.choice(modelSentenceList) + '\n'
+    prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": userPrompt}]
     reply, tokenUsage = await getChatReply("gpt-4o-mini", prompt)
-    reply = reply.replace('【', '').replace('】', '')
+    if reply not in modelSentenceList:
+        print(f'输出内容为:"{reply}" 匹配怪话库失败，输出随机怪话')
+        reply = random.choice(modelSentenceList)
     print(f'GPT-4o TokenUsage: {tokenUsage}')
     return reply
 
