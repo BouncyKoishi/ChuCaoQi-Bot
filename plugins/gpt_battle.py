@@ -31,7 +31,7 @@ async def _(session: CommandSession):
 
     output = '您创建了一场对战。' if len(battle) == 0 else '您加入了一场对战。'
     output += '请选择您想用于对战的物品:\n\n'
-    itemOptions = random.sample(ownItems, 3)
+    itemOptions = random.sample(ownItems, min(3, len(ownItems)))
     descriptions = [
         f"{i + 1}. [{itemRareDescribe[item.rareRank]}]{item.name}\n" +
         (f'物品说明：{item.detail}' if item.detail else '暂无物品说明。')
