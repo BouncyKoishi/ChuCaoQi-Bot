@@ -1,10 +1,11 @@
+import time
 import json
 import codecs
 import nonebot
 import datetime
 import numpy as np
 import dbConnection.db as db
-from nonebot import Message, on_command, CommandSession
+from nonebot import Message, on_command, CommandSession, get_bot
 from kusa_base import config
 from urllib import request
 
@@ -144,3 +145,34 @@ async def get60sNewsPic():
         lst = retData['imageUrl']
         pic_ti1 = f"[CQ:image,file={lst}]"
         return pic_ti1
+
+
+@nonebot.scheduler.scheduled_job('cron', month='3', day='28', minute='0,30', second='1')
+async def _():
+    if config['env'] != 'prod':
+        return
+    await setGroupNameClock()
+
+
+@nonebot.scheduler.scheduled_job('cron', month='4', day='2', minute='0', second='1')
+async def _():
+    if config['env'] != 'prod':
+        return
+    group = config['group']['sysu']
+    bot = nonebot.get_bot()
+    await bot.send_group_msg(group_id=group, message='N🍋T-SYSU幻想乡')
+
+
+@on_command(name='SET_CLOCK', only_to_me=False)
+async def setTimer(session: CommandSession):
+    await setGroupNameClock()
+    await session.send('已设置群名时钟')
+
+
+async def setGroupNameClock():
+    mainGroup = config['group']['sysu']
+    timeEmoji0MinList = ['🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚']
+    timeEmoji30MinList = ['🕧', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦']
+    hour, minute = time.strftime('%H:%M').split(':')
+    timeEmoji = timeEmoji0MinList[int(hour) % 12] if int(minute) < 30 else timeEmoji30MinList[int(hour) % 12]
+    await get_bot().set_group_name(group_id=mainGroup, group_name=f'N{timeEmoji}T-SYSU幻想乡')
