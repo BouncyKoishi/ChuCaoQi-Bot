@@ -13,7 +13,6 @@ sentenceList = []
 modelSentenceList = []
 notRecordWords = config['guaihua']['notRecordWords']
 notRecordMembers = config['guaihua']['notRecordMembers']
-previousSentence = ''
 freeze = False
 
 
@@ -124,16 +123,10 @@ async def record(session: NLPSession):
     if groupNum != config['group']['sysu']:
         return
 
-    # 主动怪话
-    if random.random() < config['guaihua']['risk'] / 100:
-        msg = sentenceList[int(random.random() * listLen)]
-        await session.send(msg)
-        return
-
     # 不录入条件
     if freeze:
         return
-    if repeat(msg) or msg in sentenceList:
+    if msg in sentenceList:
         return
     if '\n' in msg:
         return
@@ -158,19 +151,18 @@ async def record(session: NLPSession):
     if random.random() * 100 <= record_risk:
         sentenceList.append(msg)
         await sendLog(f'录入了来自{userId}的怪话：{msg}')
+        print(f'录入了来自{userId}的怪话：{msg}')
         if listLen >= 360:
             delMsgIndex = math.floor(1.1 ** (random.random() * 60) - 1)
             delMsg = sentenceList[delMsgIndex]
             print(f'DelMsgIndex={delMsgIndex}, Delete:{delMsg}')
             del sentenceList[delMsgIndex]
 
-
-def repeat(latestSentence):
-    global previousSentence
-    if previousSentence == latestSentence:
-        return True
-    previousSentence = latestSentence
-    return False
+    # 主动怪话
+    if random.random() < config['guaihua']['risk'] / 100:
+        output = await getSentenceAdvance(msg)
+        await session.send(output)
+        return
 
 
 @nonebot.scheduler.scheduled_job('interval', minutes=2)
