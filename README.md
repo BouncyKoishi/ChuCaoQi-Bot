@@ -31,7 +31,7 @@
 
 除草器当前在以下项目的基础上构建：
 - [richardchien/nonebot](https://github.com/nonebot/nonebot)
-- [LLOneBot/LLOneBot](https://github.com/LLOneBot/LLOneBot)
+- [NapNeko/NapCatQQ](https://github.com/NapNeko/NapCatQQ)
 
 完成环境配置后，请按以下流程执行：
 
