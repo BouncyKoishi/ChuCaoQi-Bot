@@ -141,14 +141,14 @@ async def chatUserInfo(session: CommandSession):
         await session.send("你没有chat功能的使用权限。")
         return
 
-    output = f"你已使用的token量: {chatUser.tokenUse}\n"
-    output += f"你已使用的token量(GPT4): {chatUser.tokenUseGPT4}\n" if chatUser.allowModel else ""
+    output = f"你已使用的token量: {chatUser.tokenUse + chatUser.tokenUseGPT4}\n"
     output += f"当前chat功能使用权限：\n"
     output += f"连续对话：{'可用' if chatUser.allowContinue else '不可用'}\n"
     output += f"任意私聊：{'可用' if chatUser.allowPrivate else '不可用'}\n"
     output += f"任意群聊：{'可用' if chatUser.allowGroup else '不可用'}\n"
     output += f"角色切换：{'可用' if chatUser.allowRole else '不可用'}\n"
-    output += f"GPT4模型：{'可用' if chatUser.allowModel else '不可用'}\n"
+    output += f"模型切换：{'可用' if chatUser.allowModel else '不可用'}\n"
+    output += f"当前使用模型：{chatUser.chosenModel}\n"
 
     if chatUser.allowRole:
         nowRole = await db.getChatRoleById(chatUser.chosenRoleId)
@@ -189,7 +189,7 @@ async def roleDetail(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     role = await db.getChatRoleByUserAndRoleName(userId, strippedText, True)
     if role is None:
-        await session.send("无相关角色信息，或者你没有权限查看该角色。")
+        await session.send("无相关该角色信息（无法查看他人的私人角色）。")
         return
     await session.send(role.detail)
 
@@ -202,7 +202,7 @@ async def changeRole(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     success = await db.changeUsingRole(userId, strippedText)
     if not success:
-        await session.send("无相关角色信息，或者你没有权限使用该角色。")
+        await session.send("无相关角色信息（无法切换到他人的私人角色）。")
     else:
         strippedText = "default" if not strippedText else strippedText
         await session.send(f"已切换到{strippedText}角色")
@@ -261,9 +261,9 @@ async def changeModel(session: CommandSession):
             newModel = "gpt-4o"
         elif strippedText == "gpt-4-mini" or strippedText == "gpt4-mini":
             newModel = "gpt-4o-mini"
-        elif strippedText == "gpt-3.5" or strippedText == "gpt3.5":
-            newModel = "gpt-3.5-turbo-0301"
         elif "deepseek" in strippedText:
+            newModel = "deepseek-chat"
+        elif "deepseek-r" in strippedText:
             newModel = "deepseek-reasoner"
         else:
             newModel = strippedText
@@ -293,7 +293,7 @@ async def _(session: CommandSession):
 @on_command(name='chat_help', only_to_me=False)
 async def chatHelp(session: CommandSession):
     if not await permissionCheck(session, "base"):
-        await session.send("你没有chat功能的使用权限。")
+        await session.send("你没有chat功能的使用权限。（在特定群聊可使用基础功能）")
         return
     userId = session.event.user_id
     chatUser = await db.getChatUser(userId)
@@ -304,7 +304,7 @@ async def chatHelp(session: CommandSession):
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o/deepseek-r）"
+        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o/deepseek/deepseek-r）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
         output += "\nsave_conversation: 保存当前对话记录"
