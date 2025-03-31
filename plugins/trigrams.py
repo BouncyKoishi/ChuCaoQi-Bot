@@ -56,7 +56,7 @@ async def _(session: CommandSession):
         gptUseRecord[userId] = gptUseRecord[userId] + 1 if userId in gptUseRecord else 1
         await session.send('请稍等，正在为你解卦...')
         chatGPTPrompt = getChatGPTPrompt(strippedArg, getFinalWords(trigram64, changedTrigram64, changeableIndex))
-        reply, _ = await getChatReply("gpt-3.5-turbo", chatGPTPrompt)
+        reply, _ = await getChatReply("gpt-4o-mini", chatGPTPrompt)
         await session.send(f'{reply}\n\n注：以上解卦内容由AI生成，仅供参考。')
 
     random.seed()

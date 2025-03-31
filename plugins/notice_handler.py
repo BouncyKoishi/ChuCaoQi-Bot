@@ -19,7 +19,7 @@ async def newMemberHandle(session: RequestSession):
     await bot.send_group_msg(group_id=groupNum, message=st)
     await sendLog(f'群聊{groupNum}:' + st)
     if session.event.sub_type == 'add':
-        for keyword in ('交流学习', ):
+        for keyword in ('交流学习', '通过一下', '管理员你好', '朋友推荐', ):
             if keyword in session.event.comment:
                 await bot.set_group_add_request(
                     flag=session.event.flag,
@@ -80,16 +80,16 @@ def getFriendAddCode(friendId):
     return f'{hash(hashingStr) % 100000000 :0>8}'
 
 
-@on_notice('group_recall')
-async def recallHandle(session: NoticeSession):
-    bot = nonebot.get_bot()
-    event = session.event
-    if event.notice_type == "group_recall":
-        recall_message_id = event.message_id
-        recall_message_content = await bot.get_msg(message_id=recall_message_id)
-        print("Recall Message: " + recall_message_content["message"])
-
-        userMsg, groupMsg = await getUserAndGroupMsg(event.user_id, event.group_id)
-        logInfo = f"{userMsg} 在群聊 {groupMsg} 撤回了一条消息\n消息内容: {recall_message_content['message']}"
-        await sendLog(logInfo)
+# @on_notice('group_recall')
+# async def recallHandle(session: NoticeSession):
+#     bot = nonebot.get_bot()
+#     event = session.event
+#     if event.notice_type == "group_recall":
+#         recallMessageId = event.message_id
+#         recallMessageContent = await bot.get_msg(message_id=recallMessageId)
+#         print("Recall Message: " + recallMessageContent["message"])
+#
+#         userMsg, groupMsg = await getUserAndGroupMsg(event.user_id, event.group_id)
+#         logInfo = f"{userMsg} 在群聊 {groupMsg} 撤回了一条消息\n消息内容: {recallMessageContent['message']}"
+#         await sendLog(logInfo)
 

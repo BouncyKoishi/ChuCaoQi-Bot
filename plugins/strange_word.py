@@ -4,22 +4,28 @@ import re
 import nonebot
 import asyncio
 from nonebot import on_natural_language, NLPSession
-from nonebot import on_command, CommandSession
+from nonebot import on_command, CommandSession, on_startup
 from kusa_base import config, sendLog, isSuperAdmin
+from plugins.chatGPT_api import getChatReply
 
 
 sentenceList = []
+modelSentenceList = []
 notRecordWords = config['guaihua']['notRecordWords']
 notRecordMembers = config['guaihua']['notRecordMembers']
-previousSentence = ''
 freeze = False
 
-with open(u'database/guaihua.txt', 'r', encoding='utf-8') as f:
-    for sentence in f.readlines():
-        sentence = sentence.strip()
-        if sentence:
-            sentenceList.append(sentence)
-print(f'怪话条目数：{len(sentenceList)}')
+
+@on_startup
+async def _():
+    global sentenceList
+    with open(u'database/guaihua.txt', 'r', encoding='utf-8') as f:
+        for sentence in f.readlines():
+            sentence = sentence.strip()
+            if sentence:
+                sentenceList.append(sentence)
+    print(f'当前怪话条目数：{len(sentenceList)}')
+    await setModelSentenceList()
 
 
 @on_command(name='gh_freeze', only_to_me=False)
@@ -34,7 +40,12 @@ async def gh_frozen(session: CommandSession):
 
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
-    await session.send(getRandomSentence())
+    strippedText = session.current_arg_text.strip()
+    if strippedText and random.random() < .25:
+        reply = await getSentenceAdvance(strippedText)
+        await session.send(reply)
+    else:
+        await session.send(getRandomSentence())
 
 
 @on_command(name='话怪点说', only_to_me=False)
@@ -84,6 +95,20 @@ async def saySentenceShuffle(session: CommandSession):
         await session.send(msg_shuffle)
 
 
+async def getSentenceAdvance(inputStr: str):
+    systemPrompt = '你需要从以下怪话中选择一句语义最适宜的话来回答用户说的内容。你的回答内容只能是怪话列表中的某一句话，不包括任何其它内容。\n'
+    userPrompt = f"用户发言：{inputStr}\n\n怪话列表：\n"
+    for i in range(10):
+        userPrompt += random.choice(modelSentenceList) + '\n'
+    prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": userPrompt}]
+    reply, tokenUsage = await getChatReply("gpt-4o-mini", prompt)
+    if reply not in modelSentenceList:
+        print(f'输出内容为:"{reply}" 匹配怪话库失败，输出随机怪话')
+        reply = random.choice(modelSentenceList)
+    print(f'GPT-4o TokenUsage: {tokenUsage}')
+    return reply
+
+
 @on_natural_language(keywords=None, only_to_me=False)
 async def record(session: NLPSession):
     if 'group_id' not in session.ctx:
@@ -98,16 +123,10 @@ async def record(session: NLPSession):
     if groupNum != config['group']['sysu']:
         return
 
-    # 主动怪话
-    if random.random() < config['guaihua']['risk'] / 100:
-        msg = sentenceList[int(random.random() * listLen)]
-        await session.send(msg)
-        return
-
     # 不录入条件
     if freeze:
         return
-    if repeat(msg) or msg in sentenceList:
+    if msg in sentenceList:
         return
     if '\n' in msg:
         return
@@ -132,24 +151,43 @@ async def record(session: NLPSession):
     if random.random() * 100 <= record_risk:
         sentenceList.append(msg)
         await sendLog(f'录入了来自{userId}的怪话：{msg}')
+        print(f'录入了来自{userId}的怪话：{msg}')
         if listLen >= 360:
             delMsgIndex = math.floor(1.1 ** (random.random() * 60) - 1)
             delMsg = sentenceList[delMsgIndex]
             print(f'DelMsgIndex={delMsgIndex}, Delete:{delMsg}')
             del sentenceList[delMsgIndex]
 
-
-def repeat(latestSentence):
-    global previousSentence
-    if previousSentence == latestSentence:
-        return True
-    previousSentence = latestSentence
-    return False
+    # 主动怪话
+    if random.random() < config['guaihua']['risk'] / 100:
+        output = await getSentenceAdvance(msg)
+        await session.send(output)
+        return
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=1)
+@nonebot.scheduler.scheduled_job('interval', minutes=2)
 async def saveToFile():
     with open(u'database/guaihua.txt', 'w', encoding='utf-8') as file:
         for sentence in sentenceList:
             file.write(sentence + '\n')
+
+
+@nonebot.scheduler.scheduled_job('interval', hours=3)
+async def _():
+    await setModelSentenceList()
+
+
+async def setModelSentenceList():
+    global modelSentenceList
+    modelSentenceList = []
+    for sentence in sentenceList:
+        if len(sentence) <= 2:
+            continue
+        if '[CQ:' in sentence:
+            continue
+        # 过滤纯符号
+        if re.match(r'^[\s!@#$%^&*()_+\-=\[\]{};:\'",.<>/?\\|`~]*$', sentence):
+            continue
+        modelSentenceList.append(sentence)
+    print(f'模型怪话条目数：{len(modelSentenceList)}')
 

@@ -81,7 +81,7 @@ def getCostCountList(cardCount, costLimit, costSum):
 
 cardDict, cardCostIdDict = getClassesDict(r'plugins\scBattle\cards')
 effectDict, _ = getClassesDict(r'plugins\scBattle\effects')
-costCountList = getCostCountList(5, 3, 7)   # standard: 5 cards, card <= 5 cost, total cost = 10
+costCountList = getCostCountList(5, 3, 7)   # standard: 5 historyCards, card <= 5 cost, total cost = 10
 
 
 def getAllCards():

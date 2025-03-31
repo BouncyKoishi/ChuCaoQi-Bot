@@ -88,7 +88,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     spiritualMachine = await itemDB.getItemStorageInfo(userId, '灵性自动分配装置')
     if spiritualMachine and spiritualMachine.allowUse:
         spiritualSign = await itemDB.getItemAmount(userId, '灵性标记')
-        if not spiritualSign:
+        if not spiritualSign and not session.current_arg_text:
             kusaType = '不灵草'
 
     # 原始生长时间和金坷垃、沼气池效果
@@ -96,7 +96,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     bioGasEffect = 1
     biogasStorage = await itemDB.getItemStorageInfo(userId, '沼气池')
     fieldAmount = await itemDB.getItemAmount(userId, '草地')
-    if biogasStorage and biogasStorage.allowUse:
+    if biogasStorage and biogasStorage.allowUse and kusaType != '不灵草':
         bioGasEffect = round(random.uniform(0.5, 2), 2)
         blackTeaStorage = await itemDB.getItemStorageInfo(userId, '红茶')
         if blackTeaStorage and blackTeaStorage.allowUse:
@@ -137,8 +137,11 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
 
     # 奈奈的时光魔法影响生长时间
     kusaSpeedMagic = await itemDB.getItemAmount(userId, '奈奈的时光魔法')
-    magicImmediate = kusaSpeedMagic and systemRandom.random() < 0.007
+    nanaTitle = await itemDB.getItemAmount(userId, '祝福之色赠予结缘之人')
+    immediatePercent = 0.07 if nanaTitle else 0.007  # 奈奈称号效果1：时光魔法立即生效概率提升
+    magicImmediate = kusaSpeedMagic and systemRandom.random() < immediatePercent
     magicQuick = kusaSpeedMagic and systemRandom.random() < 0.07 and not magicImmediate
+
     if magicImmediate:
         growTime = 0
         await itemDB.updateTimeLimitedItem(userId, '时光胶囊标记', 60)
@@ -237,7 +240,7 @@ async def _(session: CommandSession):
             st += f"预知：生草量为{field.kusaResult}"
             st += f"，草之精华获取量为{field.advKusaResult}" if field.advKusaResult else ""
             if field.overloadOnHarvest:
-                st += f"\n过载！本次生草额外获得{getOverloadBonusAmount(field)}草之精华，并过载{getOverloadHour(field)}小时！"
+                st += f"\n过载！本次生草额外获得{getOverloadBonusAmount(field)}草之精华，并过载{await getOverloadHour(field)}小时！"
         else:
             minPredict, maxPredict = await getKusaPredict(field)
             st += f'预估生草量：{minPredict} ~ {maxPredict}'
@@ -372,7 +375,8 @@ async def kusaHarvest(field):
     await baseDB.changeAdvKusa(field.qq, field.advKusaResult)
     outputMsg = f'你的{field.kusaType}生了出来！获得了{field.kusaResult}草。'
     outputMsg += f'额外获得{field.advKusaResult}草之精华！' if field.advKusaResult else ''
-    await sendPrivateMsg(field.qq, outputMsg)
+    # time1 = datetime.now().timestamp()
+    # time2 = datetime.now().timestamp()
     if field.advKusaResult > 0:
         await goodNewsReport(field)
     if await itemDB.getItemAmount(field.qq, '纯酱的生草魔法'):
@@ -388,6 +392,10 @@ async def kusaHarvest(field):
         await itemDB.changeItemAmount(field.qq, '休耕标记', -1)
     await fieldDB.kusaHistoryAdd(field)
     await fieldDB.kusaStopGrowing(field, False)
+    await sendPrivateMsg(field.qq, outputMsg)
+    # time3 = datetime.now().timestamp()
+    # timerStr = f'生草收获Msg发送用时：{time2 - time1}，生草收获流程处理用时：{time3 - time2}'
+    # await sendGroupMsg(config['group']['main'], timerStr)
 
 
 @nonebot.scheduler.scheduled_job('interval', minutes=90)
@@ -579,7 +587,7 @@ def getChainBonusAmount(chainStr: str):
 
 async def getOverloadBonus(field):
     advKusaNum = getOverloadBonusAmount(field)
-    overLoadHour = getOverloadHour(field)
+    overLoadHour = await getOverloadHour(field)
     await baseDB.changeAdvKusa(field.qq, advKusaNum)
     await itemDB.updateTimeLimitedItem(field.qq, '过载标记', overLoadHour * 3600)
     overloadMsg = f'注意：你的草地进入了{overLoadHour}小时的过载。你通过过载生草额外获得了{advKusaNum}个草之精华！'
@@ -591,9 +599,10 @@ def getOverloadBonusAmount(field):
     return distinctDigitsCount * 2
 
 
-def getOverloadHour(field):
+async def getOverloadHour(field):
     distinctDigitsCount = len(set(str(field.kusaResult)))
-    return 3 * distinctDigitsCount
+    nanaTitle = await itemDB.getItemAmount(field.qq, '祝福之色赠予结缘之人')
+    return distinctDigitsCount * 2 if nanaTitle else distinctDigitsCount
 
 
 @on_command(name='围殴', only_to_me=False)

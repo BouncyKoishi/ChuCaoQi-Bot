@@ -1,18 +1,27 @@
+import datetime
 import re
 import os
+import time
 import json
 import openai
 import asyncio
+import traceback
 
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
 from nonebot import on_command, CommandSession
 from utils import nameDetailSplit, imgUrlTobase64
+from openai import OpenAI
 
 os.environ["http_proxy"] = config['web']['proxy']
 os.environ["https_proxy"] = config['web']['proxy']
-openai.api_key = config['web']['openai']['key']
 HISTORY_PATH = u"chatHistory/"
+
+openai.api_key = config['web']['openai']['key']
+deepseekApiKey = config['web']['deepseek']['key']
+deepseekBaseUrl = "https://api.deepseek.com"  # tencentDs:"https://api.lkeap.cloud.tencent.com/v1"
+openaiClient = OpenAI(api_key=config['web']['openai']['key'])
+deepseekClient = OpenAI(api_key=deepseekApiKey, base_url=deepseekBaseUrl)
 
 unlimitedGroup = config['web']['openai']['gpt3AllowGroups']
 groupCallCounts = {}
@@ -132,14 +141,14 @@ async def chatUserInfo(session: CommandSession):
         await session.send("你没有chat功能的使用权限。")
         return
 
-    output = f"你已使用的token量: {chatUser.tokenUse}\n"
-    output += f"你已使用的token量(GPT4): {chatUser.tokenUseGPT4}\n" if chatUser.allowModel else ""
+    output = f"你已使用的token量: {chatUser.tokenUse + chatUser.tokenUseGPT4}\n"
     output += f"当前chat功能使用权限：\n"
     output += f"连续对话：{'可用' if chatUser.allowContinue else '不可用'}\n"
     output += f"任意私聊：{'可用' if chatUser.allowPrivate else '不可用'}\n"
     output += f"任意群聊：{'可用' if chatUser.allowGroup else '不可用'}\n"
     output += f"角色切换：{'可用' if chatUser.allowRole else '不可用'}\n"
-    output += f"GPT4模型：{'可用' if chatUser.allowModel else '不可用'}\n"
+    output += f"模型切换：{'可用' if chatUser.allowModel else '不可用'}\n"
+    output += f"当前使用模型：{chatUser.chosenModel}\n"
 
     if chatUser.allowRole:
         nowRole = await db.getChatRoleById(chatUser.chosenRoleId)
@@ -180,7 +189,7 @@ async def roleDetail(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     role = await db.getChatRoleByUserAndRoleName(userId, strippedText, True)
     if role is None:
-        await session.send("无相关角色信息，或者你没有权限查看该角色。")
+        await session.send("无相关该角色信息（无法查看他人的私人角色）。")
         return
     await session.send(role.detail)
 
@@ -193,7 +202,7 @@ async def changeRole(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     success = await db.changeUsingRole(userId, strippedText)
     if not success:
-        await session.send("无相关角色信息，或者你没有权限使用该角色。")
+        await session.send("无相关角色信息（无法切换到他人的私人角色）。")
     else:
         strippedText = "default" if not strippedText else strippedText
         await session.send(f"已切换到{strippedText}角色")
@@ -252,8 +261,10 @@ async def changeModel(session: CommandSession):
             newModel = "gpt-4o"
         elif strippedText == "gpt-4-mini" or strippedText == "gpt4-mini":
             newModel = "gpt-4o-mini"
-        elif strippedText == "gpt-3.5" or strippedText == "gpt3.5":
-            newModel = "gpt-3.5-turbo-0301"
+        elif "deepseek" in strippedText:
+            newModel = "deepseek-chat"
+        elif "deepseek-r" in strippedText:
+            newModel = "deepseek-reasoner"
         else:
             newModel = strippedText
             await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
@@ -264,10 +275,25 @@ async def changeModel(session: CommandSession):
     await session.send(output)
 
 
+@on_command(name='save_conversation', only_to_me=False)
+async def _(session: CommandSession):
+    if not await isSuperAdmin(session.event.user_id):
+        return
+    userId = session.event.user_id
+    userInfo = await db.getChatUser(userId)
+    history = await readOldConversation(userId)
+    timeStr = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
+    fileName = f"{userId}_{timeStr}_{userInfo.chosenModel}.json"
+    savePath = HISTORY_PATH + fileName
+    with open(savePath, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=4)
+    await session.send(f"已保存当前对话记录至{fileName}")
+
+
 @on_command(name='chat_help', only_to_me=False)
 async def chatHelp(session: CommandSession):
     if not await permissionCheck(session, "base"):
-        await session.send("你没有chat功能的使用权限。")
+        await session.send("你没有chat功能的使用权限。（在特定群聊可使用基础功能）")
         return
     userId = session.event.user_id
     chatUser = await db.getChatUser(userId)
@@ -278,9 +304,10 @@ async def chatHelp(session: CommandSession):
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o）"
+        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o/deepseek/deepseek-r）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
+        output += "\nsave_conversation: 保存当前对话记录"
     output += "\n\n当前默认使用的模型：gpt-4o-mini\n当前使用的是收费api，请勿滥用！"
     await session.send(output)
 
@@ -289,7 +316,6 @@ async def getChatContent(session: CommandSession):
     inputText = session.current_arg_text
     inputPicUrls = session.current_arg_images
     userContent = [{"type": "text", "text": inputText}]
-    print(inputPicUrls)
     if not inputPicUrls:
         return userContent
     for picUrl in inputPicUrls:
@@ -314,12 +340,14 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
-        gpt4Sign = "(GPT-4o)" if model == "gpt-4o" else ""
-        tokenSign = f"\nTokens{gpt4Sign}: {tokenUsage}"
+        modelSign = "(GPT-4o)" if model == "gpt-4o" else ("(deepseek)" if "deepseek" in model else "")
+        tokenSign = f"\nTokens{modelSign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
         reason = str(e) if str(e) else "Timeout"
-        await sendLog(f"userId: {userId} 的ChatGPT api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
+        await sendLog(f"userId: {userId} 的 {model} api调用出现异常，异常原因为：{reason}\nRetry次数：{retryCount}")
+        # print(traceback.format_exc())
+        print(f"Catch Time: {datetime.datetime.now().timestamp()}")
         if retryCount < 1:
             return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
         else:
@@ -327,13 +355,21 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
 
 
 async def getChatReply(model, history, maxTokens=None):
+    startTimeStamp = datetime.datetime.now().timestamp()
+    print(f"Start Time: {startTimeStamp}")
     response = await getResponseAsync(model, history, maxTokens)
+    endTimeStamp = datetime.datetime.now().timestamp()
+    print(f"Response Time: {endTimeStamp}, Used Time: {endTimeStamp - startTimeStamp}")
+    print(f"Response: {response}")
+    response = response.to_dict()
     reply = response['choices'][0]['message']['content']
     finishReason = response['choices'][0]['finish_reason']
     tokenUsage = response['usage']['total_tokens']
-    history.append({"role": "assistant", "content": [{"type": "text", "text": reply}]})
+    history.append({"role": "assistant", "content": reply})
+    if "deepseek" in model and 'reasoning_content' in response['choices'][0]['message']:
+        print(f"Reasoning Content:{response['choices'][0]['message']['reasoning_content']}")
     if finishReason != "stop":
-        print(response)
+        print(f"Finish Reason: {finishReason}")
     return reply, tokenUsage
 
 
@@ -343,10 +379,12 @@ async def getResponseAsync(model, history, maxTokens=None):
 
 
 def getResponse(model, history, maxTokens):
+    if 'deepseek' in model:
+        return deepseekClient.chat.completions.create(model=model, messages=history, timeout=59)
     if maxTokens:
-        return openai.ChatCompletion.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
+        return openaiClient.chat.completions.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
     else:
-        return openai.ChatCompletion.create(model=model, messages=history, timeout=60)
+        return openaiClient.chat.completions.create(model=model, messages=history, timeout=60)
 
 
 async def undo(userId):

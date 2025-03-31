@@ -7,7 +7,7 @@ class AbstractCard:
         self.type = "main"
         self.cardHp = None
         self.atkPoint = None
-        self.defPoint = None
+        self.hitPoint = None
         self.dodPoint = None
         self.describe = None
         self.user = None
@@ -17,12 +17,12 @@ class AbstractCard:
         self.user = user
         self.enemy = enemy
 
-    def getCardDescribe(self, cardOrder):
-        output = f"符卡 {cardOrder}: {self.name}\n"
+    def getCardDescribe(self):
+        output = f"{self.name}\n"
         output += f"初始血量: {self.cardHp}\n"
-        output += f"攻击骰: {self.atkPoint}\n"
-        output += f"防御骰: {self.defPoint}\n"
-        output += f"回避骰: {self.dodPoint}\n"
+        output += f"基础攻击: {self.atkPoint}\n"
+        output += f"基础命中: {self.hitPoint}\n"
+        output += f"基础回避: {self.dodPoint}\n"
         output += f"特殊效果: {self.describe}\n"
         return output
 

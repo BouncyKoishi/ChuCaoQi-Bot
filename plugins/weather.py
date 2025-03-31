@@ -13,7 +13,7 @@ CMA_INDEX_URL = "http://www.nmc.cn/publish/typhoon/typhoon_new.html"
 CMA_DETAIL_URL = "http://www.nmc.cn/f/rest/getContent?dataId="
 NMC_RADAR_BASE_URL = "http://www.nmc.cn/publish/radar/"
 REPORT_BASE_URL = "https://www.wis-jma.go.jp/d/o/"
-GET_REPORT_FLAG = not config['debug'] if 'debug' in config else True
+GET_REPORT_FLAG = (config['env'] == 'dev')
 reportsStorage = {}
 newReportsStorage = {}
 
@@ -168,7 +168,7 @@ async def getNewCmaReports():
 
 
 def getWebPageData(url):
-    response = requests.get(url, headers={"User-Agent": USER_AGENT})
+    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=5)
     if response.status_code == 200:
         return response.text
     else:

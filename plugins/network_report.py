@@ -21,10 +21,14 @@ class SysuNetworkReport(typing.NamedTuple):
 
 
 latestReport: SysuNetworkReport = None
+ENV_PROD = (config['env'] == 'prod')
 
 
 @nonebot.scheduler.scheduled_job('cron', hour='8-23', minute='0', second='5')
 async def _():
+    if not ENV_PROD:
+        return
+
     global latestReport
 
     r = requests.get('https://i.akarin.dev/sysu-network-report.json')
@@ -47,6 +51,9 @@ async def _():
 
 @on_command(name='校园网', only_to_me=False)
 async def _(session: CommandSession):
+    if not ENV_PROD:
+        await session.send('校园网公告同步功能在测试环境未开启。')
+        return
     if latestReport is None:
         return
     await session.send(str(latestReport))
@@ -54,6 +61,8 @@ async def _(session: CommandSession):
 
 @nonebot.scheduler.scheduled_job('cron', minute='0', hour='23', day='7-15/4', month='1,7', second='5')
 async def _():
+    if not ENV_PROD:
+        return
     bot = nonebot.get_bot()
     await bot.send_group_msg(group_id=config['group']['sysu'],
                              message='给网费按个暂停键！\n寒暑假将至，可以前往 https://netpay.sysu.edu.cn/ 自助办理个人网络服务的暂停和恢复。')

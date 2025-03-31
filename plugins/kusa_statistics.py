@@ -180,7 +180,8 @@ async def _(session: CommandSession):
         rankList = await fieldDB.kusaOnceRanking()
         outputStr = "生草打分榜：\n"
     for i, rank in enumerate(rankList):
-        timeStr = rank.createTime.strftime("%Y-%m-%d %H:%M")
+        createTime = datetime.fromtimestamp(rank.createTimeTs)
+        timeStr = createTime.strftime("%Y-%m-%d %H:%M")
         if selfMode:
             outputStr += f"{i + 1}. {rank.kusaResult}草({timeStr})\n"
         else:
@@ -204,7 +205,8 @@ async def _(session: CommandSession):
         rankList = await fieldDB.kusaAdvOnceRanking()
         outputStr = "草精打分榜：\n"
     for i, rank in enumerate(rankList):
-        timeStr = rank.createTime.strftime("%Y-%m-%d %H:%M")
+        createTime = datetime.fromtimestamp(rank.createTimeTs)
+        timeStr = createTime.strftime("%Y-%m-%d %H:%M")
         if selfMode:
             outputStr += f"{i + 1}. {rank.advKusaResult}草精({timeStr})\n"
         else:
