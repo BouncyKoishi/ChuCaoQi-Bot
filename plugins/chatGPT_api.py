@@ -261,10 +261,10 @@ async def changeModel(session: CommandSession):
             newModel = "gpt-4o"
         elif strippedText == "gpt-4-mini" or strippedText == "gpt4-mini":
             newModel = "gpt-4o-mini"
-        elif "deepseek" in strippedText:
-            newModel = "deepseek-chat"
         elif "deepseek-r" in strippedText:
             newModel = "deepseek-reasoner"
+        elif "deepseek" in strippedText:
+            newModel = "deepseek-chat"
         else:
             newModel = strippedText
             await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
