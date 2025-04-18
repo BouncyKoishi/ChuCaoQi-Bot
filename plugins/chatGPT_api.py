@@ -304,7 +304,7 @@ async def chatHelp(session: CommandSession):
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt4o-mini/gpt4o/deepseek/deepseek-r）"
+        output += "\nmodel_change: 切换语言模型（gpt-4o-mini/gpt-4o/deepseek/deepseek-r）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
         output += "\nsave_conversation: 保存当前对话记录"
