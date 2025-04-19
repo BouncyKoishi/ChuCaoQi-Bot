@@ -87,7 +87,7 @@ async def _(session: NLPSession):
             args = list(set(map(int, strippedText.split())))
             args = [arg for arg in args if 1 <= arg <= len(resultDict)]
             msg = "\n".join(f"{index} - {resultDict[index - 1]['url']}" for index in args)
-            await session.send(drawTextToImage(msg[:-1]) if msg else "未找到对应图片链接")
+            await session.send(drawTextToImage(msg) if msg else "未找到对应图片链接")
         except (IndexError, ValueError):
             await session.send("未找到对应图片链接, 请检查输入是否正确")
             return
