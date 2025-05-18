@@ -41,7 +41,7 @@ async def gh_frozen(session: CommandSession):
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < .25:
+    if strippedText and random.random() < .3:
         reply = await getSentenceAdvance(strippedText)
         await session.send(reply)
     else:
@@ -66,14 +66,16 @@ async def _(session: CommandSession):
 
 @on_command(name='说些怪话', only_to_me=False)
 async def _(session: CommandSession):
-    outputList = []
-    while len(outputList) < 3:
-        msg = getRandomSentence()
-        if '[CQ:' in msg:
-            continue
-        if msg not in outputList:
-            outputList.append(msg)
-    for msg in outputList:
+    strippedText = session.current_arg_text.strip()
+    if strippedText and random.random() < .3:
+        replyList = await getSentenceListAdvance(strippedText)
+    else:
+        replyList = []
+        while len(replyList) < 3:
+            msg = getRandomSentence()
+            if '[CQ:' not in msg and msg not in replyList:
+                replyList.append(msg)
+    for msg in replyList:
         await session.send(msg)
         await asyncio.sleep(1)
 
@@ -107,6 +109,33 @@ async def getSentenceAdvance(inputStr: str):
         reply = random.choice(modelSentenceList)
     print(f'GPT-4o TokenUsage: {tokenUsage}')
     return reply
+
+
+async def getSentenceListAdvance(inputStr: str):
+    systemPrompt = ('你需要从以下怪话中选择三句话，组成一个尽可能语义适宜且内容连贯的段落来回答用户说的内容。'
+                    '你的回答内容按以下格式输出：["A", "B", "C"]'
+                    '其中A、B、C只能是怪话列表中的某一句话，不包括任何其它内容。')
+    userPrompt = f"用户发言：{inputStr}\n\n怪话列表：\n"
+    for i in range(40):
+        userPrompt += random.choice(modelSentenceList) + '\n'
+    prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": userPrompt}]
+    reply, tokenUsage = await getChatReply("gpt-4o-mini", prompt)
+    print('Reply:', reply)
+    if reply.startswith('[') and reply.endswith(']'):
+        reply = reply.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+        reply = reply.replace('，', ',').replace('。', '.').replace('：', ':').replace('；', ';')
+        try:
+            replyList = eval(reply)
+            if isinstance(replyList, list):
+                for i in range(len(replyList)):
+                    if not isinstance(replyList[i], str):
+                        print(f'输出内容为:"{reply}" 匹配怪话库失败，输出随机怪话')
+                        replyList[i] = random.choice(modelSentenceList)
+                return replyList
+        except Exception as e:
+            print(f'解析输出内容失败，错误信息：{e}')
+    print(f'输出内容为:"{reply}" 基本格式匹配失败，输出随机怪话')
+    return [random.choice(sentenceList) for _ in range(3)]
 
 
 @on_natural_language(keywords=None, only_to_me=False)
