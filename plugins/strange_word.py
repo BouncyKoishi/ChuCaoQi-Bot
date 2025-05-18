@@ -41,7 +41,7 @@ async def gh_frozen(session: CommandSession):
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < .4:
+    if strippedText and random.random() < .3:
         reply = await getSentenceAdvance(strippedText)
         await session.send(reply)
     else:
@@ -67,7 +67,7 @@ async def _(session: CommandSession):
 @on_command(name='说些怪话', only_to_me=False)
 async def _(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < .4:
+    if strippedText and random.random() < .3:
         replyList = await getSentenceListAdvance(strippedText)
     else:
         replyList = []
@@ -112,8 +112,7 @@ async def getSentenceAdvance(inputStr: str):
 
 
 async def getSentenceListAdvance(inputStr: str):
-    systemPrompt = ('你需要从以下怪话中选择三句语义最适宜的话来回答用户说的内容。'
-                    '你需要排列好顺序使得三句话相对连贯。'
+    systemPrompt = ('你需要从以下怪话中选择三句话，组成一个尽可能语义适宜且内容连贯的段落来回答用户说的内容。'
                     '你的回答内容按以下格式输出：["A", "B", "C"]'
                     '其中A、B、C只能是怪话列表中的某一句话，不包括任何其它内容。')
     userPrompt = f"用户发言：{inputStr}\n\n怪话列表：\n"
