@@ -169,6 +169,8 @@ async def addItem(session, rare):
     if not itemName:
         await session.send('需要物品名!')
         return
+    if '祝福' in itemName:
+        return
 
     itemName = itemName.strip()
     itemName = itemName.replace('\n', '')
@@ -259,6 +261,8 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     userId = session.ctx['user_id']
     stripped_arg = session.current_arg_text.strip()
+    if '祝福' in stripped_arg:
+        return
     item = await drawItemDB.getItemByName(stripped_arg)
     if not item:
         await itemSearch(session)
