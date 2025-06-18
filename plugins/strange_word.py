@@ -16,16 +16,19 @@ notRecordMembers = config['guaihua']['notRecordMembers']
 freeze = False
 
 
-@on_startup
-async def _():
-    global sentenceList
-    with open(u'database/guaihua.txt', 'r', encoding='utf-8') as f:
-        for sentence in f.readlines():
-            sentence = sentence.strip()
-            if sentence:
-                sentenceList.append(sentence)
-    print(f'当前怪话条目数：{len(sentenceList)}')
-    await setModelSentenceList()
+async def setModelSentenceList():
+    global modelSentenceList
+    modelSentenceList = []
+    for sentence in sentenceList:
+        if len(sentence) <= 2:
+            continue
+        if '[CQ:' in sentence:
+            continue
+        # 过滤纯符号
+        if re.match(r'^[\s!@#$%^&*()_+\-=\[\]{};:\'",.<>/?\\|`~]*$', sentence):
+            continue
+        modelSentenceList.append(sentence)
+    print(f'模型怪话条目数：{len(modelSentenceList)}')
 
 
 @on_command(name='gh_freeze', only_to_me=False)
@@ -206,17 +209,14 @@ async def _():
     await setModelSentenceList()
 
 
-async def setModelSentenceList():
-    global modelSentenceList
-    modelSentenceList = []
-    for sentence in sentenceList:
-        if len(sentence) <= 2:
-            continue
-        if '[CQ:' in sentence:
-            continue
-        # 过滤纯符号
-        if re.match(r'^[\s!@#$%^&*()_+\-=\[\]{};:\'",.<>/?\\|`~]*$', sentence):
-            continue
-        modelSentenceList.append(sentence)
-    print(f'模型怪话条目数：{len(modelSentenceList)}')
+@on_startup
+async def _():
+    global sentenceList
+    with open(u'database/guaihua.txt', 'r', encoding='utf-8') as f:
+        for sentence in f.readlines():
+            sentence = sentence.strip()
+            if sentence:
+                sentenceList.append(sentence)
+    print(f'当前怪话条目数：{len(sentenceList)}')
+    await setModelSentenceList()
 
