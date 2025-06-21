@@ -5,7 +5,6 @@ import time
 import json
 import openai
 import asyncio
-import traceback
 
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog

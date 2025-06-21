@@ -80,16 +80,4 @@ def getFriendAddCode(friendId):
     return f'{hash(hashingStr) % 100000000 :0>8}'
 
 
-# @on_notice('group_recall')
-# async def recallHandle(session: NoticeSession):
-#     bot = nonebot.get_bot()
-#     event = session.event
-#     if event.notice_type == "group_recall":
-#         recallMessageId = event.message_id
-#         recallMessageContent = await bot.get_msg(message_id=recallMessageId)
-#         print("Recall Message: " + recallMessageContent["message"])
-#
-#         userMsg, groupMsg = await getUserAndGroupMsg(event.user_id, event.group_id)
-#         logInfo = f"{userMsg} 在群聊 {groupMsg} 撤回了一条消息\n消息内容: {recallMessageContent['message']}"
-#         await sendLog(logInfo)
 
