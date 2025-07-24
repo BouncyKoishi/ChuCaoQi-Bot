@@ -5,6 +5,7 @@ import dbConnection.kusa_item as itemDB
 
 configFile = open("config/plugin_config.yaml", 'r', encoding='utf-8')
 config = yaml.load(configFile.read(), Loader=yaml.FullLoader)
+friendList = []
 
 
 async def isUserExist(qqNum) -> bool:
@@ -112,8 +113,24 @@ async def sendGroupMsg(groupId, message):
 async def sendPrivateMsg(userId, message):
     try:
         bot = nonebot.get_bot()
-        await bot.send_private_msg(user_id=userId, message=message)
-        return True
+        if str(userId) in friendList:
+            await bot.send_private_msg(user_id=userId, message=message)
+            return True
+        else:
+            print(f'用户{userId}不在好友列表中，无法发送PrivateMsg：{message}')
+            return False
     except Exception as e:
         print(f'对用户{userId}发送PrivateMsg失败：' + str(e))
         return False
+
+
+async def appendFriendList(qq: str or list):
+    qqList = qq if isinstance(qq, list) else [qq]
+    global friendList
+    count = 0
+    for qqNum in qqList:
+        if qqNum not in friendList:
+            friendList.append(qqNum)
+            count += 1
+    if count:
+        print(f'已将{count}个QQ号新增到好友列表，当前列表：{friendList}')
