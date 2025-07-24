@@ -55,6 +55,12 @@ async def newMemberHandle(session: RequestSession):
 
 @on_request('friend')
 async def newFriendHandle(session: RequestSession):
+    # 因不明原因一次好友申请会收到多条消息，加个防抖
+    global friendHandleTimestamp
+    if session.event.time - friendHandleTimestamp < 2:
+        return
+    friendHandleTimestamp = session.event.time
+
     adderId = session.event.user_id
     friendCode = getFriendAddCode(str(adderId))
     logInfo = f'收到一个来自{adderId}的好友申请，'
