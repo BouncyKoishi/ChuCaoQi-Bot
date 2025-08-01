@@ -144,8 +144,12 @@ async def _():
     if not GET_REPORT_FLAG:
         print(f'--- 台风报文自动获取功能已关闭 ---')
         return
-    global reportsStorage
-    reportsStorage = await getNewCmaReports()
+    try:
+        global reportsStorage
+        reportsStorage = await getNewCmaReports()
+    except Exception as e:
+        print(f'--- 台风报文自动获取初始化失败：{e} ---')
+        reportsStorage = {}
 
 
 async def getNewCmaReports():
