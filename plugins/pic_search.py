@@ -14,8 +14,10 @@ from kusa_base import config
 from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession
 
+
 proxy = config['web']['proxy']
 saucenaoApiKey = config['web']['saucenao']['key']
+fontPath = config['basePath'] + r'\font'
 generalHeader = {
     "sec-ch-ua": '"Chromium";v="104", " Not A;Brand";v="99", "Google Chrome";v="104"',
     "user-agent": config['web']['userAgent']
@@ -142,7 +144,7 @@ def drawTextToImage(text: str):
 
     img = Image.new('RGB', (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("HarmonyOS_Sans_SC_Regular", fontSize)
+    font = ImageFont.truetype(rf"{fontPath}\HarmonyOS_Sans_SC_Regular.ttf", fontSize)
     for i, line in enumerate(splitText):
         y = 25 + i * fontSize + i * splitSize
         draw.text((25, y), line, font=font, fill=(0, 0, 0))
@@ -163,9 +165,9 @@ class ImgExploration:
 
     def setFont(self, big_size: int, normal_size: int, small_size: int):
         self.__font_b_size = big_size
-        self.__font_b = ImageFont.truetype("HarmonyOS_Sans_SC_Regular", big_size)
-        self.__font_n = ImageFont.truetype("HarmonyOS_Sans_SC_Bold", normal_size)
-        self.__font_s = ImageFont.truetype("HarmonyOS_Sans_SC_Light", small_size)
+        self.__font_b = ImageFont.truetype(rf"{fontPath}\HarmonyOS_Sans_SC_Regular.ttf", big_size)
+        self.__font_n = ImageFont.truetype(rf"{fontPath}\HarmonyOS_Sans_SC_Bold.ttf", normal_size)
+        self.__font_s = ImageFont.truetype(rf"{fontPath}\HarmonyOS_Sans_SC_Light.ttf", small_size)
 
     @staticmethod
     async def ImageBatchDownload(urls: list, client: httpx.AsyncClient) -> list:

@@ -69,13 +69,23 @@ def getCmaSimpleReport(dataId):
 async def _(session: CommandSession):
     nameDict = {'全国': 'chinaall.html', '华北': 'huabei.html', '东北': 'dongbei.html', '华东': 'huadong.html',
                 '华中': 'huazhong.html', '华南': 'huanan.html', '西南': 'xinan.html', '西北': 'xibei.html',
+                '海口': 'hai-nan/hai-kou.htm', '三亚': 'hai-nan/san-ya.htm', '三沙': 'hai-nan/san-sha.htm',
                 '广州': 'guang-dong/guang-zhou.htm', '韶关': 'guang-dong/shao-guan.htm', '梅州': 'guang-dong/mei-zhou.htm',
                 '阳江': 'guang-dong/yang-jiang.htm', '汕头': 'guang-dong/shan-tou.htm', '深圳': 'guang-dong/shen-zhen.htm',
                 '湛江': 'guang-dong/zhan-jiang.htm', '河源': 'guang-dong/he-yuan.htm', '汕尾': 'guang-dong/shan-wei.htm',
                 '肇庆': 'guang-dong/zhao-qing.htm', '连州': 'guang-dong/lian-zhou.htm', '福州': 'fu-jian/fu-zhou.htm',
                 '厦门': 'fu-jian/xia-men.htm', '杭州': 'zhe-jiang/hang-zhou.htm', '宁波': 'zhe-jiang/ning-bo.htm',
                 '温州': 'zhe-jiang/wen-zhou.htm', '嵊泗': 'zhe-jiang/cheng-si.htm', '金华': 'zhe-jiang/jin-hua.htm',
-                '上海': 'shang-hai/qing-pu.htm', '南京': 'jiang-su/nan-jing.htm'}
+                '上海': 'shang-hai/qing-pu.htm', '南京': 'jiang-su/nan-jing.htm', '北京': 'bei-jing/da-xing.htm',
+                '天津': 'tian-jin/tian-jin.htm', '石家庄': 'he-bei/shi-jia-zhuang.htm',
+                '太原': 'shan-xi/tai-yuan.htm', '呼和浩特': 'nei-meng/hu-he-hao-te.htm', '南宁': 'gui-zhou/nan-ning.htm',
+                '沈阳': 'liao-ning/shen-yang.htm', '长春': 'ji-lin/chang-chun.htm', '哈尔滨': 'hei-long-jiang/ha-er-bin.htm',
+                '合肥': 'an-hui/he-fei.htm', '南昌': 'jiang-xi/nan-chang.htm', '济南': 'shan-dong/ji-nan.htm',
+                '郑州': 'he-nan/zheng-zhou.htm', '武汉': 'hu-bei/wu-han.htm', '长沙': 'hu-nan/chang-sha.htm',
+                '重庆': 'chong-qing/chong-qing.htm', '成都': 'si-chuan/cheng-du.htm', '贵阳': 'gui-zhou/gui-yang.htm',
+                '昆明': 'yun-nan/kun-ming.htm', '拉萨': 'xi-zang/la-sa.htm', '西安': 'shan-xi/xi-an.htm',
+                '兰州': 'gan-su/lan-zhou.htm', '西宁': 'qing-hai/xin-ning.htm', '银川': 'ning-xia/yin-chuan.htm',
+                '乌鲁木齐': 'xin-jiang/wu-lu-mu-qi.htm'}
     strippedArg = session.current_arg_text.strip()
     if not strippedArg:
         await session.send(f"地区未指定^ ^\n目前支持的地区有：{'、'.join(nameDict.keys())}")
@@ -134,8 +144,12 @@ async def _():
     if not GET_REPORT_FLAG:
         print(f'--- 台风报文自动获取功能已关闭 ---')
         return
-    global reportsStorage
-    reportsStorage = await getNewCmaReports()
+    try:
+        global reportsStorage
+        reportsStorage = await getNewCmaReports()
+    except Exception as e:
+        print(f'--- 台风报文自动获取初始化失败：{e} ---')
+        reportsStorage = {}
 
 
 async def getNewCmaReports():
@@ -174,4 +188,3 @@ def getWebPageData(url):
     else:
         print(f"--- 天气模块HTTP请求出错: {response.status_code} ---")
         return None
-

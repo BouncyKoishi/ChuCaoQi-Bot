@@ -194,7 +194,12 @@ async def record(session: NLPSession):
     if random.random() < config['guaihua']['risk'] / 100:
         output = await getSentenceAdvance(msg)
         await session.send(output)
-        return
+
+    # 拳击
+    if random.random() < .001:
+        msgId = session.ctx['message_id']
+        await session.bot.set_msg_emoji_like(message_id=msgId, emoji_id=128074)
+        print(f'已对消息{msgId}设置表情：👊')
 
 
 @nonebot.scheduler.scheduled_job('interval', minutes=2)

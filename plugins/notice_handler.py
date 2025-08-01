@@ -1,9 +1,11 @@
 import nonebot
-from nonebot import on_notice, NoticeSession
+import aiocqhttp
+from nonebot import on_websocket_connect
 from nonebot import on_request, RequestSession
 from nonebot import on_command, CommandSession
-from kusa_base import config, sendLog, isSuperAdmin
-from utils import getUserAndGroupMsg
+from kusa_base import config, sendLog, isSuperAdmin, appendFriendList
+
+friendHandleTimestamp = 0
 
 
 @on_request('group')
@@ -55,12 +57,19 @@ async def newMemberHandle(session: RequestSession):
 
 @on_request('friend')
 async def newFriendHandle(session: RequestSession):
+    # 因不明原因一次好友申请会收到多条消息，加个防抖
+    global friendHandleTimestamp
+    if session.event.time - friendHandleTimestamp < 2:
+        return
+    friendHandleTimestamp = session.event.time
+
     adderId = session.event.user_id
     friendCode = getFriendAddCode(str(adderId))
     logInfo = f'收到一个来自{adderId}的好友申请，'
     if friendCode == session.event.comment:
         await session.approve()
         await sendLog(logInfo + '已自动通过')
+        await appendFriendList(str(adderId))
     else:
         await session.reject(reason='好友码错误，请向维护者申请好友码')
         await sendLog(logInfo + '因好友码错误已自动拒绝')
@@ -78,6 +87,14 @@ async def friendCodeOutput(session: CommandSession):
 def getFriendAddCode(friendId):
     hashingStr = friendId + 'confounding'
     return f'{hash(hashingStr) % 100000000 :0>8}'
+
+
+@on_websocket_connect
+async def friendListInit(event: aiocqhttp.Event):
+    bot = nonebot.get_bot()
+    friendListInfo = await bot.get_friend_list()
+    friendListQQ = [str(friend['user_id']) for friend in friendListInfo]
+    await appendFriendList(friendListQQ)
 
 
 
