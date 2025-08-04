@@ -162,8 +162,9 @@ async def _(session: CommandSession):
     if not ownTitle:
         await session.send('当前没有任何可用称号！')
         return
-    output = f'你当前可用的称号：\n'
+    output = f'你当前可用的称号：'
     output += f'{", ".join(ownTitle)}'
+    output += f'\n可使用“!修改称号”指令来更改当前展示的称号。'
     await session.send(output)
 
 

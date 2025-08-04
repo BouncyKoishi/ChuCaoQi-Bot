@@ -254,6 +254,13 @@ async def _(session: CommandSession):
         return
     await baseDB.setDonateRecord(qqNum, amount, source)
     await session.send(f'成功添加{qqNum}通过{source}捐赠{amount}元的记录')
+    # 关联称号系统，总金额大于20时自动添加‘投喂者’称号
+    totalDonateAmount = await baseDB.getDonateAmount(qqNum)
+    if totalDonateAmount >= 20:
+        haveTitle = await itemDB.getItemAmount(qqNum, "投喂者")
+        if not haveTitle:
+            await itemDB.changeItemAmount(qqNum, "投喂者", 1)
+            await session.send(f'为{qqNum}自动添加了称号“投喂者”')
 
 
 @on_command(name='SET_NAME', only_to_me=False)
