@@ -334,7 +334,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
     try:
         reply, tokenUsage = await getChatReply(model, history)
         for word in sensitiveWords:
-            reply = reply.replace(word, "*" * len(word))
+            reply = reply.replace(word, '')
         await db.addTokenUsage(chatUser, model, tokenUsage)
         saveConversation(userId, history)
 
