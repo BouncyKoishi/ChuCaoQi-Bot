@@ -102,7 +102,7 @@ class ChatUser(Model):
     allowGroup = BooleanField(default=False)
     allowRole = BooleanField(default=False)
     allowModel = BooleanField(default=False)
-    chosenModel = CharField(max_length=32, default="gpt-4o-mini")
+    chosenModel = CharField(max_length=32, default="deepseek-chat")
     tokenUse = IntField(default=0)
     tokenUseGPT4 = IntField(default=0)
     chosenRoleId = IntField(default=0)

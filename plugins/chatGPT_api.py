@@ -18,7 +18,7 @@ HISTORY_PATH = u"chatHistory/"
 
 openai.api_key = config['web']['openai']['key']
 deepseekApiKey = config['web']['deepseek']['key']
-deepseekBaseUrl = "https://api.deepseek.com"  # tencentDs:"https://api.lkeap.cloud.tencent.com/v1"
+deepseekBaseUrl = "https://api.deepseek.com"
 openaiClient = OpenAI(api_key=config['web']['openai']['key'])
 deepseekClient = OpenAI(api_key=deepseekApiKey, base_url=deepseekBaseUrl)
 
@@ -39,14 +39,14 @@ async def chatNew(session: CommandSession):
     await session.send(reply)
 
 
-@on_command(name='chat4', only_to_me=False)
-async def chatNewGPT4(session: CommandSession):
+@on_command(name='chat5', only_to_me=False, aliases='chat4')
+async def chatNewGPT(session: CommandSession):
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
     content = await getChatContent(session)
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, isNewConversation=True, useGPT4=True)
+    reply = await chat(userId, content, isNewConversation=True, useGPT5=True)
     await session.send(reply)
 
 
@@ -61,14 +61,14 @@ async def chatNewWithoutRole(session: CommandSession):
     await session.send(reply)
 
 
-@on_command(name='chatn4', only_to_me=False)
-async def chatNewWithoutRoleGPT4(session: CommandSession):
+@on_command(name='chatn5', only_to_me=False, aliases='chatc4')
+async def chatNewWithoutRoleGPT(session: CommandSession):
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
     content = await getChatContent(session)
     await session.send("已开启新对话，等待回复……")
-    reply = await chat(userId, content, isNewConversation=True, useDefaultRole=True, useGPT4=True)
+    reply = await chat(userId, content, isNewConversation=True, useDefaultRole=True, useGPT5=True)
     await session.send(reply)
 
 
@@ -83,8 +83,8 @@ async def chatContinue(session: CommandSession):
     await session.send(reply)
 
 
-@on_command(name='chatc4', only_to_me=False)
-async def chatContinueGPT4(session: CommandSession):
+@on_command(name='chatc5', only_to_me=False, aliases='chatc4')
+async def chatContinueGPT(session: CommandSession):
     if not await permissionCheck(session, 'chatc'):
         return
     if not await permissionCheck(session, 'model'):
@@ -92,7 +92,7 @@ async def chatContinueGPT4(session: CommandSession):
     userId = session.event.user_id
     content = await getChatContent(session)
     await session.send("继续进行对话，等待回复……")
-    reply = await chat(userId, content, isNewConversation=False, useGPT4=True)
+    reply = await chat(userId, content, isNewConversation=False, useGPT5=True)
     await session.send(reply)
 
 
@@ -117,8 +117,8 @@ async def chatRetry(session: CommandSession):
     await session.send(reply)
 
 
-@on_command(name='chatr4', only_to_me=False)
-async def chatRetryGPT4(session: CommandSession):
+@on_command(name='chatr5', only_to_me=False, aliases='chatr4')
+async def chatRetryGPT(session: CommandSession):
     if not await permissionCheck(session, 'chatc'):
         return
     if not await permissionCheck(session, 'model'):
@@ -128,7 +128,7 @@ async def chatRetryGPT4(session: CommandSession):
     lastMessage = await undo(userId)
     inputContent = content if session.current_arg_text else lastMessage['content']
     await session.send("已撤回一次对话，重新生成回复中……")
-    reply = await chat(userId, inputContent, isNewConversation=False, useGPT4=True)
+    reply = await chat(userId, inputContent, isNewConversation=False, useGPT5=True)
     await session.send(reply)
 
 
@@ -256,19 +256,20 @@ async def changeModel(session: CommandSession):
     userId = session.event.user_id
     strippedText = session.current_arg_text.strip()
     if strippedText:
-        if strippedText == "gpt-4" or strippedText == "gpt4":
-            newModel = "gpt-4o"
-        elif strippedText == "gpt-4-mini" or strippedText == "gpt4-mini":
-            newModel = "gpt-4o-mini"
+        if "gpt" in strippedText:
+            if strippedText == "gpt-5" or strippedText == "gpt5":
+                newModel = "gpt-5"
+            else:
+                newModel = "gpt-5-mini"
         elif "deepseek-r" in strippedText:
             newModel = "deepseek-reasoner"
         elif "deepseek" in strippedText:
             newModel = "deepseek-chat"
         else:
             newModel = strippedText
-            await session.send("注意，你定义的模型名称不在预设列表，可能无效！")
+            await session.send("注意，你定义的模型名称不在预设列表，chat可能报错！")
     else:
-        newModel = "gpt-4o-mini"
+        newModel = "deepseek-chat"
     await db.updateUsingModel(userId, newModel)
     output = f"已切换到{newModel}模型"
     await session.send(output)
@@ -303,11 +304,11 @@ async def chatHelp(session: CommandSession):
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
     if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt-4o-mini/gpt-4o/deepseek/deepseek-r）"
+        output += "\nmodel_change: 切换语言模型（gpt-5/gpt-5-mini/deepseek/deepseek-r）"
     if await isSuperAdmin(session.event.user_id):
         output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
         output += "\nsave_conversation: 保存当前对话记录"
-    output += "\n\n当前默认使用的模型：gpt-4o-mini\n当前使用的是收费api，请勿滥用！"
+    output += "\n\n当前默认使用的模型：deepseek-chat\n当前使用的是收费api，请勿滥用！"
     await session.send(output)
 
 
@@ -323,9 +324,9 @@ async def getChatContent(session: CommandSession):
     return userContent
 
 
-async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, useGPT4=False, retryCount=0):
+async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, useGPT5=False, retryCount=0):
     chatUser = await db.getChatUser(userId)
-    model = "gpt-4o" if useGPT4 else chatUser.chosenModel
+    model = "gpt-5" if useGPT5 else chatUser.chosenModel
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
     role = await db.getChatRoleById(roleId)
     history = await getNewConversation(roleId) if isNewConversation else await readOldConversation(userId)
@@ -339,7 +340,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         saveConversation(userId, history)
 
         roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
-        modelSign = "(GPT-4o)" if model == "gpt-4o" else ("(deepseek)" if "deepseek" in model else "")
+        modelSign = "(GPT-5)" if model == "gpt-5" else ("(deepseek)" if "deepseek" in model else "")
         tokenSign = f"\nTokens{modelSign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
     except Exception as e:
@@ -348,7 +349,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         # print(traceback.format_exc())
         print(f"Catch Time: {datetime.datetime.now().timestamp()}")
         if retryCount < 1:
-            return await chat(userId, content, isNewConversation, useDefaultRole, useGPT4, retryCount + 1)
+            return await chat(userId, content, isNewConversation, useDefaultRole, useGPT5, retryCount + 1)
         else:
             return "对话出错了，请稍后再试。"
 
@@ -379,7 +380,7 @@ async def getResponseAsync(model, history, maxTokens=None):
 
 def getResponse(model, history, maxTokens):
     if 'deepseek' in model:
-        return deepseekClient.chat.completions.create(model=model, messages=history, timeout=59)
+        return deepseekClient.chat.completions.create(model=model, messages=history, timeout=120)
     if maxTokens:
         return openaiClient.chat.completions.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
     else:

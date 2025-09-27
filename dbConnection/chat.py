@@ -76,9 +76,18 @@ async def deleteRole(role: ChatRole):
 
 
 async def addTokenUsage(chatUser: ChatUser, model: str, tokenUse: int):
-    if model == "gpt-4o":
-        chatUser.tokenUseGPT4 += tokenUse
-    else:
+    # 以deepseek-chat定价为基准，其他模型按比例大概换算
+    if model == "gpt-5":
+        # gpt-5 input 1.25刀/1m output 10刀/1m
+        chatUser.tokenUse += tokenUse * 2
+    if model == "gpt-5-mini":
+        # gpt-5-mini input 0.25刀/1m output 2刀/1m
+        chatUser.tokenUse += tokenUse // 2
+    if model == "gpt-5-nano":
+        # gpt-5-nano input 0.05刀/1m output 0.4刀/1m
+        chatUser.tokenUse += tokenUse // 10
+    if "deepseek" in model:
+        # deepseek统一定价 input 4元/1m output 12元/1m
         chatUser.tokenUse += tokenUse
     chatUser.tokenUse += tokenUse
     await chatUser.save()
