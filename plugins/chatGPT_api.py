@@ -354,10 +354,10 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
             return "对话出错了，请稍后再试。"
 
 
-async def getChatReply(model, history, maxTokens=None):
+async def getChatReply(model, history):
     startTimeStamp = datetime.datetime.now().timestamp()
     print(f"Start Time: {startTimeStamp}")
-    response = await getResponseAsync(model, history, maxTokens)
+    response = await getResponseAsync(model, history)
     endTimeStamp = datetime.datetime.now().timestamp()
     print(f"Response Time: {endTimeStamp}, Used Time: {endTimeStamp - startTimeStamp}")
     print(f"Response: {response}")
@@ -373,18 +373,17 @@ async def getChatReply(model, history, maxTokens=None):
     return reply, tokenUsage
 
 
-async def getResponseAsync(model, history, maxTokens=None):
+async def getResponseAsync(model, history):
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, getResponse, model, history, maxTokens)
+    return await loop.run_in_executor(None, getResponse, model, history)
 
 
-def getResponse(model, history, maxTokens):
+def getResponse(model, history):
     if 'deepseek' in model:
         return deepseekClient.chat.completions.create(model=model, messages=history, timeout=120)
-    if maxTokens:
-        return openaiClient.chat.completions.create(model=model, messages=history, max_tokens=maxTokens, timeout=60)
-    else:
-        return openaiClient.chat.completions.create(model=model, messages=history, timeout=60)
+    if 'gpt-5' in model:
+        return openaiClient.chat.completions.create(model=model, messages=history, timeout=120, reasoning_effort="low")
+    return openaiClient.chat.completions.create(model=model, messages=history, timeout=120)
 
 
 async def undo(userId):
