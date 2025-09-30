@@ -93,6 +93,20 @@ def intToRomanNum(intNum):
     return romanNumList[intNum - 1] if 0 < intNum <= 10 else ""
 
 
+# 为数字添加千分号，代码来自扫地机
+def intToFormattedStr(n: int) -> str:
+    ans = ""
+    k = 1000
+    while abs(n) >= k:
+        m = n % k
+        mStr = str(m)
+        while len(mStr) < 3:
+            mStr = '0' + mStr
+        ans = ',' + mStr + ans
+        n //= k
+    return str(n) + ans
+
+
 # 支持k,m,b单位的数字字符串转换为int
 def convertNumStrToInt(numStr):
     match = re.search(r'(\d+)([kmbKMB]?)', numStr)
@@ -109,3 +123,6 @@ def convertNumStrToInt(numStr):
             return number_part
     else:
         return None
+
+
+

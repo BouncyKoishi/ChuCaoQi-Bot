@@ -11,26 +11,24 @@ from nonebot import on_command, CommandSession
 from nonebot import MessageSegment as ms
 from urllib.request import urlretrieve
 
-BASE_PATH = config['basePath']
-SAVE_PATH = BASE_PATH + r'\examinePicSave'
+BASE_PIC_PATH = config['basePath'] + r'\picArchive'
+SAVE_PATH = BASE_PIC_PATH + r'\私藏'
+EXAMINE_PATH = BASE_PIC_PATH + r'\待分类'
+
 archiveInfo = {
-    "jun": {
-        "onlinePath": BASE_PATH + r'\jun\online',
-        "examinePath": BASE_PATH + r'\jun\examine',
-    },
-    "junOrigin": {
-        "onlinePath": BASE_PATH + r'\jun\origin',
-        "examinePath": BASE_PATH + r'\jun\examine',
-    },
-    "xhb": {
-        "onlinePath": BASE_PATH + r'\xhb\online',
-        "examinePath": BASE_PATH + r'\xhb\examine',
-    }
+    "jun": {"onlinePath": BASE_PIC_PATH + r'\jun\online', "displayName": "罗俊"},
+    "junOrigin": {"onlinePath": BASE_PIC_PATH + r'\jun\origin', "displayName": "纯净罗俊"},
+    "xhb": {"onlinePath": BASE_PIC_PATH + r'\xhb', "displayName": "xhb"},
+    "tudou": {"onlinePath": BASE_PIC_PATH + r'\土豆泥', "displayName": "土豆"},
+    "zundamon": {"onlinePath": BASE_PIC_PATH + r'\豆包2.0', "displayName": "俊达萌"},
 }
 for value in archiveInfo.values():
     value['onlineFilePaths'] = glob.glob(os.path.join(value['onlinePath'], '*.*'))
-    value['examineFilePaths'] = glob.glob(os.path.join(value['examinePath'], '*.*'))
     value['onlineFilePaths'].sort()
+
+
+def getExamineFiles():
+    return glob.glob(os.path.join(EXAMINE_PATH, '*.*'))
 
 
 @nonebot.scheduler.scheduled_job('cron', day='*')
@@ -59,29 +57,24 @@ async def _(session: CommandSession):
     await rollPic(session, "xhb")
 
 
-@on_command(name="commitlj", only_to_me=False)
+@on_command(name='rolltd', only_to_me=False)
 async def _(session: CommandSession):
-    await commitPic(session, "jun")
+    await rollPic(session, "tudou")
 
 
-@on_command(name="commitxhb", only_to_me=False)
+@on_command(name='rolljdm', aliases=('rollzdm', 'rollmd'), only_to_me=False)
 async def _(session: CommandSession):
-    await commitPic(session, "xhb")
+    await rollPic(session, "zundamon")
 
 
-@on_command(name="examinelj", only_to_me=False)
+@on_command(name="commitpic", aliases=('commitlj', 'commitpurelj', 'commitxhb'), only_to_me=False)
 async def _(session: CommandSession):
-    await examinePic(session, "jun")
+    await commitPic(session)
 
 
-@on_command(name="examinepurelj", only_to_me=False)
+@on_command(name="examinepic", only_to_me=False)
 async def _(session: CommandSession):
-    await examinePic(session, "junOrigin")
-
-
-@on_command(name="examinexhb", only_to_me=False)
-async def _(session: CommandSession):
-    await examinePic(session, "xhb")
+    await examinePic(session)
 
 
 async def rollPic(session, imageArchiveName):
@@ -89,14 +82,16 @@ async def rollPic(session, imageArchiveName):
         return
     imageArchive = archiveInfo[imageArchiveName]
     paths = imageArchive['onlineFilePaths']
+    if not paths:
+        await session.send(f'{imageArchive["displayName"]} 图库为空')
+        return
     picPath = paths[int(random.random() * len(paths))]
     await session.send(utils.imgLocalPathToBase64(picPath))
     print(f'本次发送的图片：{picPath}')
 
 
-async def commitPic(session, imageArchiveName):
+async def commitPic(session):
     await session.send(ms.at(session.ctx['user_id']) + ' 请上传图片')
-    imageArchive = archiveInfo[imageArchiveName]
 
     replyMsg = await session.aget(arg_filters=[str.strip])
     if not str(replyMsg).startswith('[CQ:image'):
@@ -105,40 +100,105 @@ async def commitPic(session, imageArchiveName):
 
     picNameList = re.findall(r'(?<=,file=)\S+?(?=,)', replyMsg)
     picUrlList = utils.extractImgUrls(replyMsg)
+    uploaderQQ = session.ctx['user_id']
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     for i in range(0, len(picNameList)):
-        uploaderQQ = session.ctx['user_id']
-        examinePath = imageArchive['examinePath']
-        urlretrieve(picUrlList[i], f'{examinePath}\{uploaderQQ}-{picNameList[i]}')
-
+        safeFilename = re.sub(r'[^\w\.-]', '_', picNameList[i])
+        newFilename = f'{uploaderQQ}-{timestamp}-{safeFilename}'
+        urlretrieve(picUrlList[i], rf'{EXAMINE_PATH}\{newFilename}')
     await session.send('上传成功，等待加入图库')
-    imageArchive['examineFilePaths'] = glob.glob(os.path.join(imageArchive['examinePath'], '*.*'))
 
 
-async def examinePic(session, imageArchiveName):
+async def examinePic(session):
     if not await isSuperAdmin(session.ctx['user_id']):
         await session.send('该账号没有对应权限')
         return
+    
+    examineFiles = getExamineFiles()
+    await session.send(f'开始审核，共有 {len(examineFiles)} 张待审核图片')
 
-    await session.send('start examine')
-    imageArchive = archiveInfo[imageArchiveName]
-    while True:
-        examine_paths = imageArchive['examineFilePaths']
-        if not examine_paths:
-            break
-        await session.send(utils.imgLocalPathToBase64(examine_paths[0]))
-        file_name = examine_paths[0].split('\\')[-1]
-        reply_msg = await session.aget(prompt=f'文件名:{file_name} (y/n/s)', arg_filters=[str.strip])
-        if reply_msg == 'y':
-            os.system(f"move \"{examine_paths[0]}\" \"{imageArchive['onlinePath']}\" ")
-        elif reply_msg == 'n':
-            os.system(f"del \"{examine_paths[0]}\" ")
-        elif reply_msg == 's':
-            os.system(f"move \"{examine_paths[0]}\" \"{SAVE_PATH}\" ")
-        else:
-            break
-        imageArchive['examineFilePaths'].remove(examine_paths[0])
+    # 生成图库选择菜单
+    archiveMenu = "请进行图库分类：\n"
+    archive_keys = list(archiveInfo.keys())
+    for i, key in enumerate(archive_keys, 1):
+        archiveMenu += f"{i}. {archiveInfo[key]['displayName']}\n"
+    archiveMenu += "0. 跳过此图片\n"
+    archiveMenu += "d. 删除此图片\n"
+    archiveMenu += "s. 移动到保存目录\n"
+    archiveMenu += "q. 退出审核"
 
-    await session.send('end examine')
-    imageArchive['onlineFilePaths'] = glob.glob(os.path.join(imageArchive['onlinePath'], '*.*'))
-    imageArchive['examineFilePaths'] = glob.glob(os.path.join(imageArchive['examinePath'], '*.*'))
-    imageArchive['onlineFilePaths'].sort()
+    index = 0
+    while index < len(examineFiles):
+        currentFile = examineFiles[index]
+
+        # 显示当前图片
+        await session.send(utils.imgLocalPathToBase64(currentFile))
+
+        try:
+            # 显示文件名和选择菜单，获取输入
+            fileName = os.path.basename(currentFile)
+            prompt = f'文件名: {fileName}\n{archiveMenu}\n请输入选择'
+            choice = await session.aget(prompt=prompt, arg_filters=[str.strip])
+            choice = choice.lower()
+
+            if choice == 'q':
+                await session.send('已退出审核')
+                break
+            elif choice == '0':
+                await session.send('已跳过此图片')
+                index += 1
+                continue
+            elif choice == 'd':
+                os.remove(currentFile)
+                await session.send('图片已删除')
+                examineFiles.pop(index)
+                continue  # 不增加index，因为列表已更新
+            elif choice == 's':
+                os.makedirs(SAVE_PATH, exist_ok=True)
+                new_path = os.path.join(SAVE_PATH, os.path.basename(currentFile))
+                os.rename(currentFile, new_path)
+                await session.send('图片已移动到保存目录')
+                examineFiles.pop(index)
+                continue
+            elif choice.isdigit():
+                choice_num = int(choice)
+                if 1 <= choice_num <= len(archive_keys):
+                    archive_key = archive_keys[choice_num - 1]
+                    archive_path = archiveInfo[archive_key]['onlinePath']
+
+                    # 确保目标目录存在
+                    os.makedirs(archive_path, exist_ok=True)
+
+                    # 移动文件到对应图库
+                    filename_parts = fileName.split('-', 2)  # 分割成 [QQ号, 时间戳, 剩余部分]
+                    if len(filename_parts) >= 3:
+                        # 保留QQ号，移除时间戳，保留原始文件名
+                        newFileName = f"{filename_parts[0]}-{filename_parts[2]}"
+                    else:
+                        # 如果文件名格式不符合预期，保持原文件名
+                        newFileName = fileName
+                    new_path = os.path.join(archive_path, newFileName)
+                    os.rename(currentFile, new_path)
+
+                    await session.send(f'图片已分类到 {archiveInfo[archive_key]["displayName"]} 图库')
+                    examineFiles.pop(index)
+                    continue
+                else:
+                    await session.send('无效的选择，请重新输入')
+                    continue
+            else:
+                await session.send('无效的选择，请重新输入')
+                continue
+
+        except Exception as e:
+            await session.send(f'处理时出现错误: {e}')
+            index += 1
+            continue
+
+    # 更新各图库的图片列表
+    for value in archiveInfo.values():
+        value['onlineFilePaths'] = glob.glob(os.path.join(value['onlinePath'], '*.*'))
+        value['onlineFilePaths'].sort()
+
+    remainingCount = len(getExamineFiles())
+    await session.send(f'审核结束，剩余 {remainingCount} 张待审核图片')

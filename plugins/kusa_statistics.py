@@ -102,20 +102,21 @@ async def _(session: CommandSession):
 @on_command(name='草精排行榜', only_to_me=False)
 @permissionCheck(onlyAdmin=False, costCredentials=10)
 async def _(session: CommandSession):
-    outputStr = '总草精排行榜：' + await getKusaAdvRank()
+    outputStr = '总草精排行榜：' + await getKusaAdvRank(userId=session.ctx['user_id'])
     await session.send(outputStr)
 
 
 @on_command(name='草精新星榜', only_to_me=False)
 @permissionCheck(onlyAdmin=False, costCredentials=10)
 async def _(session: CommandSession):
-    outputStr = '草精新星排行榜：' + await getKusaAdvRank(levelMax=6)
+    outputStr = '草精新星排行榜：' + await getKusaAdvRank(userId=session.ctx['user_id'], levelMax=6)
     await session.send(outputStr)
 
 
 @on_command(name='KUSA_ADV_RANK', only_to_me=False)
 @permissionCheck(onlyAdmin=True)
 async def _(session: CommandSession):
+    userId = session.ctx['user_id']
     strippedArg = session.current_arg_text.strip()
     showInactiveUsers = True if '-i' in strippedArg else False
     showSubAccount = True if '-s' in strippedArg else False
@@ -126,11 +127,11 @@ async def _(session: CommandSession):
         except (IndexError, ValueError):
             await session.send("Invalid levelMax value. Please provide a valid integer after --l.")
             return
-    outputStr = '草精排行榜（自定义）：' + await getKusaAdvRank(levelMax, showInactiveUsers, showSubAccount)
+    outputStr = '草精排行榜（自定义）：' + await getKusaAdvRank(userId, levelMax, showInactiveUsers, showSubAccount)
     await session.send(outputStr)
 
 
-async def getKusaAdvRank(levelMax: int = 10, showInactiveUsers: bool = False, showSubAccount: bool = True) -> str:
+async def getKusaAdvRank(userId=None, levelMax: int = 10, showInactiveUsers: bool = False, showSubAccount: bool = True) -> str:
     userList = await baseDB.getAllUser()
     userAdvKusaDict = {}
     for user in userList:
@@ -155,6 +156,28 @@ async def getKusaAdvRank(levelMax: int = 10, showInactiveUsers: bool = False, sh
         user = userAdvKusaDict[i][0]
         userName = user.name if user.name else user.qq
         outputStr += f'{i + 1}. {userName}: {userAdvKusaDict[i][1]}\n'
+    if userId:
+        # 获取个人排名，上一名及草精差距，下一名及草精差距
+        userRank, userKusaAdv, prevInfo, nextInfo = -1, 0, None, None
+        for i, (user, kusaAdv) in enumerate(userAdvKusaDict):
+            if str(user.qq) == str(userId):
+                userRank, userKusaAdv = i + 1, kusaAdv
+                if i > 0:
+                    prevInfo = (userAdvKusaDict[i - 1][0], userAdvKusaDict[i - 1][1])
+                if i < len(userAdvKusaDict) - 1:
+                    nextInfo = (userAdvKusaDict[i + 1][0], userAdvKusaDict[i + 1][1])
+                break
+
+        if userRank != -1:
+            outputStr += f"\n您的排名：{userRank}\n"
+            if prevInfo:
+                prevName = prevInfo[0].name if prevInfo[0].name else prevInfo[0].qq
+                outputStr += f"距上一名 {prevName} 还差 {prevInfo[1] - userKusaAdv}草精\n"
+            if nextInfo:
+                nextName = nextInfo[0].name if nextInfo[0].name else nextInfo[0].qq
+                outputStr += f"下一名 {nextName} 距您 {userKusaAdv - nextInfo[1]}草精\n"
+        else:
+            outputStr += "\n您不在这个排行榜上^ ^\n"
     return outputStr[:-1]
 
 
@@ -254,6 +277,13 @@ async def _(session: CommandSession):
         return
     await baseDB.setDonateRecord(qqNum, amount, source)
     await session.send(f'成功添加{qqNum}通过{source}捐赠{amount}元的记录')
+    # 关联称号系统，总金额大于20时自动添加‘投喂者’称号
+    totalDonateAmount = await baseDB.getDonateAmount(qqNum)
+    if totalDonateAmount >= 20:
+        haveTitle = await itemDB.getItemAmount(qqNum, "投喂者")
+        if not haveTitle:
+            await itemDB.changeItemAmount(qqNum, "投喂者", 1)
+            await session.send(f'为{qqNum}自动添加了称号“投喂者”')
 
 
 @on_command(name='SET_NAME', only_to_me=False)

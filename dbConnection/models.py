@@ -97,14 +97,13 @@ class WorkOrder(Model):
 
 class ChatUser(Model):
     qq = CharField(max_length=12, pk=True)
-    allowContinue = BooleanField(default=False)
     allowPrivate = BooleanField(default=False)
-    allowGroup = BooleanField(default=False)
     allowRole = BooleanField(default=False)
-    allowModel = BooleanField(default=False)
-    chosenModel = CharField(max_length=32, default="gpt-4o-mini")
+    allowAdvancedModel = BooleanField(default=False)
+    chosenModel = CharField(max_length=32, default="deepseek-chat")
     tokenUse = IntField(default=0)
-    tokenUseGPT4 = IntField(default=0)
+    todayTokenUse = IntField(default=0)
+    dailyTokenLimit = IntField(default=10000)
     chosenRoleId = IntField(default=0)
     createTime = DatetimeField(auto_now_add=True)
 

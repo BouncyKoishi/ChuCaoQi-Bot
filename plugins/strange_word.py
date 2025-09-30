@@ -44,7 +44,7 @@ async def gh_frozen(session: CommandSession):
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < .3:
+    if strippedText and random.random() < .4:
         reply = await getSentenceAdvance(strippedText)
         await session.send(reply)
     else:
@@ -70,7 +70,7 @@ async def _(session: CommandSession):
 @on_command(name='说些怪话', only_to_me=False)
 async def _(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < .3:
+    if strippedText and random.random() < .4:
         replyList = await getSentenceListAdvance(strippedText)
     else:
         replyList = []
@@ -106,11 +106,11 @@ async def getSentenceAdvance(inputStr: str):
     for i in range(10):
         userPrompt += random.choice(modelSentenceList) + '\n'
     prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": userPrompt}]
-    reply, tokenUsage = await getChatReply("gpt-4o-mini", prompt)
+    reply, tokenUsage = await getChatReply("deepseek-chat", prompt)
     if reply not in modelSentenceList:
         print(f'输出内容为:"{reply}" 匹配怪话库失败，输出随机怪话')
         reply = random.choice(modelSentenceList)
-    print(f'GPT-4o TokenUsage: {tokenUsage}')
+    print(f'GPT-4.1-nano TokenUsage: {tokenUsage}')
     return reply
 
 
@@ -122,8 +122,8 @@ async def getSentenceListAdvance(inputStr: str):
     for i in range(40):
         userPrompt += random.choice(modelSentenceList) + '\n'
     prompt = [{"role": "system", "content": systemPrompt}, {"role": "user", "content": userPrompt}]
-    reply, tokenUsage = await getChatReply("gpt-4o-mini", prompt)
-    print('Reply:', reply)
+    reply, tokenUsage = await getChatReply("deepseek-chat", prompt)
+    print(f'GPT-4.1-nano TokenUsage: {tokenUsage}')
     if reply.startswith('[') and reply.endswith(']'):
         reply = reply.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
         reply = reply.replace('，', ',').replace('。', '.').replace('：', ':').replace('；', ';')
