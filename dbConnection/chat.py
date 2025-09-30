@@ -30,14 +30,13 @@ async def getPublicRoleList():
 
 
 async def updateChatUser(qqNum, userMode: str):
-    allowContinue = True if 'c' in userMode else False
     allowPrivate = True if 'p' in userMode else False
-    allowGroup = True if 'g' in userMode else False
     allowRole = True if 'r' in userMode else False
-    allowModel = True if 'm' in userMode else False
+    allowAdvancedModel = True if 'm' in userMode else False
+    dailyTokenLimit = -1 if 'u' in userMode else (1000000 if 'v' in userMode else 10000)
     await ChatUser.update_or_create(qq=qqNum, defaults={
-        'allowContinue': allowContinue, 'allowPrivate': allowPrivate, 'allowGroup': allowGroup,
-        'allowRole': allowRole, 'allowModel': allowModel
+        'allowPrivate': allowPrivate, 'allowRole': allowRole,
+        'allowAdvancedModel': allowAdvancedModel, 'dailyTokenLimit': dailyTokenLimit
     })
 
 
@@ -77,17 +76,16 @@ async def deleteRole(role: ChatRole):
 
 async def addTokenUsage(chatUser: ChatUser, model: str, tokenUse: int):
     # 以deepseek-chat定价为基准，其他模型按比例大概换算
-    if model == "gpt-5":
-        # gpt-5 input 1.25刀/1m output 10刀/1m
-        chatUser.tokenUse += tokenUse * 2
-    if model == "gpt-5-mini":
-        # gpt-5-mini input 0.25刀/1m output 2刀/1m
-        chatUser.tokenUse += tokenUse // 2
-    if model == "gpt-5-nano":
-        # gpt-5-nano input 0.05刀/1m output 0.4刀/1m
-        chatUser.tokenUse += tokenUse // 10
-    if "deepseek" in model:
-        # deepseek统一定价 input 4元/1m output 12元/1m
-        chatUser.tokenUse += tokenUse
+    # deepseek统一定价 input 2元/1m output 3元/1m
+    # gpt-5 input 1.25刀/1m output 10刀/1m
+    # gpt-5-mini input 0.25刀/1m output 2刀/1m
+    # gpt-5-nano input 0.05刀/1m output 0.4刀/1m
+    tokenUse *= 5 if model == "gpt-5" else 1
+    tokenUse = tokenUse // 5 if model == "gpt-5-nano" else tokenUse
     chatUser.tokenUse += tokenUse
+    chatUser.todayTokenUse += tokenUse
     await chatUser.save()
+
+
+async def resetTodayTokenUse():
+    await ChatUser.all().update(todayTokenUse=0)

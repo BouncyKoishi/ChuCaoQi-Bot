@@ -8,7 +8,7 @@ import asyncio
 
 import dbConnection.chat as db
 from kusa_base import isSuperAdmin, config, sendLog
-from nonebot import on_command, CommandSession
+from nonebot import on_command, CommandSession, scheduler
 from utils import nameDetailSplit, imgUrlTobase64
 from openai import OpenAI
 
@@ -21,9 +21,6 @@ deepseekApiKey = config['web']['deepseek']['key']
 deepseekBaseUrl = "https://api.deepseek.com"
 openaiClient = OpenAI(api_key=config['web']['openai']['key'])
 deepseekClient = OpenAI(api_key=deepseekApiKey, base_url=deepseekBaseUrl)
-
-unlimitedGroup = config['web']['openai']['gpt3AllowGroups']
-groupCallCounts = {}
 
 sensitiveWords = config['sensitiveWords']
 
@@ -41,6 +38,8 @@ async def chatNew(session: CommandSession):
 
 @on_command(name='chat5', only_to_me=False, aliases='chat4')
 async def chatNewGPT(session: CommandSession):
+    if not await permissionCheck(session, 'chat'):
+        return
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
@@ -63,6 +62,8 @@ async def chatNewWithoutRole(session: CommandSession):
 
 @on_command(name='chatn5', only_to_me=False, aliases='chatc4')
 async def chatNewWithoutRoleGPT(session: CommandSession):
+    if not await permissionCheck(session, 'chat'):
+        return
     if not await permissionCheck(session, 'model'):
         return
     userId = session.event.user_id
@@ -74,7 +75,7 @@ async def chatNewWithoutRoleGPT(session: CommandSession):
 
 @on_command(name='chatc', only_to_me=False)
 async def chatContinue(session: CommandSession):
-    if not await permissionCheck(session, 'chatc'):
+    if not await permissionCheck(session, 'chat'):
         return
     userId = session.event.user_id
     content = await getChatContent(session)
@@ -85,7 +86,7 @@ async def chatContinue(session: CommandSession):
 
 @on_command(name='chatc5', only_to_me=False, aliases='chatc4')
 async def chatContinueGPT(session: CommandSession):
-    if not await permissionCheck(session, 'chatc'):
+    if not await permissionCheck(session, 'chat'):
         return
     if not await permissionCheck(session, 'model'):
         return
@@ -98,7 +99,7 @@ async def chatContinueGPT(session: CommandSession):
 
 @on_command(name='chatb', only_to_me=False)
 async def chatUndo(session: CommandSession):
-    if not await permissionCheck(session, 'chatc'):
+    if not await permissionCheck(session, 'chat'):
         return
     await undo(session.event.user_id)
     await session.send("已撤回一次对话")
@@ -106,7 +107,7 @@ async def chatUndo(session: CommandSession):
 
 @on_command(name='chatr', only_to_me=False)
 async def chatRetry(session: CommandSession):
-    if not await permissionCheck(session, 'chatc'):
+    if not await permissionCheck(session, 'chat'):
         return
     userId = session.event.user_id
     content = await getChatContent(session)
@@ -119,7 +120,7 @@ async def chatRetry(session: CommandSession):
 
 @on_command(name='chatr5', only_to_me=False, aliases='chatr4')
 async def chatRetryGPT(session: CommandSession):
-    if not await permissionCheck(session, 'chatc'):
+    if not await permissionCheck(session, 'chat'):
         return
     if not await permissionCheck(session, 'model'):
         return
@@ -137,17 +138,17 @@ async def chatUserInfo(session: CommandSession):
     userId = session.event.user_id
     chatUser = await db.getChatUser(userId)
     if chatUser is None:
-        await session.send("你没有chat功能的使用权限。")
+        await session.send("你尚未激活大模型对话功能。")
         return
 
-    output = f"你已使用的token量: {chatUser.tokenUse + chatUser.tokenUseGPT4}\n"
-    output += f"当前chat功能使用权限：\n"
-    output += f"连续对话：{'可用' if chatUser.allowContinue else '不可用'}\n"
-    output += f"任意私聊：{'可用' if chatUser.allowPrivate else '不可用'}\n"
-    output += f"任意群聊：{'可用' if chatUser.allowGroup else '不可用'}\n"
-    output += f"角色切换：{'可用' if chatUser.allowRole else '不可用'}\n"
-    output += f"模型切换：{'可用' if chatUser.allowModel else '不可用'}\n"
-    output += f"当前使用模型：{chatUser.chosenModel}\n"
+    output = f"你总计使用的token量: {chatUser.tokenUse}\n"
+    output += f"当日token用量：{chatUser.todayTokenUse} / {int(chatUser.dailyTokenLimit)}\n"
+    output += "在群聊内进行大模型对话无需权限。\n"
+    output += f"你的进阶chat功能使用权限："
+    output += f"私聊 " if chatUser.allowPrivate else ""
+    output += f"角色切换 " if chatUser.allowRole else ""
+    output += f"进阶模型 " if chatUser.allowAdvancedModel else ""
+    output += f"\n当前使用模型：{chatUser.chosenModel}\n"
 
     if chatUser.allowRole:
         nowRole = await db.getChatRoleById(chatUser.chosenRoleId)
@@ -251,13 +252,14 @@ async def deleteRole(session: CommandSession):
 
 @on_command(name='model_change', only_to_me=False)
 async def changeModel(session: CommandSession):
-    if not await permissionCheck(session, "model"):
-        return
     userId = session.event.user_id
     strippedText = session.current_arg_text.strip()
     if strippedText:
         if "gpt" in strippedText:
             if strippedText == "gpt-5" or strippedText == "gpt5":
+                if not await permissionCheck(session, "model"):
+                    await session.send("需要高级模型权限！")
+                    return
                 newModel = "gpt-5"
             else:
                 newModel = "gpt-5-mini"
@@ -292,23 +294,26 @@ async def _(session: CommandSession):
 
 @on_command(name='chat_help', only_to_me=False)
 async def chatHelp(session: CommandSession):
-    if not await permissionCheck(session, "base"):
-        await session.send("你没有chat功能的使用权限。（在特定群聊可使用基础功能）")
-        return
     userId = session.event.user_id
     chatUser = await db.getChatUser(userId)
+    if chatUser is None:
+        await session.send("你尚未激活大模型对话功能。可使用!chat开启一个对话以激活。")
+        return
+
     output = "chat_user: 查看chat权限等相关信息\nchat: 开始一个新对话"
-    if chatUser.allowContinue:
-        output += "\nchatc: 继续上一轮对话\nchatb: 撤回上一轮对话\nchatr: 撤回上一轮对话并重新生成"
+    output += "\nchatc: 继续上一轮对话\nchatb: 撤回上一轮对话\nchatr: 撤回上一轮对话并重新生成"
+    output += "\nsave_conversation: 手动保存当前对话记录"
     if chatUser.allowRole:
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
-        output += "\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\nrole_update: 新增/更新角色描述信息(-g)\nrole_delete: 删除角色"
-    if chatUser.allowModel:
-        output += "\nmodel_change: 切换语言模型（gpt-5/gpt-5-mini/deepseek/deepseek-r）"
+        output += ("\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\n"
+                   "role_update: 新增/更新角色描述信息(-g 设置为全局角色)\nrole_delete: 删除角色")
+    if chatUser.allowAdvancedModel:
+        output += "\nmodel_change: 切换语言模型（deepseek/deepseek-r/gpt-5/gpt-5-mini）"
+    else:
+        output += "\nmodel_change: 切换语言模型（deepseek/deepseek-r/gpt-5-mini）"
     if await isSuperAdmin(session.event.user_id):
-        output += "\nchat_user_update: 更改指定人员chat权限(-c -p -g -r -m)"
-        output += "\nsave_conversation: 保存当前对话记录"
-    output += "\n\n当前默认使用的模型：deepseek-chat\n当前使用的是收费api，请勿滥用！"
+        output += "\nchat_user_update: 更改指定人员chat权限(-p私聊 -r角色 -m进阶模型 -v更高上限 -u无限使用)"
+    output += "\n\n当前默认使用的模型：deepseek-chat\n对话使用的是收费api，请勿滥用！"
     await session.send(output)
 
 
@@ -420,32 +425,24 @@ async def permissionCheck(session: CommandSession, checker: str):
         return await isSuperAdmin(userId)
 
     isGroupCall = session.ctx['message_type'] == 'group'
-    groupId = session.event.group_id if isGroupCall else None
     chatUser = await db.getChatUser(userId)
     if chatUser is None:
-        if groupId not in unlimitedGroup:
-            return False
         await db.updateChatUser(userId, '')
 
-    if checker == 'base':
-        return True
     if checker == 'chat':
-        if isGroupCall:
-            if groupId in unlimitedGroup:
-                return True
-            return chatUser.allowGroup
+        if 0 < chatUser.dailyTokenLimit <= chatUser.todayTokenUse:
+            return False
         if not isGroupCall:
             return chatUser.allowPrivate
-    if checker == 'chatc':
-        if isGroupCall:
-            if groupId in unlimitedGroup:
-                return True
-            return chatUser.allowGroup and chatUser.allowContinue
-        if not isGroupCall:
-            return chatUser.allowPrivate and chatUser.allowContinue
+        return True
     if checker == 'role':
         return chatUser.allowRole
     if checker == 'model':
-        return chatUser.allowModel
-
+        return chatUser.allowAdvancedModel
     return False
+
+
+@scheduler.scheduled_job('cron', hour=3, minute=1)
+async def resetTodayTokenUse():
+    await db.resetTodayTokenUse()
+    await sendLog("已重置所有用户的todayTokenUse")
