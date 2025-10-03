@@ -18,9 +18,12 @@ HISTORY_PATH = u"chatHistory/"
 
 openai.api_key = config['web']['openai']['key']
 deepseekApiKey = config['web']['deepseek']['key']
+geminiApiKey = config['web']['gemini']['key']
 deepseekBaseUrl = "https://api.deepseek.com"
+geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/"
 openaiClient = OpenAI(api_key=config['web']['openai']['key'])
 deepseekClient = OpenAI(api_key=deepseekApiKey, base_url=deepseekBaseUrl)
+geminiClient = OpenAI(api_key=geminiApiKey, base_url=geminiBaseUrl)
 
 sensitiveWords = config['sensitiveWords']
 
@@ -386,6 +389,8 @@ async def getResponseAsync(model, history):
 def getResponse(model, history):
     if 'deepseek' in model:
         return deepseekClient.chat.completions.create(model=model, messages=history, timeout=120)
+    if 'gemini' in model:
+        return geminiClient.chat.completions.create(model=model, messages=history, timeout=120)
     if 'gpt-5' in model:
         return openaiClient.chat.completions.create(model=model, messages=history, timeout=120, reasoning_effort="low")
     return openaiClient.chat.completions.create(model=model, messages=history, timeout=120)
