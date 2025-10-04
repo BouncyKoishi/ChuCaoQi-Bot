@@ -21,6 +21,7 @@ archiveInfo = {
     "xhb": {"onlinePath": BASE_PIC_PATH + r'\xhb', "displayName": "xhb"},
     "tudou": {"onlinePath": BASE_PIC_PATH + r'\土豆泥', "displayName": "土豆"},
     "zundamon": {"onlinePath": BASE_PIC_PATH + r'\豆包2.0', "displayName": "俊达萌"},
+    "zundamon2": {"onlinePath": BASE_PIC_PATH + r'\豆包', "displayName": "俊达萌美图"},
 }
 for value in archiveInfo.values():
     value['onlineFilePaths'] = glob.glob(os.path.join(value['onlinePath'], '*.*'))
@@ -65,6 +66,11 @@ async def _(session: CommandSession):
 @on_command(name='rolljdm', aliases=('rollzdm', 'rollmd'), only_to_me=False)
 async def _(session: CommandSession):
     await rollPic(session, "zundamon")
+
+
+@on_command(name='rollpurejdm', aliases=('rollpurezdm', 'rollpuremd'), only_to_me=False)
+async def _(session: CommandSession):
+    await rollPic(session, "zundamon2")
 
 
 @on_command(name="commitpic", aliases=('commitlj', 'commitpurelj', 'commitxhb'), only_to_me=False)
