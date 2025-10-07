@@ -259,13 +259,21 @@ async def changeModel(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     if strippedText:
         if "gpt" in strippedText:
-            if strippedText == "gpt-5" or strippedText == "gpt5":
+            if strippedText in ["gpt-5", "gpt5"]:
                 if not await permissionCheck(session, "model"):
                     await session.send("需要高级模型权限！")
                     return
                 newModel = "gpt-5"
             else:
                 newModel = "gpt-5-mini"
+        elif "gemini" in strippedText:
+            # gemini暂时自用
+            if not await permissionCheck(session, "admin"):
+                return
+            if "pro" in strippedText:
+                newModel = "gemini-2.5-pro"
+            else:
+                newModel = "gemini-2.5-flash"
         elif "deepseek-r" in strippedText:
             newModel = "deepseek-reasoner"
         elif "deepseek" in strippedText:
