@@ -247,7 +247,7 @@ async def give(session: CommandSession):
 
     stripped_arg = session.current_arg_text.strip()
     qqNumberList = re.search(r'(?<=(QQ|qq)=)\d+', stripped_arg)
-    transferKusaStr = re.search(r'(?<=(kusa|Kusa|KUSA)=)\d+[kmbKMB]?', stripped_arg)
+    transferKusaStr = re.search(r'(?<=(kusa|Kusa|KUSA)=)[\d,]+[kmbKMB]?', stripped_arg)
 
     receiverQQ = qqNumberList.group(0) if qqNumberList else None
     transferKusa = convertNumStrToInt(transferKusaStr.group(0)) if transferKusaStr else 0
