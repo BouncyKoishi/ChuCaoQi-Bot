@@ -150,7 +150,7 @@ async def _(session: CommandSession):
     allCostKusa = sum([record.costItemAmount for record in tradeRecordBuying])
     allGainKusa = sum([record.gainItemAmount for record in tradeRecordSelling])
     st = f'您上周期的G市交易总结：\n'
-    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。'
+    st += f'上周期共投入{fstr(allCostKusa)}草，共取出{fstr(allGainKusa)}草，总盈亏：{fstr(allGainKusa - allCostKusa)}草。'
     await session.send(st)
 
 
@@ -179,10 +179,10 @@ async def _(session: CommandSession):
             recordTime = datetime.datetime.fromtimestamp(record.timestamp).strftime('%m-%d %H:%M')
             if record.tradeType == 'G市(买)':
                 unitPrice = rd3(record.costItemAmount / record.gainItemAmount)
-                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，等效单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{fstr(record.costItemAmount)}草，等效单价为{unitPrice}\n'
             if record.tradeType == 'G市(卖)':
                 unitPrice = rd3(record.gainItemAmount / record.costItemAmount)
-                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，等效单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{fstr(record.gainItemAmount)}草，等效单价为{unitPrice}\n'
         if totalPages > 1 and currentPage < totalPages:
             confirm = await session.aget(prompt=outputStr + f'(当前第{currentPage}/{totalPages}页，输入Next显示下一页)')
             if confirm.lower() != 'next':
