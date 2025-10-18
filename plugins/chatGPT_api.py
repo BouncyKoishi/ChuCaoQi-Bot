@@ -63,7 +63,7 @@ async def chatNewWithoutRole(session: CommandSession):
     await session.send(reply)
 
 
-@on_command(name='chatn5', only_to_me=False, aliases='chatc4')
+@on_command(name='chatn5', only_to_me=False, aliases='chatn4')
 async def chatNewWithoutRoleGPT(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
         return
