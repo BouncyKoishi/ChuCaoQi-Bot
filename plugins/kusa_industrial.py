@@ -126,8 +126,8 @@ async def dailyStatistics(session: CommandSession):
 
 
 # 生草工业运作
-@nonebot.scheduler.scheduled_job('cron', hour=0)
-async def _():
+@nonebot.scheduler.scheduled_job('cron', hour=0, max_instances=5)
+async def dailyIndustrialRunner():
     await dailyIndustrial()
 
 

@@ -42,8 +42,8 @@ async def func(bot: nonebot.NoneBot, event: aiocqhttp.Event, plugin_manager: non
         lastSpellRecord[event.user_id] = time.time()
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=67)  #写个质数防止被抓
-async def cleanWarning():
+@nonebot.scheduler.scheduled_job('interval', minutes=67, max_instances=5)
+async def cleanWarningRunner():
     global repeatWarning
     for key in repeatWarning:
         repeatWarning[key] = 0

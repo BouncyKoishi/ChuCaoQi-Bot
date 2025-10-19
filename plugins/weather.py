@@ -124,8 +124,8 @@ async def _(session: CommandSession):
         await session.send("暂无新报文！")
 
 
-@scheduler.scheduled_job('interval', minutes=30)
-async def _():
+@scheduler.scheduled_job('interval', minutes=30, max_instances=5)
+async def getCmaReportRunner():
     if not GET_REPORT_FLAG:
         return
     global reportsStorage

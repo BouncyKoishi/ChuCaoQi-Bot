@@ -62,8 +62,8 @@ async def _(session: CommandSession):
     random.seed()
 
 
-@scheduler.scheduled_job('cron', day='*', hour='0', minute='5')
-async def _():
+@scheduler.scheduled_job('cron', day='*', hour='0', minute='5', max_instances=5)
+async def dailyLLMRecordCleaner():
     global gptUseRecord
     gptUseRecord = {}
 

@@ -455,7 +455,7 @@ async def permissionCheck(session: CommandSession, checker: str):
     return False
 
 
-@scheduler.scheduled_job('cron', hour=3, minute=1)
-async def resetTodayTokenUse():
+@scheduler.scheduled_job('cron', hour=3, minute=1, max_instances=5)
+async def resetTodayTokenUseRunner():
     await db.resetTodayTokenUse()
     await sendLog("已重置所有用户的todayTokenUse")

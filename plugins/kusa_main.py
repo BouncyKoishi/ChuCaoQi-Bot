@@ -457,8 +457,8 @@ async def vip_upgrade_2(session: CommandSession):
 
 
 # 生草日报运作
-@nonebot.scheduler.scheduled_job('cron', hour=4)
-async def dailyReport():
+@nonebot.scheduler.scheduled_job('cron', hour=4, max_instances=5)
+async def dailyReportRunner():
     row = await fieldDB.kusaHistoryTotalReport(86400)
     maxTimes, maxKusa, maxAdvKusa, maxAvgAdvKusa, maxOnceAdvKusa = await fieldDB.kusaFarmChampion()
     outputStr = f"最近24h生草统计:\n" \
@@ -486,8 +486,8 @@ async def dailyReport():
 
 
 # 生草周报运作
-@nonebot.scheduler.scheduled_job('cron', hour=4, minute=1, day_of_week='mon')
-async def weeklyReport():
+@nonebot.scheduler.scheduled_job('cron', hour=4, minute=1, day_of_week='mon', max_instances=5)
+async def weeklyReportRunner():
     row = await fieldDB.kusaHistoryTotalReport(604800)
     outputStr = f"最近一周生草统计:\n" \
                 f"总生草次数: {row['count']}\n" \
@@ -497,7 +497,7 @@ async def weeklyReport():
 
 
 # 每周草精总榜
-@nonebot.scheduler.scheduled_job('cron', hour=4, minute=2, day_of_week='mon')
-async def weeklyReport():
+@nonebot.scheduler.scheduled_job('cron', hour=4, minute=2, day_of_week='mon', max_instances=5)
+async def weeklyAdvReportRunner():
     outputStr = '总草精排行榜：' + await getKusaAdvRank()
     await nonebot.get_bot().send_group_msg(group_id=config['group']['main'], message=outputStr)

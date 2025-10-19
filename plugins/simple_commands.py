@@ -121,8 +121,8 @@ async def _(session: CommandSession):
     await session.send(str(datetime.datetime.now().timestamp()))
 
 
-@nonebot.scheduler.scheduled_job('cron', day='*', hour='9', minute='0', second='10')
-async def read60s():
+@nonebot.scheduler.scheduled_job('cron', day='*', hour='9', minute='0', second='10', max_instances=5)
+async def read60sRunner():
     msg = await get60sNewsPic()
     for qq_group in config['sendNews']['group']:
         await nonebot.get_bot().send_group_msg(group_id=qq_group, message=Message(msg))
