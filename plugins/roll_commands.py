@@ -147,8 +147,8 @@ def luojunJudge(userId):
     return False
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=6)
-async def luojun_del():
+@nonebot.scheduler.scheduled_job('interval', minutes=6, misfire_grace_time=300)
+async def luojunDecreaseRunner():
     global junWifeList
     newJunList = []
     for member in newJunList:

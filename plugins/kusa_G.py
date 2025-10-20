@@ -150,7 +150,7 @@ async def _(session: CommandSession):
     allCostKusa = sum([record.costItemAmount for record in tradeRecordBuying])
     allGainKusa = sum([record.gainItemAmount for record in tradeRecordSelling])
     st = f'您上周期的G市交易总结：\n'
-    st += f'上周期共投入{allCostKusa}草，共取出{allGainKusa}草，总盈亏：{allGainKusa - allCostKusa}草。'
+    st += f'上周期共投入{fstr(allCostKusa)}草，共取出{fstr(allGainKusa)}草，总盈亏：{fstr(allGainKusa - allCostKusa)}草。'
     await session.send(st)
 
 
@@ -179,10 +179,10 @@ async def _(session: CommandSession):
             recordTime = datetime.datetime.fromtimestamp(record.timestamp).strftime('%m-%d %H:%M')
             if record.tradeType == 'G市(买)':
                 unitPrice = rd3(record.costItemAmount / record.gainItemAmount)
-                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{record.costItemAmount}草，等效单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：买入{record.gainItemAmount}{record.gainItemName}，花费{fstr(record.costItemAmount)}草，等效单价为{unitPrice}\n'
             if record.tradeType == 'G市(卖)':
                 unitPrice = rd3(record.gainItemAmount / record.costItemAmount)
-                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{record.gainItemAmount}草，等效单价为{unitPrice}\n'
+                outputStr += f'{recordTime}：卖出{record.costItemAmount}{record.costItemName}，获得{fstr(record.gainItemAmount)}草，等效单价为{unitPrice}\n'
         if totalPages > 1 and currentPage < totalPages:
             confirm = await session.aget(prompt=outputStr + f'(当前第{currentPage}/{totalPages}页，输入Next显示下一页)')
             if confirm.lower() != 'next':
@@ -403,8 +403,8 @@ def createGpicAll(gValuesColMap):
     return buf.getvalue()
 
 
-@nonebot.scheduler.scheduled_job('cron', minute='*/30', max_instances=3)
-async def G_change():
+@nonebot.scheduler.scheduled_job('cron', minute='*/30', misfire_grace_time=None)
+async def GChangeRunner():
     gValues = await gValueDB.getLatestGValues()
     newEastG = getNewG(gValues.eastValue, 0.1)
     newSouthG = getNewG(gValues.southValue, 0.1)
@@ -424,8 +424,8 @@ def getNewG(oldG: float, changeRange: float):
     return newG
 
 
-@nonebot.scheduler.scheduled_job('cron', hour='23', minute='45')
-async def G_reset():
+@nonebot.scheduler.scheduled_job('cron', hour='23', minute='45', misfire_grace_time=None)
+async def GResetRunner():
     if not resetDateCheck():
         return
     allUsers = await baseDB.getAllUser()
@@ -454,8 +454,8 @@ async def G_reset():
     await bot.send_group_msg(group_id=config['group']['main'], message=f'新的G周期开始了！上个周期的G已经自动兑换为草。')
 
 
-@nonebot.scheduler.scheduled_job('cron', hour='23', minute='50')
-async def _():
+@nonebot.scheduler.scheduled_job('cron', hour='23', minute='50', misfire_grace_time=None)
+async def GResetSummaryRunner():
     if not resetDateCheck():
         return
     summary = await getLastCycleSummary()

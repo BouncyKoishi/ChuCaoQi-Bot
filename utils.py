@@ -109,18 +109,18 @@ def intToFormattedStr(n: int) -> str:
 
 # 支持k,m,b单位的数字字符串转换为int
 def convertNumStrToInt(numStr):
-    match = re.search(r'(\d+)([kmbKMB]?)', numStr)
+    match = re.search(r'([\d,]+)([kmbKMB]?)', numStr)
     if match:
-        number_part = int(match.group(1))
+        numberPart = int(match.group(1).replace(',', ''))
         unit = match.group(2)
         if unit == 'k' or unit == 'K':
-            return number_part * 1_000
+            return numberPart * 1_000
         elif unit == 'm' or unit == 'M':
-            return number_part * 1_000_000
+            return numberPart * 1_000_000
         elif unit == 'b' or unit == 'B':
-            return number_part * 1_000_000_000
+            return numberPart * 1_000_000_000
         else:
-            return number_part
+            return numberPart
     else:
         return None
 

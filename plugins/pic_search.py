@@ -70,7 +70,7 @@ async def _(session: NLPSession):
         return
 
     global picSearchResults
-    strippedText = session.ctx['message'][-1].data['text'].strip()
+    strippedText = session.ctx['message'][-1].data.get('text', '').strip()
     replyId = session.ctx['message'][0].data['id']
     if not strippedText.startswith('#') and str(replyId) not in picSearchResults:
         return

@@ -97,6 +97,7 @@ async def itemCharging(qqNum, itemNameGain, itemAmountGain, itemNameCost, itemAm
 
 # Group logger
 async def sendLog(message):
+    print('Chucaoqi Log: ' + message)
     await sendGroupMsg(config['group']['log'], message)
 
 

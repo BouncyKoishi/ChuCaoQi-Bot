@@ -18,9 +18,12 @@ HISTORY_PATH = u"chatHistory/"
 
 openai.api_key = config['web']['openai']['key']
 deepseekApiKey = config['web']['deepseek']['key']
+geminiApiKey = config['web']['gemini']['key']
 deepseekBaseUrl = "https://api.deepseek.com"
+geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/"
 openaiClient = OpenAI(api_key=config['web']['openai']['key'])
 deepseekClient = OpenAI(api_key=deepseekApiKey, base_url=deepseekBaseUrl)
+geminiClient = OpenAI(api_key=geminiApiKey, base_url=geminiBaseUrl)
 
 sensitiveWords = config['sensitiveWords']
 
@@ -60,7 +63,7 @@ async def chatNewWithoutRole(session: CommandSession):
     await session.send(reply)
 
 
-@on_command(name='chatn5', only_to_me=False, aliases='chatc4')
+@on_command(name='chatn5', only_to_me=False, aliases='chatn4')
 async def chatNewWithoutRoleGPT(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
         return
@@ -256,13 +259,21 @@ async def changeModel(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     if strippedText:
         if "gpt" in strippedText:
-            if strippedText == "gpt-5" or strippedText == "gpt5":
+            if strippedText in ["gpt-5", "gpt5"]:
                 if not await permissionCheck(session, "model"):
                     await session.send("需要高级模型权限！")
                     return
                 newModel = "gpt-5"
             else:
                 newModel = "gpt-5-mini"
+        elif "gemini" in strippedText:
+            # gemini暂时自用
+            if not await permissionCheck(session, "admin"):
+                return
+            if "pro" in strippedText:
+                newModel = "gemini-2.5-pro"
+            else:
+                newModel = "gemini-2.5-flash"
         elif "deepseek-r" in strippedText:
             newModel = "deepseek-reasoner"
         elif "deepseek" in strippedText:
@@ -386,6 +397,8 @@ async def getResponseAsync(model, history):
 def getResponse(model, history):
     if 'deepseek' in model:
         return deepseekClient.chat.completions.create(model=model, messages=history, timeout=120)
+    if 'gemini' in model:
+        return geminiClient.chat.completions.create(model=model, messages=history, timeout=120)
     if 'gpt-5' in model:
         return openaiClient.chat.completions.create(model=model, messages=history, timeout=120, reasoning_effort="low")
     return openaiClient.chat.completions.create(model=model, messages=history, timeout=120)
@@ -442,7 +455,7 @@ async def permissionCheck(session: CommandSession, checker: str):
     return False
 
 
-@scheduler.scheduled_job('cron', hour=3, minute=1)
-async def resetTodayTokenUse():
+@scheduler.scheduled_job('cron', hour=3, minute=1, misfire_grace_time=None)
+async def resetTodayTokenUseRunner():
     await db.resetTodayTokenUse()
     await sendLog("已重置所有用户的todayTokenUse")
