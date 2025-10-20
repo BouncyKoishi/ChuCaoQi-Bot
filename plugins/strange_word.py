@@ -202,14 +202,14 @@ async def record(session: NLPSession):
         print(f'已对消息{msgId}设置表情：👊')
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=2, max_instances=5)
+@nonebot.scheduler.scheduled_job('interval', minutes=2, misfire_grace_time=120)
 async def strangeWordSavingRunner():
     with open(u'database/guaihua.txt', 'w', encoding='utf-8') as file:
         for sentence in sentenceList:
             file.write(sentence + '\n')
 
 
-@nonebot.scheduler.scheduled_job('interval', hours=3, max_instances=5)
+@nonebot.scheduler.scheduled_job('interval', hours=3, misfire_grace_time=600)
 async def setModelSentenceListRunner():
     await setModelSentenceList()
 

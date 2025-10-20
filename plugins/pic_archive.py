@@ -33,7 +33,7 @@ def getExamineFiles():
     return glob.glob(os.path.join(EXAMINE_PATH, '*.*'))
 
 
-@nonebot.scheduler.scheduled_job('cron', day='*', max_instances=5)
+@nonebot.scheduler.scheduled_job('cron', day='*', misfire_grace_time=500)
 async def dailyJunRunner():
     bot = nonebot.get_bot()
     now = datetime.now(pytz.timezone('Asia/Shanghai'))

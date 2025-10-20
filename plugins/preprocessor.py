@@ -42,7 +42,7 @@ async def func(bot: nonebot.NoneBot, event: aiocqhttp.Event, plugin_manager: non
         lastSpellRecord[event.user_id] = time.time()
 
 
-@nonebot.scheduler.scheduled_job('interval', minutes=67, max_instances=5)
+@nonebot.scheduler.scheduled_job('interval', minutes=67, misfire_grace_time=None)
 async def cleanWarningRunner():
     global repeatWarning
     for key in repeatWarning:

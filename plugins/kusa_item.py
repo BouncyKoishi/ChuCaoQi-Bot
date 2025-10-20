@@ -337,7 +337,7 @@ def getItemPrice(item, itemAmount):
     return int(item.shopPrice * (item.priceRate ** itemAmount))
 
 
-@scheduler.scheduled_job('interval', seconds=50, max_instances=5)
+@scheduler.scheduled_job('interval', seconds=50, max_instances=10, misfire_grace_time=500)
 async def cleanTimeLimitedItemRunner():
     # overloadStorageList = await itemDB.getItemStorageListByItem('过载标记')
     # for storage in overloadStorageList:
