@@ -31,66 +31,76 @@ confirmations = {}
 
 
 @on_natural_language(keywords=None, only_to_me=False)
-async def _(session: NLPSession):
+async def picClassifierReplyNLP(session: NLPSession):
     if session.ctx['message'][0].type != 'reply':
         return
 
     global confirmations
     strippedText = session.ctx['message'][-1].data.get('text', '').strip()
     replyId = str(session.ctx['message'][0].data['id'])
-    if not strippedText.startswith('#') and replyId not in confirmations:
+    if not strippedText.startswith('#'):
         return
-
-    if replyId in confirmations and confirmations[replyId]['triggeredBy'] == session.ctx['user_id']:
-        info = confirmations[replyId]
-        if info['type'] == 'nsfw':
-            await session.send("正在启动黑暗决斗……")
-            checkResultStr, resultDict = await nsfwChecker(confirmations[replyId]['imgUrl'])
-            if resultDict:
-                adultScore = resultDict.get('adult', 0)
-                everyoneScore = resultDict.get('everyone', 0)
-                isAdult = adultScore > everyoneScore
-                targetId = confirmations[replyId]['owner'] if isAdult else confirmations[replyId]['triggeredBy']
-                muteDuration = int(max(adultScore, everyoneScore) * 10)
-                await session.bot.set_group_ban(group_id=session.ctx['group_id'], user_id=targetId,
-                                                duration=muteDuration)
-                fightResultStr = f'决斗成功！图片发送者' if isAdult else '决斗失败！检测者' + f'获得了{muteDuration}秒的口球！'
-                await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}\n\n{fightResultStr}')
-            else:
-                await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
-        if info['type'] == 'nailong':
-            await session.send("正在启动奶龙决斗……")
-            checkResultStr, nailongScore = await nailongChecker(confirmations[replyId]['imgUrl'])
-            if nailongScore is not None:
-                isNailong = nailongScore > 0.5
-                targetId = confirmations[replyId]['owner'] if isNailong else confirmations[replyId]['triggeredBy']
-                muteDuration = int(abs(nailongScore - 50) * 20)
-                await session.bot.set_group_ban(group_id=session.ctx['group_id'], user_id=targetId,
-                                                duration=muteDuration)
-                fightResultStr = f'决斗成功！图片发送者' if isNailong else '决斗失败！检测者' + f'获得了{muteDuration}秒的口球！'
-                await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}\n\n{fightResultStr}')
-            else:
-                await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
-        del confirmations[replyId]
-        return
+    
     if strippedText in ['#nsfw', '#nailong']:
         replyMessageCtx = await session.bot.get_msg(message_id=replyId)
         imgUrls = extractImgUrls(replyMessageCtx['message'])
         if not imgUrls or len(imgUrls) == 0:
             return
         isNsfw = strippedText == '#nsfw'
-        if session.ctx['user_id'] != replyMessageCtx['user_id']:
-            nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n回复此消息并输入y以继续检测。"
-            nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于0.5，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×20。\n回复此消息并输入y以继续检测。"
-            sendMsgInfo = await session.send(
-                f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
-            confirmations[str(sendMsgInfo['message_id'])] = {'triggeredBy': session.ctx['user_id'],
-                                                             'owner': replyMessageCtx['user_id'],
-                                                             'imgUrl': imgUrls[0], 'type': strippedText[1:]}
+        userId = session.ctx['user_id']
+        if userId != replyMessageCtx['user_id']:
+            nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n输入y继续检测，输入其他表示取消。"
+            nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×20。\n输入y继续检测，输入其他表示取消。"
+            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
+            confirmations[userId] = {'sender': replyMessageCtx['user_id'], 'imgUrl': imgUrls[0], 'type': strippedText[1:]}
             return
         await session.send("正在检测……")
         checkResultStr, _ = await nsfwChecker(imgUrls[0]) if isNsfw else await nailongChecker(imgUrls[0])
         await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+
+
+@on_natural_language(keywords=None, only_to_me=False)
+async def picClassifierContinueNLP(session: NLPSession):
+    global confirmations
+    userId = session.ctx['user_id']
+    if userId not in confirmations:
+        return
+    if session.msg.strip().lower() != 'y':
+        del confirmations[userId]
+        await session.send("已取消决斗。")
+        return
+
+    info = confirmations[userId]
+    if info['type'] == 'nsfw':
+        await session.send("正在启动黑暗决斗……")
+        checkResultStr, resultDict = await nsfwChecker(info['imgUrl'])
+        if resultDict:
+            adultScore = resultDict.get('adult', 0)
+            everyoneScore = resultDict.get('everyone', 0)
+            isAdult = adultScore > everyoneScore
+            targetId = info['sender'] if isAdult else userId
+            muteDuration = int(max(adultScore, everyoneScore) * 10)
+            await session.bot.set_group_ban(group_id=session.ctx['group_id'], user_id=targetId,
+                                            duration=muteDuration)
+            fightResultStr = (f'决斗成功！图片发送者' if isAdult else '决斗失败！检测者') + f'获得了{muteDuration}秒的口球！'
+            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}\n{fightResultStr}')
+        else:
+            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+    if info['type'] == 'nailong':
+        await session.send("正在启动奶龙决斗……")
+        checkResultStr, nailongScore = await nailongChecker(info['imgUrl'])
+        if nailongScore is not None:
+            isNailong = nailongScore > 50
+            targetId = info['sender'] if isNailong else userId
+            muteDuration = int(abs(nailongScore - 50) * 20)
+            await session.bot.set_group_ban(group_id=session.ctx['group_id'], user_id=targetId,
+                                            duration=muteDuration)
+            fightResultStr = (f'决斗成功！图片发送者' if isNailong else '决斗失败！检测者') + f'获得了{muteDuration}秒的口球！'
+            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}\n{fightResultStr}')
+        else:
+            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+    del confirmations[userId]
+    return
 
 
 async def nsfwChecker(imgUrl: str) -> [str, dict]:
@@ -142,25 +152,4 @@ async def nailongChecker(imgUrl: str) -> [str, float]:
         print(f"处理图片失败 {imgUrl}: {e}")
         return f'检测失败了…_φ(･ω･` )', None
 
-
-
-# @on_natural_language(only_to_me=False, allow_empty_message=False)
-# async def handle_function(session: NLPSession):
-#     groupId = session.event.group_id
-#     strippedArg = session.msg
-#
-#     if groupId != config['group']['main']:
-#         return
-#     if '[CQ:image' not in strippedArg:
-#         return
-#
-#     imageUrls = extractImgUrls(strippedArg)
-#     if not imageUrls:
-#         return
-#     results = await nailongCheckUrlsAsync(imageUrls)
-#     output = ""
-#     for result in results.values():
-#         output += f"奶龙指数：{result:.8f}\n"
-#     print(results)
-#     await session.send(output[:-1])
 

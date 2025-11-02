@@ -64,7 +64,7 @@ async def picUrlGet(session: CommandSession):
 
 
 @on_natural_language(keywords=None, only_to_me=False)
-async def _(session: NLPSession):
+async def picSearchNLP(session: NLPSession):
     if session.ctx['message'][0].type != 'reply':
         return
 
