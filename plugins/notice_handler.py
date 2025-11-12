@@ -22,7 +22,13 @@ async def newMemberHandle(session: RequestSession):
     await sendLog(f'群聊{groupNum}:' + st)
     if session.event.sub_type == 'add':
         if session.event.comment.strip() == '':
-            rejectReason = '请填写年级专业东方兴趣方向或说明来意' if groupNum == config['group']['sysu'] else '加群备注不能为空'
+            isSysu = groupNum == config['group']['sysu']
+            # 原napcat实现中没有user2_id！这里是修改了napcat的源码后实现的
+            if isSysu and hasattr(session.event, 'user2_id') and session.event.user2_id != 0:
+                sign = f'这是一个未填写备注信息的邀请进群。请[CQ:at,qq={session.event.user2_id}] 说明入群者的身份。'
+                await bot.send_group_msg(group_id=groupNum, message=sign)
+                return
+            rejectReason = '请填写年级专业东方兴趣方向或说明来意' if isSysu else '加群备注不能为空'
             await bot.set_group_add_request(
                 flag=session.event.flag,
                 sub_type=session.event.sub_type,
