@@ -21,6 +21,26 @@ async def newMemberHandle(session: RequestSession):
     await bot.send_group_msg(group_id=groupNum, message=st)
     await sendLog(f'群聊{groupNum}:' + st)
     if session.event.sub_type == 'add':
+        if session.event.comment.strip() == '':
+            isSysu = groupNum == config['group']['sysu']
+            # 原napcat实现中没有user2_id！这里是修改了napcat的源码后实现的
+            if isSysu and hasattr(session.event, 'user2_id') and session.event.user2_id != 0:
+                sign = f'这是一个未填写备注信息的邀请进群。请[CQ:at,qq={session.event.user2_id}] 说明入群者的身份。'
+                await bot.send_group_msg(group_id=groupNum, message=sign)
+                return
+            rejectReason = '请填写年级专业东方兴趣方向或说明来意' if isSysu else '加群备注不能为空'
+            await bot.set_group_add_request(
+                flag=session.event.flag,
+                sub_type=session.event.sub_type,
+                approve=False,
+                reason=rejectReason,
+            )
+            await bot.send_group_msg(
+                group_id=groupNum,
+                message='备注信息为空，已自动拒绝加群申请。',
+            )
+            await sendLog(f'群聊{groupNum}触发空备注风控，已拒绝{adder_id}的申请')
+            return
         for keyword in ('交流学习', '通过一下', '管理员你好', '朋友推荐', ):
             if keyword in session.event.comment:
                 await bot.set_group_add_request(
@@ -35,8 +55,8 @@ async def newMemberHandle(session: RequestSession):
                 )
                 await sendLog(f'群聊{groupNum}触发关键词风控（{keyword}），已拒绝{adder_id}的申请')
                 return
-        stranger_info = await bot.get_stranger_info(user_id=adder_id)
-        if 0 < stranger_info['level'] < 8:
+        strangerInfo = await bot.get_stranger_info(user_id=adder_id)
+        if 0 < strangerInfo['qqLevel'] < 8:
             await bot.set_group_add_request(
                 flag=session.event.flag,
                 sub_type=session.event.sub_type,
@@ -47,8 +67,8 @@ async def newMemberHandle(session: RequestSession):
                 group_id=groupNum,
                 message='触发等级风控，已自动拒绝加群申请。如有需要，请联系该用户通过邀请方式进群。',
             )
-            await sendLog(f'群聊{groupNum}触发等级风控（{stranger_info["level"]}），已拒绝{adder_id}的申请')
-        if stranger_info['level'] == 0:
+            await sendLog(f'群聊{groupNum}触发等级风控（{strangerInfo["level"]}），已拒绝{adder_id}的申请')
+        if strangerInfo['qqLevel'] == 0:
             await bot.send_group_msg(
                 group_id=groupNum,
                 message='注意：该用户隐藏了QQ等级，请注意分辨。',

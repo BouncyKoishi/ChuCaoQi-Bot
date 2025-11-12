@@ -14,7 +14,6 @@ from kusa_base import config
 from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession
 
-
 proxy = config['web']['proxy']
 saucenaoApiKey = config['web']['saucenao']['key']
 fontPath = config['basePath'] + r'\font'
@@ -22,7 +21,7 @@ generalHeader = {
     "sec-ch-ua": '"Chromium";v="104", " Not A;Brand";v="99", "Google Chrome";v="104"',
     "user-agent": config['web']['userAgent']
 }
-picSearchResults = {}
+picSearchResults = dict()
 
 
 @on_command(name='搜图', aliases='picsearch', only_to_me=False)
@@ -65,21 +64,22 @@ async def picUrlGet(session: CommandSession):
 
 
 @on_natural_language(keywords=None, only_to_me=False)
-async def _(session: NLPSession):
+async def picSearchNLP(session: NLPSession):
     if session.ctx['message'][0].type != 'reply':
         return
 
     global picSearchResults
     strippedText = session.ctx['message'][-1].data.get('text', '').strip()
-    replyId = session.ctx['message'][0].data['id']
-    if not strippedText.startswith('#') and str(replyId) not in picSearchResults:
+    replyId = str(session.ctx['message'][0].data['id'])
+    isRecordedReply = replyId in picSearchResults
+    if not strippedText.startswith('#') and not isRecordedReply:
         return
 
     replyMessageCtx = await session.bot.get_msg(message_id=replyId)
-    # print(replyId, replyMessageCtx)
+    print(replyId, replyMessageCtx)
 
-    if str(replyId) in picSearchResults:
-        resultDict = picSearchResults[str(replyId)]
+    if replyId in picSearchResults:
+        resultDict = picSearchResults[replyId]
         try:
             args = list(set(map(int, strippedText.split())))
             args = [arg for arg in args if 1 <= arg <= len(resultDict)]
@@ -102,38 +102,6 @@ async def _(session: NLPSession):
             return
         sendMsgInfo = await session.send(imgLocalPathToBase64('picsearch.jpg'))
         picSearchResults[str(sendMsgInfo['message_id'])] = resultDict['info']
-        # print(picSearchResults.keys())
-    if strippedText == '#nsfw':
-        imgUrls = extractImgUrls(replyMessageCtx['message'])
-        if not imgUrls:
-            return
-        await session.send("正在检测……")
-        moderateContentApiKey = config['web']['moderateContent']['key']
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(imgUrls[0])
-                image = Image.open(BytesIO(response.content))
-                image = image.resize((600, 600), Image.LANCZOS)
-                buffer = BytesIO()
-                image.save(buffer, format='WEBP', quality=80)
-                buffer.seek(0)
-
-                files = {'file': ('image.webp', buffer, 'image/webp')}
-                data = {'key': moderateContentApiKey}
-                r = await client.post('https://api.moderatecontent.com/moderate/', data=data, files=files)
-                result = r.json()
-                print(f'NSFW检测结果：{result}')
-
-                if 'predictions' not in result:
-                    await session.send(
-                        f'[CQ:reply,id={session.ctx["message_id"]}]API没有返回检测结果，请稍后再来…_φ(･ω･` )\n{result.get("error")}')
-                else:
-                    await session.send(
-                        f'[CQ:reply,id={session.ctx["message_id"]}]检测结果：\n' + '\n'.join(
-                            [f'{k} {v:.4f}' for k, v in result['predictions'].items()]))
-        except Exception as e:
-            await session.send(
-                f'[CQ:reply,id={session.ctx["message_id"]}]检测失败了…_φ(･ω･` )\n{str(e)}')
 
 
 def drawTextToImage(text: str):

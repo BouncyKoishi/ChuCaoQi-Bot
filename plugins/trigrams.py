@@ -47,8 +47,9 @@ async def _(session: CommandSession):
     outputStr += f'之卦：{getTrigramName(changedOuterTrigram8, changedInnerTrigram8, changedTrigram64)}\n' if len(changeableIndex) != 0 else ''
     outputStr += f'卦辞：{getFinalWords(trigram64, changedTrigram64, changeableIndex)}'
     outputStr += '\n如果需要进一步解析，请输入“解卦”'
-
-    confirm = await session.aget(prompt=outputStr)
+    cqReply = f'[CQ:reply,id={session.ctx["message_id"]}]'
+    confirm = await session.aget(prompt=cqReply + outputStr)
+    
     if '解卦' in confirm:
         if gptUseRecord.get(userId, 0) > 10:
             await session.send('今日解卦次数已达上限，请明日再来。')
@@ -56,8 +57,9 @@ async def _(session: CommandSession):
         gptUseRecord[userId] = gptUseRecord[userId] + 1 if userId in gptUseRecord else 1
         await session.send('请稍等，正在为你解卦...')
         chatGPTPrompt = getChatGPTPrompt(strippedArg, getFinalWords(trigram64, changedTrigram64, changeableIndex))
-        reply, _ = await getChatReply("deepseek-chat", chatGPTPrompt)
-        await session.send(f'{reply}\n\n注：以上解卦内容由AI生成，仅供参考。')
+        replyMsg, _ = await getChatReply("deepseek-chat", chatGPTPrompt)
+        cqReply = f'[CQ:reply,id={session.ctx["message_id"]}]'
+        await session.send(f'{cqReply}{replyMsg}\n\n注：以上解卦内容由AI生成，仅供参考。')
 
     random.seed()
 
