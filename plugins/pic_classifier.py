@@ -1,3 +1,4 @@
+import random
 import httpx
 import aiohttp
 import torch
@@ -48,9 +49,10 @@ async def picClassifierReplyNLP(session: NLPSession):
             return
         isNsfw = strippedText == '#nsfw'
         userId = session.ctx['user_id']
-        if userId != replyMessageCtx['user_id']:
+        duelRand = random.random()
+        if userId != replyMessageCtx['user_id'] and duelRand < 1/8:
             nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n输入y继续检测，输入其他表示取消。"
-            nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×20。\n输入y继续检测，输入其他表示取消。"
+            nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×40。\n输入y继续检测，输入其他表示取消。"
             await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
             confirmations[userId] = {'sender': replyMessageCtx['user_id'], 'imgUrl': imgUrls[0], 'type': strippedText[1:]}
             return
@@ -92,7 +94,7 @@ async def picClassifierContinueNLP(session: NLPSession):
         if nailongScore is not None:
             isNailong = nailongScore > 50
             targetId = info['sender'] if isNailong else userId
-            muteDuration = int(abs(nailongScore - 50) * 20)
+            muteDuration = int(abs(nailongScore - 50) * 40)
             await session.bot.set_group_ban(group_id=session.ctx['group_id'], user_id=targetId,
                                             duration=muteDuration)
             fightResultStr = (f'决斗成功！图片发送者' if isNailong else '决斗失败！检测者') + f'获得了{muteDuration}秒的口球！'
