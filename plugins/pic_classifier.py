@@ -67,7 +67,7 @@ async def picClassifierContinueNLP(session: NLPSession):
     userId = session.ctx['user_id']
     if userId not in confirmations:
         return
-    if session.msg.strip().lower() != 'y':
+    if session.msg_text.strip().lower() != 'y':
         del confirmations[userId]
         await session.send("已取消决斗。")
         return
