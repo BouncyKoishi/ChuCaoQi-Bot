@@ -74,12 +74,13 @@ async def _(session: CommandSession):
 @on_command(name='说些怪话', only_to_me=False)
 async def _(session: CommandSession):
     strippedText = session.current_arg_text.strip()
+    groupId = session.ctx['group_id']
     if strippedText and random.random() < .35:
-        replyList = await getSentenceListAdvance(session.ctx['group_id'], strippedText)
+        replyList = await getSentenceListAdvance(groupId, strippedText)
     else:
         replyList = []
         while len(replyList) < 3:
-            msg = getRandomSentence()
+            msg = getRandomSentence(defaultGroupNum)
             if '[CQ:' not in msg and msg not in replyList:
                 replyList.append(msg)
     for msg in replyList:
