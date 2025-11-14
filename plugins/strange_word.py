@@ -200,6 +200,10 @@ async def record(session: NLPSession):
             del sentenceList[delMsgIndex]
         sentenceListDict[groupNum] = sentenceList
 
+    # 接下来的功能只在SYSU群启用
+    if groupNum != defaultGroupNum:
+        return
+
     # 主动怪话
     if random.random() < .002:
         output = await getSentenceAdvance(groupNum, msg)
