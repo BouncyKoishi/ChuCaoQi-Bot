@@ -9,7 +9,7 @@ from torchsampler.imbalanced import torchvision
 from torchvision import transforms
 from nonebot import on_natural_language, NLPSession
 from kusa_base import config
-from utils import extractImgUrls
+from utils import extractImgUrls, checkBanAvailable
 
 nailongModel = None
 modelPath = './model_best.pth'
@@ -41,20 +41,23 @@ async def picClassifierReplyNLP(session: NLPSession):
     replyId = str(session.ctx['message'][0].data['id'])
     if not strippedText.startswith('#'):
         return
-    
+
     if strippedText in ['#nsfw', '#nailong']:
         replyMessageCtx = await session.bot.get_msg(message_id=replyId)
         imgUrls = extractImgUrls(replyMessageCtx['message'])
         if not imgUrls or len(imgUrls) == 0:
             return
         isNsfw = strippedText == '#nsfw'
-        userId = session.ctx['user_id']
         duelRand = random.random()
+        userId, targetId = session.ctx['user_id'], replyMessageCtx['user_id']
         if userId != replyMessageCtx['user_id'] and duelRand < 1/8:
-            nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n输入y继续检测，输入其他表示取消。"
-            nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×40。\n输入y继续检测，输入其他表示取消。"
-            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
-            confirmations[userId] = {'sender': replyMessageCtx['user_id'], 'imgUrl': imgUrls[0], 'type': strippedText[1:]}
+            canBanSender = await checkBanAvailable(targetId, session.ctx['group_id'])
+            canBanChecker = await checkBanAvailable(userId, session.ctx['group_id'])
+            if canBanSender and canBanChecker:
+                nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n输入y继续检测，输入其他表示取消。"
+                nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×40。\n输入y继续检测，输入其他表示取消。"
+                await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
+                confirmations[userId] = {'sender': replyMessageCtx['user_id'], 'imgUrl': imgUrls[0], 'type': strippedText[1:]}
             return
         await session.send("正在检测……")
         checkResultStr, _ = await nsfwChecker(imgUrls[0]) if isNsfw else await nailongChecker(imgUrls[0])
