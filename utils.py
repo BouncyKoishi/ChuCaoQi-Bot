@@ -70,10 +70,10 @@ async def getUserAndGroupMsg(userId, groupId):
 async def checkBanAvailable(targetId, groupId):
     bot = nonebot.get_bot()
     botBaseInfo = await bot.get_login_info()
-    if botBaseInfo['userId'] == targetId:
+    if botBaseInfo['user_id'] == targetId:
         return False
     try:
-        botInfo = await getGroupMemberInfoFromCache(bot, groupId, botBaseInfo['userId'])
+        botInfo = await getGroupMemberInfoFromCache(bot, groupId, botBaseInfo['user_id'])
         targetInfo = await getGroupMemberInfoFromCache(bot, groupId, targetId)
         if not botInfo or not targetInfo:
             return False
