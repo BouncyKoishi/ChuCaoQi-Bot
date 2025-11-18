@@ -2,6 +2,7 @@ import random
 import httpx
 import aiohttp
 import torch
+import time
 from io import BytesIO
 from PIL import Image
 from torch import nn
@@ -29,6 +30,7 @@ except Exception as e:
     print(f"奶龙检测模型加载失败: {e}")
 
 confirmations = {}
+lastUsedTime = {}
 
 
 @on_natural_language(keywords=None, only_to_me=False)
@@ -43,6 +45,10 @@ async def picClassifierReplyNLP(session: NLPSession):
         return
 
     if strippedText in ['#nsfw', '#nailong']:
+        timeCheckResult, sign = timeCheck(strippedText, session.ctx)
+        if not timeCheckResult:
+            await session.send(sign)
+            return
         replyMessageCtx = await session.bot.get_msg(message_id=replyId)
         imgUrls = extractImgUrls(replyMessageCtx['message'])
         if not imgUrls or len(imgUrls) == 0:
@@ -62,6 +68,7 @@ async def picClassifierReplyNLP(session: NLPSession):
             await session.send("正在检测……")
         checkResultStr, _ = await nsfwChecker(imgUrls[0]) if isNsfw else await nailongChecker(imgUrls[0])
         await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+        timeUpdater(strippedText, session.ctx.get('group_id', 0), session.ctx['user_id'])
 
 
 @on_natural_language(keywords=None, only_to_me=False)
@@ -98,6 +105,7 @@ async def picClassifierContinueNLP(session: NLPSession):
             await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}\n{fightResultStr}')
         else:
             await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+        timeUpdater('nsfw', session.ctx.get('group_id', 0), userId)
     if info['type'] == 'nailong':
         await session.send("正在启动奶龙决斗……")
         checkResultStr, nailongScore = await nailongChecker(info['imgUrl'])
@@ -118,8 +126,35 @@ async def picClassifierContinueNLP(session: NLPSession):
             await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}\n{fightResultStr}')
         else:
             await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+        timeUpdater('nailong', session.ctx.get('group_id', 0), userId)
     del confirmations[userId]
     return
+
+
+def timeCheck(command: str, ctx: dict) -> (bool, str):
+    # 目前仅对SYSU大群进行timeCheck
+    if 'group_id' not in ctx or ctx['group_id'] != config['group']['sysu']:
+        return True, None
+
+    command = command.replace('#', '')
+    key = f'{ctx["user_id"]}_{command}'
+    if key in lastUsedTime:
+        nowTime = int(time.time())
+        endTime = lastUsedTime[key] + 3 * 3600
+        if nowTime < endTime:
+            timeStrf = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(endTime))
+            sign = f'冷却时间还没结束，请在{timeStrf}以后再来。'
+            return False, sign
+    return True, None
+
+
+def timeUpdater(command: str, groupId: int, userId: int):
+    global lastUsedTime
+    if groupId != config['group']['sysu']:
+        return
+    command = command.replace('#', '')
+    key = f'{userId}_{command}'
+    lastUsedTime[key] = int(time.time())
 
 
 async def nsfwChecker(imgUrl: str) -> [str, dict]:
