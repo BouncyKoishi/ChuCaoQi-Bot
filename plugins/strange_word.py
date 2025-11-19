@@ -14,7 +14,8 @@ notRecordWords = config['guaihua']['notRecordWords'] + config['sensitiveWords']
 notRecordMembers = config['guaihua']['notRecordMembers']
 recordGroups = config['guaihua']['recordGroups']
 defaultGroupNum = config['group']['sysu']
-freeze = False
+receiveFreeze = False
+allowModel = True
 
 
 async def setModelSentenceList():
@@ -34,20 +35,30 @@ async def setModelSentenceList():
         modelSentenceListDict[groupNum] = modelSentenceList
 
 
-@on_command(name='gh_freeze', only_to_me=False)
+@on_command(name='gh_receive_freeze', only_to_me=False)
 async def gh_frozen(session: CommandSession):
     if not await isSuperAdmin(session.ctx['user_id']):
         return
 
-    global freeze
-    freeze = not freeze
-    await session.send(f'怪话接收已{"冻结" if freeze else "解冻"}')
+    global receiveFreeze
+    receiveFreeze = not receiveFreeze
+    await session.send(f'怪话接收已{"冻结" if receiveFreeze else "解冻"}')
+
+
+@on_command(name='gh_model_freeze', only_to_me=False)
+async def gh_model_frozen(session: CommandSession):
+    if not await isSuperAdmin(session.ctx['user_id']):
+        return
+
+    global allowModel
+    allowModel = not allowModel
+    await session.send(f'大模型怪话已{"启用" if allowModel else "禁用"}')
 
 
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and random.random() < .5:
+    if strippedText and allowModel and random.random() < .5 :
         reply = await getSentenceAdvance(session.ctx['group_id'], strippedText)
         await session.send(reply)
     else:
@@ -75,7 +86,7 @@ async def _(session: CommandSession):
 async def _(session: CommandSession):
     strippedText = session.current_arg_text.strip()
     groupId = session.ctx['group_id']
-    if strippedText and random.random() < .35:
+    if strippedText and allowModel and random.random() < .35:
         replyList = await getSentenceListAdvance(groupId, strippedText)
     else:
         replyList = []
@@ -163,7 +174,7 @@ async def record(session: NLPSession):
     sentenceList = sentenceListDict.get(groupNum, [])
 
     # 不录入条件
-    if freeze:
+    if receiveFreeze:
         return
     if msg in sentenceList:
         return
@@ -205,7 +216,7 @@ async def record(session: NLPSession):
         return
 
     # 主动怪话
-    if random.random() < .002:
+    if random.random() < .002 and allowModel:
         output = await getSentenceAdvance(groupNum, msg)
         await session.send(output)
 
