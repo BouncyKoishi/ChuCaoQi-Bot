@@ -76,7 +76,7 @@ async def picSearchNLP(session: NLPSession):
         return
 
     replyMessageCtx = await session.bot.get_msg(message_id=replyId)
-    print(replyId, replyMessageCtx)
+    # print(replyId, replyMessageCtx)
 
     if replyId in picSearchResults:
         resultDict = picSearchResults[replyId]

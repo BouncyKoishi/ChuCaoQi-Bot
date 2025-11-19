@@ -2,9 +2,11 @@ import re
 import httpx
 import base64
 import nonebot
-from nonebot import Message
+import traceback
+from nonebot import Message, CQHttpError
 from nonebot import MessageSegment as ms
 
+groupMemberInfoCache = {}
 
 def rd3(floatNumber: float):
     return round(floatNumber, 3)
@@ -62,6 +64,45 @@ async def getUserAndGroupMsg(userId, groupId):
         print(f'Error: cqHttpApi not available')
 
     return userMsg, groupMsg
+
+
+# 综合bot权限和被禁言者权限判断禁言能否被执行
+async def checkBanAvailable(targetId, groupId):
+    bot = nonebot.get_bot()
+    botBaseInfo = await bot.get_login_info()
+    if botBaseInfo['user_id'] == targetId:
+        return False
+    try:
+        botInfo = await getGroupMemberInfoFromCache(bot, groupId, botBaseInfo['user_id'])
+        targetInfo = await getGroupMemberInfoFromCache(bot, groupId, targetId)
+        if not botInfo or not targetInfo:
+            return False
+        if botInfo['role'] == 'member':
+            return False
+        if targetInfo['role'] == 'owner':
+            return False
+        if botInfo['role'] == 'admin' and targetInfo['role'] == 'admin':
+            return False
+        return True
+    except CQHttpError as e:
+        traceback.print_exc()
+        print(f'Error: cqHttpApi(GetGroupMemberInfo) not available')
+        return False
+
+
+async def getGroupMemberInfoFromCache(bot, groupId, userId):
+    global groupMemberInfoCache
+    cacheKey = f'{groupId}_{userId}'
+    if cacheKey in groupMemberInfoCache:
+        return groupMemberInfoCache[cacheKey]
+    try:
+        memberInfo = await bot.get_group_member_info(group_id=groupId, user_id=userId)
+        groupMemberInfoCache[cacheKey] = memberInfo
+        return memberInfo
+    except CQHttpError as e:
+        traceback.print_exc()
+        print(f'Error: cqHttpApi(GetGroupMemberInfo) not available')
+        return None
 
 
 def nameDetailSplit(strippedText):
