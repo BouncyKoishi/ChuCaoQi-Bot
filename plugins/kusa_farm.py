@@ -254,6 +254,8 @@ async def _(session: CommandSession):
             st += '当前没有生草。\n'
     st += f'你选择的默认草种为：{field.defaultKusaType}\n' if field.defaultKusaType else '草'
     st += f'当前的土壤承载力为：{field.soilCapacity}\n'
+    spareCapacity = await itemDB.getItemAmount(userId, '后备承载力')
+    st += f'可用后备承载力为：{spareCapacity}\n' if spareCapacity else ''
 
     isDetailShown = await baseDB.getFlagValue(field.qq, '生草预估详情展示')
     if isDetailShown:
@@ -292,6 +294,30 @@ async def _(session: CommandSession):
     await fieldDB.updateDefaultKusaType(userId, kusaType)
     output = f'你的生草默认草种已经设置为{kusaType}' if kusaType else '你的生草默认草种已经设置为普通草'
     await session.send(output)
+
+
+@on_command(name='承载力补充', aliases='补充承载力', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    strippedArg = session.current_arg_text.strip()
+    if strippedArg and not strippedArg.isdigit():
+        await session.send('请输入正确的补充数量^ ^')
+        return
+
+    field = await fieldDB.getKusaField(userId)
+    if field.soilCapacity >= 25:
+        await session.send('当前承载力是满的，无需补充^ ^')
+        return
+    toFullCapacity = 25 - field.soilCapacity
+    needCapacity = min(toFullCapacity, int(strippedArg)) if strippedArg else toFullCapacity
+
+    spareCapacity = await itemDB.getItemAmount(userId, '后备承载力')
+    if spareCapacity < needCapacity:
+        await session.send(f'你的后备承载力不足，当前仅有{spareCapacity}点后备承载力^ ^')
+        return
+    await itemDB.changeItemAmount(userId, '后备承载力', -needCapacity)
+    await fieldDB.kusaSoilRecover(userId, needCapacity)
+    await session.send(f'承载力补充成功，当前承载力提升了{needCapacity}点^ ^')
 
 
 async def getKusaType(userId, strippedArg, defaultType=None):
@@ -400,11 +426,30 @@ async def kusaHarvest(field):
 
 @nonebot.scheduler.scheduled_job('interval', minutes=90, misfire_grace_time=None)
 async def soilCapacityIncreaseBase():
-    badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
+    allFields = await fieldDB.getAllKusaField()
+    badSoilFields = [field for field in allFields if field.soilCapacity < 25]
     for field in badSoilFields:
         recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
         if recoverToFull:
             await sendFieldRecoverInfo(field.qq)
+
+    fullSoilFields = [field for field in allFields if field.soilCapacity >= 25]
+    overfillTechUsers = await itemDB.getUserIdListByItem('肥力贮存技术I')
+    for field in fullSoilFields:
+        if field.qq not in overfillTechUsers:
+            continue
+        spareCapLimit = await itemDB.getItemAmount(field.qq, '肥力贮存仓')
+        nowSpareCap = await itemDB.getItemAmount(field.qq, '后备承载力')
+        if nowSpareCap >= spareCapLimit:
+            continue
+        nowSpareCapUnit = await itemDB.getItemAmount(field.qq, '后备承载力单元')
+        overfillTechLevel = await itemDB.getTechLevel(field.qq, '肥力贮存技术')
+        spareCapUnitUpdateAmount = 5 - overfillTechLevel
+        if spareCapUnitUpdateAmount <= nowSpareCapUnit + 1:
+            await itemDB.changeItemAmount(field.qq, '后备承载力', 1)
+            await itemDB.changeItemAmount(field.qq, '后备承载力单元', 1 - spareCapUnitUpdateAmount)
+        else:
+            await itemDB.changeItemAmount(field.qq, '后备承载力单元', 1)
 
 
 @nonebot.scheduler.scheduled_job('cron', minute=33, second=33, misfire_grace_time=None)

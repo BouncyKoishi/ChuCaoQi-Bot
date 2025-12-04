@@ -62,10 +62,11 @@ async def kusaStopGrowing(field: KusaField, force=False):
     await field.save()
 
 
-async def kusaSoilRecover(qqNum):
+async def kusaSoilRecover(qqNum, recoveryAmount=1):
     kusaField = await getKusaField(qqNum)
     if kusaField:
-        kusaField.soilCapacity += 1
+        kusaField.soilCapacity += recoveryAmount
+        kusaField.soilCapacity = min(kusaField.soilCapacity, 25)
         await kusaField.save()
         if kusaField.soilCapacity == 25:
             return True
