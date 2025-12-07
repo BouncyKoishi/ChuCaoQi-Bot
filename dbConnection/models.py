@@ -20,6 +20,7 @@ class KusaField(Model):
     kusaFinishTs = IntField(default=None, null=True)
     isUsingKela = BooleanField(default=False)
     isPrescient = BooleanField(default=False)
+    isMirroring = BooleanField(default=False)
     overloadOnHarvest = BooleanField(default=False)
     biogasEffect = FloatField(default=1)
     soilCapacity = IntField(default=25)

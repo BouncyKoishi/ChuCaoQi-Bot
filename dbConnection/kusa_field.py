@@ -16,12 +16,14 @@ async def getAllKusaField(onlyFinished=False, onlySoilNotBest=False):
     return await KusaField.all()
 
 
-async def kusaStartGrowing(qqNum, kusaFinishTs, usingKela, biogasEffect, kusaType, plantCosting, weedCosting, isPrescient, overloadOnHarvest):
+async def kusaStartGrowing(qqNum, kusaFinishTs, usingKela, biogasEffect, kusaType, plantCosting, weedCosting,
+                           isPrescient, overloadOnHarvest, isMirroring):
     kusaField = await getKusaField(qqNum)
     if kusaField:
         kusaField.kusaFinishTs = kusaFinishTs
         kusaField.isUsingKela = usingKela
         kusaField.isPrescient = isPrescient
+        kusaField.isMirroring = isMirroring
         kusaField.biogasEffect = biogasEffect
         kusaField.kusaType = kusaType
         kusaField.weedCosting = weedCosting
@@ -53,6 +55,7 @@ async def kusaStopGrowing(field: KusaField, force=False):
     field.kusaFinishTs = None
     field.isUsingKela = False
     field.isPrescient = False
+    field.isMirroring = False
     field.overloadOnHarvest = False
     field.biogasEffect = 1.0
     field.kusaResult = 0
