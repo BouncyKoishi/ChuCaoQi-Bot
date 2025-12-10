@@ -120,6 +120,15 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
         if systemRandom.random() < divinePercent:
             kusaType = '神灵草'
 
+    # 镜中草相关处理
+    isMirroring = False
+    mirrorPlugin = await itemDB.getItemStorageInfo(userId, '镜中草基因模块')
+    if mirrorPlugin and mirrorPlugin.allowUse and kusaType != '不灵草':
+        spareCapacity = await itemDB.getItemAmount(userId, '后备承载力')
+        if spareCapacity > 0 and systemRandom.random() < 0.5:
+            await itemDB.changeItemAmount(userId, '后备承载力', -1)
+            isMirroring = True
+
     # 灵草相关处理
     if kusaType == "半灵草":
         kusaType = "灵草" if systemRandom.random() < 0.5 else "草"
@@ -168,7 +177,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
 
     kusaFinishTs = datetime.timestamp(datetime.now() + timedelta(minutes=growTime))
     await fieldDB.kusaStartGrowing(userId, kusaFinishTs, isUsingKela, bioGasEffect, kusaType,
-                                   plantCosting, weedCosting, isPrescient, overloadOnHarvest)
+                                   plantCosting, weedCosting, isPrescient, overloadOnHarvest, isMirroring)
 
     # 生草产量计算
     newField = await fieldDB.getKusaField(userId)
@@ -196,6 +205,7 @@ async def plantKusa(session: CommandSession, overloadOnHarvest: bool = False):
     else:
         minPredict, maxPredict = await getKusaPredict(newField)
         outputStr += f"预估生草量：{minPredict} ~ {maxPredict}"
+
     outputStr += f'\n当前承载力低！目前承载力：{newField.soilCapacity}' if newField.soilCapacity <= 12 else ""
     await session.send(outputStr)
 
@@ -254,6 +264,8 @@ async def _(session: CommandSession):
             st += '当前没有生草。\n'
     st += f'你选择的默认草种为：{field.defaultKusaType}\n' if field.defaultKusaType else '草'
     st += f'当前的土壤承载力为：{field.soilCapacity}\n'
+    spareCapacity = await itemDB.getItemAmount(userId, '后备承载力')
+    st += f'可用后备承载力为：{spareCapacity}\n' if spareCapacity else ''
 
     isDetailShown = await baseDB.getFlagValue(field.qq, '生草预估详情展示')
     if isDetailShown:
@@ -274,6 +286,7 @@ async def _(session: CommandSession):
         st += f'施用金坷垃 * 2\n' if field.isUsingKela else ''
         st += f'沼气影响 * {field.biogasEffect}\n' if field.biogasEffect != 1 else ''
         st += f'已掌握双生法术 * 2\n' if doubleMagic else ''
+        st += f'镜映 * 2\n' if field.isMirroring else ''
         st += f'生草科技影响 * {kusaTechEffect}\n' if kusaTechEffect != 1 else ''
         st += f'当前草种影响 * {kusaTypeEffect}\n' if kusaTypeEffect != 1 else ''
         st += f'灵性保留 * {spiritualEffect}\n' if spiritualSign else ''
@@ -292,6 +305,30 @@ async def _(session: CommandSession):
     await fieldDB.updateDefaultKusaType(userId, kusaType)
     output = f'你的生草默认草种已经设置为{kusaType}' if kusaType else '你的生草默认草种已经设置为普通草'
     await session.send(output)
+
+
+@on_command(name='承载力补充', aliases='补充承载力', only_to_me=False)
+async def _(session: CommandSession):
+    userId = session.ctx['user_id']
+    strippedArg = session.current_arg_text.strip()
+    if strippedArg and not strippedArg.isdigit():
+        await session.send('请输入正确的补充数量^ ^')
+        return
+
+    field = await fieldDB.getKusaField(userId)
+    if field.soilCapacity >= 25:
+        await session.send('当前承载力是满的，无需补充^ ^')
+        return
+    toFullCapacity = 25 - field.soilCapacity
+    needCapacity = min(toFullCapacity, int(strippedArg)) if strippedArg else toFullCapacity
+
+    spareCapacity = await itemDB.getItemAmount(userId, '后备承载力')
+    if spareCapacity < needCapacity:
+        await session.send(f'你的后备承载力不足，当前仅有{spareCapacity}点后备承载力^ ^')
+        return
+    await itemDB.changeItemAmount(userId, '后备承载力', -needCapacity)
+    await fieldDB.kusaSoilRecover(userId, needCapacity)
+    await session.send(f'承载力补充成功，当前承载力提升了{needCapacity}点^ ^')
 
 
 async def getKusaType(userId, strippedArg, defaultType=None):
@@ -400,11 +437,30 @@ async def kusaHarvest(field):
 
 @nonebot.scheduler.scheduled_job('interval', minutes=90, misfire_grace_time=None)
 async def soilCapacityIncreaseBase():
-    badSoilFields = await fieldDB.getAllKusaField(onlySoilNotBest=True)
+    allFields = await fieldDB.getAllKusaField()
+    badSoilFields = [field for field in allFields if field.soilCapacity < 25]
     for field in badSoilFields:
         recoverToFull = await fieldDB.kusaSoilRecover(field.qq)
         if recoverToFull:
             await sendFieldRecoverInfo(field.qq)
+
+    fullSoilFields = [field for field in allFields if field.soilCapacity >= 25]
+    overfillTechUsers = await itemDB.getUserIdListByItem('肥力贮存技术I')
+    for field in fullSoilFields:
+        if field.qq not in overfillTechUsers:
+            continue
+        spareCapLimit = await itemDB.getItemAmount(field.qq, '肥力贮存仓')
+        nowSpareCap = await itemDB.getItemAmount(field.qq, '后备承载力')
+        if nowSpareCap >= spareCapLimit:
+            continue
+        nowSpareCapUnit = await itemDB.getItemAmount(field.qq, '后备承载力单元')
+        overfillTechLevel = await itemDB.getTechLevel(field.qq, '肥力贮存技术')
+        spareCapUnitUpdateAmount = 5 - overfillTechLevel
+        if spareCapUnitUpdateAmount <= nowSpareCapUnit + 1:
+            await itemDB.changeItemAmount(field.qq, '后备承载力', 1)
+            await itemDB.changeItemAmount(field.qq, '后备承载力单元', 1 - spareCapUnitUpdateAmount)
+        else:
+            await itemDB.changeItemAmount(field.qq, '后备承载力单元', 1)
 
 
 @nonebot.scheduler.scheduled_job('cron', minute=33, second=33, misfire_grace_time=None)
@@ -449,6 +505,7 @@ async def getCreateKusaNum(field, baseKusa):
     kusaNum += 0.5 * (2 ** (user.vipLevel - 1)) if user.vipLevel > 0 else 0
     kusaNum *= kusaTypeEffectMap[field.kusaType] if field.kusaType in kusaTypeEffectMap else 1
     kusaNum *= 2 if field.isUsingKela else 1
+    kusaNum *= 2 if field.isMirroring else 1
     kusaNum *= 2 if doubleMagic else 1
     kusaNum *= 2 if spiritualSign else 1
     kusaNum *= field.biogasEffect
@@ -482,6 +539,7 @@ async def getCreateAdvKusaNum(field):
     advKusaNum = 1 if mustGrowAdv and advKusaNum == 0 else advKusaNum
     advKusaNum *= advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
     advKusaNum *= 2 if spiritualSign and field.kusaType != '不灵草' else 1
+    advKusaNum *= 2 if field.isMirroring else 1
     advKusaNum *= fallowEffect
     advKusaNum = math.floor(advKusaNum)
 
@@ -507,11 +565,12 @@ async def goodNewsReport(field):
     # 生草质量喜报：基础草精大于等于X
     if qualityLevel >= 3:
         advKusaEffect = advKusaTypeEffectMap[field.kusaType] if field.kusaType in advKusaTypeEffectMap else 1
+        mirroringEffect = 2 if field.isMirroring else 1
         spiritualSign = await itemDB.getItemAmount(field.qq, '灵性标记')
         spiritualEffect = 2 if spiritualSign else 1
         fallowSign = await itemDB.getItemAmount(field.qq, '休耕标记')
         fallowEffect = [1, 2, 3][fallowSign] if 0 < fallowSign < 3 else 1
-        baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect / fallowEffect
+        baseAdvKusa = field.advKusaResult / advKusaEffect / spiritualEffect / fallowEffect / mirroringEffect
         advKusaThresholds = math.log(1 / 200, advKusaProbabilityDict[qualityLevel])  # 质量3为8，质量4为12
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')

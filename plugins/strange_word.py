@@ -100,8 +100,7 @@ async def _(session: CommandSession):
 
 
 def getSentenceList(groupNum):
-    # return sentenceListDict[groupNum] if groupNum in sentenceListDict else sentenceListDict[defaultGroupNum]
-    return sentenceListDict[defaultGroupNum]
+    return sentenceListDict[groupNum] if groupNum in sentenceListDict else sentenceListDict[defaultGroupNum]
 
 
 def getRandomSentence(groupNum):
@@ -110,8 +109,7 @@ def getRandomSentence(groupNum):
 
 
 def getModelSentenceList(groupNum):
-    # return modelSentenceListDict[groupNum] if groupNum in modelSentenceListDict else modelSentenceListDict[defaultGroupNum]
-    return modelSentenceListDict[defaultGroupNum]
+    return modelSentenceListDict[groupNum] if groupNum in modelSentenceListDict else modelSentenceListDict[defaultGroupNum]
 
 
 async def getSentenceAdvance(groupNum, inputStr: str):
