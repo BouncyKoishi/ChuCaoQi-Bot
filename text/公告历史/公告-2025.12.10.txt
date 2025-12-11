@@ -1,0 +1,16 @@
+公告（2025/12/10）
+
+本期更新内容
+1.生草系统新增了后备承载力机制及相关物品（肥力贮存技术系列科技，肥力贮存仓，镜中草基因模块）。
+2.现在支持对个别群聊启用独立的怪话记录。
+
+近期其它更新内容
+1.新增奶龙检测指令#nailong，为nsfw检测和奶龙检测新增了黑暗决斗机制。
+2.添加了一批图库（土豆-rolltd, 猫猫虫-rollmmc, 俊达萌表情包-rollmd, 俊达萌美图-rollpuremd）
+
+生草系统/除草器主群：738721109
+生草系统简明攻略：https://www.bilibili.com/opus/1029642903728685075
+除草器指令文档(杂项)：https://rinkastone.com/2024/05/13/archives/409
+除草器指令文档(抽奖)：https://rinkastone.com/2024/11/27/archives/429
+除草器代码仓库：https://github.com/BouncyKoishi/ChuCaoQi-Bot
+生草系统完整攻略见主群群文件，非常感谢作者ScarMoon！
