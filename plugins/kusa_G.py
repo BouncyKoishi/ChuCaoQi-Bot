@@ -418,7 +418,7 @@ async def GChangeRunner():
 
 
 def getNewG(oldG: float, changeRange: float):
-    rank = changeRange * (systemRandom.random() - 0.5)
+    rank = changeRange * (systemRandom.random() - 0.498)
     newG = rd3(oldG * (1 + rank))
     time.sleep(0.001)
     return newG
