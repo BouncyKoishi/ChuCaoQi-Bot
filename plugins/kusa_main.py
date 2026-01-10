@@ -203,8 +203,11 @@ async def flag_list(session: CommandSession):
 @on_command(name='配置', only_to_me=False)
 async def flag_set(session: CommandSession):
     userId = session.ctx['user_id']
-    stripped_arg = session.current_arg_text.strip()
-    flagName, flagType = stripped_arg.split()
+    strippedArg = session.current_arg_text.strip()
+    if not strippedArg:
+        helpStr = '使用方法：\n!配置 [配置名] [on/off]\n使用 !配置列表 查看当前配置情况'
+        await session.send(helpStr)
+    flagName, flagType = strippedArg.split()
     if flagType.lower() != 'on' and flagType.lower() != 'off':
         return
     flagValue = 1 if flagType.lower() == 'on' else 0
