@@ -104,8 +104,11 @@ async def chatContinueGPT(session: CommandSession):
 async def chatUndo(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
         return
-    await undo(session.event.user_id)
-    await session.send("已撤回一次对话")
+    lastMessage = await undo(session.event.user_id)
+    if lastMessage is None:
+        await session.send("没有可撤回的对话。")
+        return
+    await session.send("已撤回最后一轮对话。")
 
 
 @on_command(name='chatr', only_to_me=False)
@@ -115,8 +118,11 @@ async def chatRetry(session: CommandSession):
     userId = session.event.user_id
     content = await getChatContent(session)
     lastMessage = await undo(userId)
+    if lastMessage is None:
+        await session.send("没有可撤回的对话，无法重新生成。")
+        return
     inputContent = content if session.current_arg_text else lastMessage['content']
-    await session.send("已撤回一次对话，重新生成回复中……")
+    await session.send("已撤回最后一轮对话，重新生成回复中……")
     reply = await chat(userId, inputContent, isNewConversation=False)
     await session.send(reply)
 
@@ -130,8 +136,11 @@ async def chatRetryGPT(session: CommandSession):
     userId = session.event.user_id
     content = await getChatContent(session)
     lastMessage = await undo(userId)
+    if lastMessage is None:
+        await session.send("没有可撤回的对话，无法重新生成。")
+        return
     inputContent = content if session.current_arg_text else lastMessage['content']
-    await session.send("已撤回一次对话，重新生成回复中……")
+    await session.send("已撤回最后一轮对话，重新生成回复中……")
     reply = await chat(userId, inputContent, isNewConversation=False, useGPT5=True)
     await session.send(reply)
 
@@ -288,19 +297,72 @@ async def changeModel(session: CommandSession):
     await session.send(output)
 
 
-@on_command(name='save_conversation', only_to_me=False)
+@on_command(name='chat_save', aliases='save_conversation', only_to_me=False)
 async def _(session: CommandSession):
-    if not await isSuperAdmin(session.event.user_id):
+    if not await permissionCheck(session, 'chat'):
         return
     userId = session.event.user_id
-    userInfo = await db.getChatUser(userId)
-    history = await readOldConversation(userId)
-    timeStr = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
-    fileName = f"{userId}_{timeStr}_{userInfo.chosenModel}.json"
-    savePath = HISTORY_PATH + fileName
-    with open(savePath, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=4)
-    await session.send(f"已保存当前对话记录至{fileName}")
+    history = await readDefaultConversation(userId)
+    fileName = await session.aget(prompt="请输入保存的对话记录文件名（输入空格则自动生成）：", arg_filters=[str.strip])
+    fileName = re.sub(r'[\\/:*?"<>|]', '', fileName)
+    fileName = f"{time.strftime('%Y-%m-%d-%H-%M', time.localtime())}" if fileName == "" else fileName
+    saveConversation(userId, fileName, history)
+    await session.send(f"已保存当前对话记录为 {fileName}")
+
+
+@on_command(name='chat_load', aliases='load_conversation', only_to_me=False)
+async def _(session: CommandSession):
+    if not await permissionCheck(session, 'chat'):
+        return
+    userId = session.event.user_id
+
+    loadableFiles = []  # 存储(文件名, 修改时间)的元组列表
+    for file in os.listdir(HISTORY_PATH):
+        if file.startswith(f"{userId}_") and file.endswith(".json"):
+            file_path = os.path.join(HISTORY_PATH, file)
+            display_name = file[len(f"{userId}_"):-5]  # 去掉前缀和后缀的文件名
+            mtime = os.path.getmtime(file_path) # 获取文件修改时间
+            loadableFiles.append((display_name, mtime))
+    if not loadableFiles:
+        await session.send("没有可加载的对话记录。")
+        return
+    loadableFiles.sort(key=lambda x: x[1], reverse=True)  # 按修改时间倒序排序（最新的在前）
+
+    loadableFileNames = [file[0] for file in loadableFiles]
+    selectListStr = "请选择要加载的对话记录(输入序号)：\n"
+    for idx, fileName in enumerate(loadableFileNames):
+        selectListStr += f"{idx + 1}. {fileName}\n"
+        if idx >= 9:
+            break   # 最多显示10个选项
+
+    replyMsg = await session.aget(prompt=selectListStr, arg_filters=[str.strip])
+    if not replyMsg.isdigit() or not (1 <= int(replyMsg) <= len(loadableFileNames)):
+        await session.send("无效的选择，取消加载。")
+        return
+    # 先加载选中的记录，把Default覆盖掉，再把之前的Default对话保存为备份，
+    history = await readDefaultConversation(userId)
+    selectedFileName = loadableFileNames[int(replyMsg) - 1]
+    loadedHistory = readConversation(userId, selectedFileName)
+    saveDefaultConversation(userId, loadedHistory)
+    saveConversation(userId, '[上个对话自动存档]', history)
+
+    latestCycleStr = ""
+    if len(loadedHistory) >= 2:
+        latestCycle = loadedHistory[-2:]
+        for message in latestCycle:
+            role = "User" if message['role'] == 'user' else "Bot"
+            contentText = ""
+            for contentPart in message['content']:
+                if isinstance(contentPart, str):
+                    contentText += contentPart
+                elif isinstance(contentPart, dict) and contentPart.get('type') == 'text':
+                    contentText += contentPart.get('text', '')
+                elif isinstance(contentPart, dict) and contentPart.get('type') == 'image_url':
+                    contentText += "[图片]"
+            latestCycleStr += f"{role}: {contentText}\n"
+    output = f"已加载对话记录 {selectedFileName}。\n"
+    output += "以下是最近一轮对话内容预览：\n" + latestCycleStr if latestCycleStr else "该对话记录暂无内容。"
+    await session.send(output)
 
 
 @on_command(name='chat_help', only_to_me=False)
@@ -313,7 +375,8 @@ async def chatHelp(session: CommandSession):
 
     output = "chat_user: 查看chat权限等相关信息\nchat: 开始一个新对话"
     output += "\nchatc: 继续上一轮对话\nchatb: 撤回上一轮对话\nchatr: 撤回上一轮对话并重新生成"
-    output += "\nsave_conversation: 手动保存当前对话记录"
+    output += "\nchat_save: 手动保存当前对话记录"
+    output += "\nchat_load: 加载已保存的对话记录文件"
     if chatUser.allowRole:
         output += "\nchatn: 无视当前角色设定，开始一个新对话"
         output += ("\nrole_change: 切换当前角色\nrole_detail: 查看角色描述信息\n"
@@ -344,8 +407,7 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
     chatUser = await db.getChatUser(userId)
     model = "gpt-5" if useGPT5 else chatUser.chosenModel
     roleId = 0 if useDefaultRole else chatUser.chosenRoleId
-    role = await db.getChatRoleById(roleId)
-    history = await getNewConversation(roleId) if isNewConversation else await readOldConversation(userId)
+    history = await getNewConversation(userId, roleId) if isNewConversation else await readDefaultConversation(userId)
     history.append({"role": "user", "content": content})
 
     try:
@@ -353,8 +415,9 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         for word in sensitiveWords:
             reply = reply.replace(word, '')
         await db.addTokenUsage(chatUser, model, tokenUsage)
-        saveConversation(userId, history)
+        saveDefaultConversation(userId, history)
 
+        role = await db.getChatRoleById(roleId)
         roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
         modelSign = "(GPT-5)" if model == "gpt-5" else ("(deepseek)" if "deepseek" in model else "")
         tokenSign = f"\nTokens{modelSign}: {tokenUsage}"
@@ -405,30 +468,48 @@ def getResponse(model, history):
 
 
 async def undo(userId):
-    history = await readOldConversation(userId)
+    history = await readDefaultConversation(userId)
+    if len(history) < 2:
+        return None
     history.pop()
     latestWord = history.pop()
-    saveConversation(userId, history)
+    saveDefaultConversation(userId, history)
     return latestWord
 
 
-async def getNewConversation(roleId):
+async def getNewConversation(userId, roleId):
+    history = await readDefaultConversation(userId, forceToGetResult=False)
+    if history and len(history) > 0:
+        saveConversation(userId, '[上个对话自动存档]', history)
     role = await db.getChatRoleById(roleId)
     return [{"role": "system", "content": [{"type": "text", "text": role.detail}]}] if role.detail else []
 
 
-async def readOldConversation(userId):
-    historyPath = HISTORY_PATH + str(userId) + ".json"
-    if not os.path.exists(historyPath):
+async def readDefaultConversation(userId, forceToGetResult=True):
+    result = readConversation(userId, None)
+    if result is None and forceToGetResult:
         chatUser = await db.getChatUser(userId)
-        return await getNewConversation(chatUser)
-    with open(historyPath, encoding="utf-8") as f:
+        return await getNewConversation(userId, chatUser.chosenRoleId)
+    return result
+
+
+def saveDefaultConversation(userId, history):
+    saveConversation(userId, None, history)
+
+
+def readConversation(userId, fileName):
+    fullFileName = f"{userId}_{fileName}" if fileName else f"{userId}"
+    savePath = HISTORY_PATH + fullFileName + ".json"
+    if not os.path.exists(savePath):
+        return None
+    with open(savePath, encoding="utf-8") as f:
         return json.load(f)
 
 
-def saveConversation(userId, history):
-    historyPath = HISTORY_PATH + str(userId) + ".json"
-    with open(historyPath, "w", encoding="utf-8") as f:
+def saveConversation(userId, fileName, history):
+    fullFileName = f"{userId}_{fileName}" if fileName else f"{userId}"
+    savePath = HISTORY_PATH + fullFileName + ".json"
+    with open(savePath, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=4)
 
 
