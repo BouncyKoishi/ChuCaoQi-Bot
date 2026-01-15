@@ -302,12 +302,16 @@ async def _(session: CommandSession):
     if not await permissionCheck(session, 'chat'):
         return
     userId = session.event.user_id
+    strippedArg = session.current_arg_text.strip()
     history = await readDefaultConversation(userId)
-    fileName = await session.aget(prompt="请输入保存的对话记录文件名（输入空格则自动生成）：", arg_filters=[str.strip])
-    fileName = re.sub(r'[\\/:*?"<>|]', '', fileName)
-    fileName = f"{time.strftime('%Y-%m-%d-%H-%M', time.localtime())}" if fileName == "" else fileName
+    fileName = re.sub(r'[\\/:*?"<>|]', '', strippedArg)
+    if fileName == "":
+        timeStr = time.strftime('%Y%m%d%H%M', time.localtime())
+        systemPrompt = history[0] if history and len(history) > 0 else None
+        roleName = systemPrompt.get('botRoleName', '') if systemPrompt else ''
+        fileName = f"{roleName}_{timeStr}" if roleName else timeStr
     saveConversation(userId, fileName, history)
-    await session.send(f"已保存当前对话记录为 {fileName}")
+    await session.send(f"已保存当前对话记录，记录名称为 {fileName} ")
 
 
 @on_command(name='chat_load', aliases='load_conversation', only_to_me=False)
@@ -360,8 +364,8 @@ async def _(session: CommandSession):
                 elif isinstance(contentPart, dict) and contentPart.get('type') == 'image_url':
                     contentText += "[图片]"
             latestCycleStr += f"{role}: {contentText}\n"
-    output = f"已加载对话记录 {selectedFileName}。\n"
-    output += "以下是最近一轮对话内容预览：\n" + latestCycleStr if latestCycleStr else "该对话记录暂无内容。"
+    output = f"已加载对话记录 {selectedFileName}。"
+    output += "以下是该对话最后一轮对话内容：\n" + latestCycleStr if latestCycleStr else "该对话暂无内容。"
     await session.send(output)
 
 
@@ -482,7 +486,8 @@ async def getNewConversation(userId, roleId):
     if history and len(history) > 0:
         saveConversation(userId, '[上个对话自动存档]', history)
     role = await db.getChatRoleById(roleId)
-    return [{"role": "system", "content": [{"type": "text", "text": role.detail}]}] if role.detail else []
+    return [{"role": "system", "botRoleName": role.name, "content": [{"type": "text", "text": role.detail}]}] \
+        if role.detail else []
 
 
 async def readDefaultConversation(userId, forceToGetResult=True):
