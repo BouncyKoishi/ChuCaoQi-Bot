@@ -9,10 +9,10 @@ import random
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
-from utils import convertNumStrToInt, intToFormattedStr
+from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession
 from nonebot import MessageSegment as ms
-from datetime import datetime, timedelta
+from datetime import datetime
 from kusa_base import config, isUserExist, sendPrivateMsg, sendGroupMsg
 from .kusa_statistics import getKusaAdvRank
 
@@ -70,8 +70,8 @@ async def warehouse(session: CommandSession):
 
 async def getWarehouseInfoStr(user):
     userId = user.qq
-    output = f'当前拥有草: {intToFormattedStr(user.kusa)}\n'
-    output += (f'当前拥有草之精华: {intToFormattedStr(user.advKusa)}\n' if user.advKusa else '')
+    output = f'当前拥有草: {user.kusa:,}\n'
+    output += (f'当前拥有草之精华: {user.advKusa:,}\n' if user.advKusa else '')
 
     output += f'\n当前财产：\n'
     itemsWorth = await itemDB.getItemsByType("财产")
