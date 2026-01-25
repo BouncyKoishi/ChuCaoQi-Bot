@@ -307,7 +307,7 @@ async def _(session: CommandSession):
     fileName = re.sub(r'[\\/:*?"<>|]', '', strippedArg)
     if fileName == "":
         timeStr = time.strftime('%Y%m%d%H%M', time.localtime())
-        systemPrompt = history[0] if history and len(history) > 0 else None
+        systemPrompt = history[0] if history and len(history) > 0 and history[0]['role'] == 'system' else None
         roleName = systemPrompt.get('botRoleName', '') if systemPrompt else ''
         fileName = f"{roleName}_{timeStr}" if roleName else timeStr
     saveConversation(userId, fileName, history)
@@ -421,8 +421,13 @@ async def chat(userId, content, isNewConversation: bool, useDefaultRole=False, u
         await db.addTokenUsage(chatUser, model, tokenUsage)
         saveDefaultConversation(userId, history)
 
-        role = await db.getChatRoleById(roleId)
-        roleSign = f"\nRole: {role.name}" if role.id != 0 and isNewConversation else ""
+        if isNewConversation:
+            role = await db.getChatRoleById(roleId)
+            roleName = role.name if roleId != 0 else ""
+        else:
+            systemPrompt = history[0] if history and len(history) > 0 and history[0]['role'] == 'system' else None
+            roleName = systemPrompt.get('botRoleName', '') if systemPrompt else ""
+        roleSign = f"\nRole: {roleName}" if roleName else ""
         modelSign = "(GPT-5)" if model == "gpt-5" else ("(deepseek)" if "deepseek" in model else "")
         tokenSign = f"\nTokens{modelSign}: {tokenUsage}"
         return reply + "\n" + roleSign + tokenSign
@@ -486,8 +491,9 @@ async def getNewConversation(userId, roleId):
     if history and len(history) > 0:
         saveConversation(userId, '[上个对话自动存档]', history)
     role = await db.getChatRoleById(roleId)
-    return [{"role": "system", "botRoleName": role.name, "content": [{"type": "text", "text": role.detail}]}] \
-        if role.detail else []
+    if roleId == 0:
+        return [{"role": "system", "content": [{"type": "text", "text": role.detail}]}]
+    return [{"role": "system", "botRoleName": role.name, "content": [{"type": "text", "text": role.detail}]}]
 
 
 async def readDefaultConversation(userId, forceToGetResult=True):
