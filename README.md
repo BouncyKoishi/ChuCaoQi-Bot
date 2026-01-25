@@ -1,6 +1,6 @@
 # 除草器Bot
 
-[![Python](https://img.shields.io/badge/python-3.7%2B-blue)](https://www.python.org/downloads/release/python-370/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/release/python-370/)
 [![NoneBot](https://img.shields.io/badge/nonebot-1.9.1-blue)](https://v1.nonebot.dev/)
 
 名为"除草器"的QQBot，采用Python编写，基于[NoneBot1](https://v1.nonebot.dev/)构建。
@@ -12,12 +12,12 @@
 ## 功能列表
 
 - **生草系统**：一个使用“草”作为货币的模拟经营&挂机游戏。具体内容在主群有相关文件说明。
-- **对话模块**：与语言大模型进行对话的封装模块，支持自定义角色配置。当前使用Deepseek和ChatGPT Api接口。
+- **对话模块**：与大模型进行对话的封装模块，支持自定义角色配置。当前主要使用deepseek api。
 - **抽奖模块**：由群友通过指令自行添加奖品，并提供抽奖功能的模块。
 - **图库模块**：由群友上传图片到各个图库，并支持随机获取图片的模块。
 - **随机化模块**：提供各种模式的roll点，roll群友，选择，判断等指令。
+- **说点怪话**：基于用户发言，在过往群聊信息中随机/智能挑选一句话发送。
 - **算卦模块**：提供基于铜钱起卦法的在线算卦，解卦功能。
-- **说点怪话**：截取过往群聊信息中的随机片段，随机挑选一句话发送。
 - **台风查询**：查询当前正在活跃的台风信息（目前仅限西太洋区）。
 - **雷达回波**：查询中国境内部分雷达站的最新雷达回波图，用于判断降雨等情况。
 - **图片搜索**：通过多个搜图引擎搜索图片，是[cpuopt/nonebot_plugin_imgexploration](https://github.com/cpuopt/nonebot_plugin_imgexploration)的nonebot1适配改造。
