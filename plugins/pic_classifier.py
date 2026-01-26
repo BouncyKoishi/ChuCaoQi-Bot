@@ -1,33 +1,39 @@
 import random
 import httpx
 import aiohttp
-import torch
 import time
 from io import BytesIO
 from PIL import Image
-from torch import nn
-from torchsampler.imbalanced import torchvision
-from torchvision import transforms
 from nonebot import on_natural_language, NLPSession
 from kusa_base import config
 from utils import extractImgUrls, checkBanAvailable
 
 nailongModel = None
 modelPath = './model_best.pth'
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-img_transform = transforms.Compose([
-    transforms.Resize([224, 224]),
-    transforms.ToTensor(),
-])
-try:
-    nailongModel = torchvision.models.resnet50()
-    nailongModel.fc = torch.nn.Linear(nailongModel.fc.in_features, 2)
-    nailongModel.load_state_dict(torch.load(modelPath, map_location=device, weights_only=True)['model'])
-    nailongModel = nailongModel.to(device)
-    nailongModel.eval()
-    print("奶龙检测模型加载成功")
-except Exception as e:
-    print(f"奶龙检测模型加载失败: {e}")
+RUN_NAILONG_MODEL_FLAG = (config['env'] == 'prod')  # 测试环境不加载奶龙模型
+
+if RUN_NAILONG_MODEL_FLAG:
+    import torch
+    from torch import nn
+    from torchsampler.imbalanced import torchvision
+    from torchvision import transforms
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    img_transform = transforms.Compose([
+        transforms.Resize([224, 224]),
+        transforms.ToTensor(),
+    ])
+    try:
+        nailongModel = torchvision.models.resnet50()
+        nailongModel.fc = torch.nn.Linear(nailongModel.fc.in_features, 2)
+        nailongModel.load_state_dict(torch.load(modelPath, map_location=device, weights_only=True)['model'])
+        nailongModel = nailongModel.to(device)
+        nailongModel.eval()
+        print("奶龙检测模型加载成功")
+    except Exception as e:
+        print(f"奶龙检测模型加载失败: {e}")
+else:
+    print("当前环境不加载奶龙检测模型")
 
 confirmations = {}
 lastUsedTime = {}
