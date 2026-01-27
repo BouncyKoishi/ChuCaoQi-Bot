@@ -4,6 +4,7 @@ import os
 import re
 import nonebot
 import asyncio
+from decorator import on_reply_command
 from nonebot import on_natural_language, NLPSession
 from nonebot import on_command, CommandSession, on_startup
 from kusa_base import config, sendLog, isSuperAdmin
@@ -55,25 +56,39 @@ async def gh_model_frozen(session: CommandSession):
     await session.send(f'大模型怪话已{"启用" if allowModel else "禁用"}')
 
 
+@on_natural_language(keywords=None, only_to_me=False)
+@on_reply_command(commands=['#说点怪话'])
+async def sayNLP(session: NLPSession, replyMessageCtx):
+    message = replyMessageCtx['message']
+    message = re.sub(r'\[CQ:[^]]+]', '', message).strip()
+    groupNum = session.ctx['group_id']
+    if message and allowModel and random.random() < .8:
+        reply = await getSentenceAdvance(groupNum, message)
+        await session.send(reply)
+    else:
+        await session.send(getRandomSentence(groupNum))
+
+
 @on_command(name='说点怪话', only_to_me=False)
 async def say(session: CommandSession):
     strippedText = session.current_arg_text.strip()
-    if strippedText and allowModel and random.random() < .5 :
-        reply = await getSentenceAdvance(session.ctx['group_id'], strippedText)
+    groupNum = session.ctx['group_id']
+    if strippedText and allowModel and random.random() < .5:
+        reply = await getSentenceAdvance(groupNum, strippedText)
         await session.send(reply)
     else:
-        await session.send(getRandomSentence(defaultGroupNum))
+        await session.send(getRandomSentence(groupNum))
 
 
 @on_command(name='话怪点说', only_to_me=False)
 async def _(session: CommandSession):
-    msg = getRandomSentence(defaultGroupNum)
+    msg = getRandomSentence(session.ctx['group_id'])
     await session.send(msg if '[CQ:' in msg else msg[::-1])
 
 
 @on_command(name='说话怪点', only_to_me=False, aliases=('怪点说话',))
 async def _(session: CommandSession):
-    msg = getRandomSentence(defaultGroupNum)
+    msg = getRandomSentence(session.ctx['group_id'])
     if '[CQ:' in msg:
         await session.send(msg)
     else:
@@ -91,7 +106,7 @@ async def _(session: CommandSession):
     else:
         replyList = []
         while len(replyList) < 3:
-            msg = getRandomSentence(defaultGroupNum)
+            msg = getRandomSentence(groupId)
             if '[CQ:' not in msg and msg not in replyList:
                 replyList.append(msg)
     for msg in replyList:

@@ -4,6 +4,7 @@ import aiohttp
 import time
 from io import BytesIO
 from PIL import Image
+from decorator import on_reply_command
 from nonebot import on_natural_language, NLPSession
 from kusa_base import config
 from utils import extractImgUrls, checkBanAvailable
@@ -40,41 +41,34 @@ lastUsedTime = {}
 
 
 @on_natural_language(keywords=None, only_to_me=False)
-async def picClassifierReplyNLP(session: NLPSession):
-    if session.ctx['message'][0].type != 'reply':
-        return
-
+@on_reply_command(commands=['#nsfw', '#nailong'])
+async def picClassifierReplyNLP(session: NLPSession, replyMessageCtx):
     global confirmations
     strippedText = session.ctx['message'][-1].data.get('text', '').strip()
-    replyId = str(session.ctx['message'][0].data['id'])
-    if not strippedText.startswith('#'):
-        return
 
-    if strippedText in ['#nsfw', '#nailong']:
-        timeCheckResult, sign = timeCheck(strippedText, session.ctx)
-        if not timeCheckResult:
-            await session.send(sign)
-            return
-        replyMessageCtx = await session.bot.get_msg(message_id=replyId)
-        imgUrls = extractImgUrls(replyMessageCtx['message'])
-        if not imgUrls or len(imgUrls) == 0:
-            return
-        isNsfw = strippedText == '#nsfw'
-        duelRand = random.random()
-        userId, targetId = session.ctx['user_id'], replyMessageCtx['user_id']
-        if userId != replyMessageCtx['user_id'] and duelRand < 1/8:
-            nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n输入y继续检测，输入其他表示取消。"
-            nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×40。\n输入y继续检测，输入其他表示取消。"
-            await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
-            confirmations[userId] = {'sender': replyMessageCtx['user_id'], 'imgUrl': imgUrls[0],
-                                     'imgMsgId': replyId, 'commandMsgId': session.ctx['message_id'],
-                                     'type': strippedText[1:]}
-            return
-        if isNsfw:
-            await session.send("正在检测……")
-        checkResultStr, _ = await nsfwChecker(imgUrls[0]) if isNsfw else await nailongChecker(imgUrls[0])
-        await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
-        timeUpdater(strippedText, session.ctx.get('group_id', 0), session.ctx['user_id'])
+    timeCheckResult, sign = timeCheck(strippedText, session.ctx)
+    if not timeCheckResult:
+        await session.send(sign)
+        return
+    imgUrls = extractImgUrls(replyMessageCtx['message'])
+    if not imgUrls or len(imgUrls) == 0:
+        return
+    isNsfw = strippedText == '#nsfw'
+    duelRand = random.random()
+    userId, targetId = session.ctx['user_id'], replyMessageCtx['user_id']
+    if userId != replyMessageCtx['user_id'] and duelRand < 1/8:
+        nsfwMsg = f"你触发了黑暗决斗。\n如果这张图片是色图，发图的人将会被口球，否则你会被口球。口球的秒数等于adult/everyone的分值×10。\n输入y继续检测，输入其他表示取消。"
+        nailongMsg = "你触发了奶龙决斗。\n如果这张图片的奶龙指数大于50，发图的人将会被口球。否则你会被口球。口球的秒数等于abs(奶龙指数-50)×40。\n输入y继续检测，输入其他表示取消。"
+        await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{nsfwMsg if isNsfw else nailongMsg}')
+        confirmations[userId] = {'sender': replyMessageCtx['user_id'], 'imgUrl': imgUrls[0],
+                                 'imgMsgId': replyMessageCtx['message_id'], 'commandMsgId': session.ctx['message_id'],
+                                 'type': strippedText[1:]}
+        return
+    if isNsfw:
+        await session.send("正在检测……")
+    checkResultStr, _ = await nsfwChecker(imgUrls[0]) if isNsfw else await nailongChecker(imgUrls[0])
+    await session.send(f'[CQ:reply,id={session.ctx["message_id"]}]{checkResultStr}')
+    timeUpdater(strippedText, session.ctx.get('group_id', 0), session.ctx['user_id'])
 
 
 @on_natural_language(keywords=None, only_to_me=False)

@@ -11,6 +11,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageFilter
 
 from utils import imgLocalPathToBase64, extractImgUrls
 from kusa_base import config
+from decorator import on_reply_command
 from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession
 
@@ -21,7 +22,7 @@ generalHeader = {
     "sec-ch-ua": '"Chromium";v="104", " Not A;Brand";v="99", "Google Chrome";v="104"',
     "user-agent": config['web']['userAgent']
 }
-picSearchResults = dict()
+picSearchResults = {}
 
 
 @on_command(name='搜图', aliases='picsearch', only_to_me=False)
@@ -64,19 +65,41 @@ async def picUrlGet(session: CommandSession):
 
 
 @on_natural_language(keywords=None, only_to_me=False)
-async def picSearchNLP(session: NLPSession):
+@on_reply_command(commands=['#picurl'])
+async def picUrlNLP(session: NLPSession, replyMessageCtx):
+    imgUrls = extractImgUrls(replyMessageCtx['message'])
+    if not imgUrls:
+        return
+    await session.send('\n'.join(imgUrls))
+
+
+@on_natural_language(keywords=None, only_to_me=False)
+@on_reply_command(commands=['#picsearch', '#搜图'])
+async def picSearchNLP(session: NLPSession, replyMessageCtx):
+    global picSearchResults
+
+    imgUrls = extractImgUrls(replyMessageCtx['message'])
+    if not imgUrls:
+        return
+    await session.send("正在搜索……")
+    resultDict = await getSearchResult(imgUrls[0])
+    if not resultDict or not resultDict["info"]:
+        await session.send('没有搜索到结果^ ^')
+        return
+    sendMsgInfo = await session.send(imgLocalPathToBase64('picsearch.jpg'))
+    picSearchResults[str(sendMsgInfo['message_id'])] = resultDict['info']
+
+
+@on_natural_language(keywords=None, only_to_me=False)
+async def picSearchContinueNLP(session: NLPSession):
     if session.ctx['message'][0].type != 'reply':
         return
 
-    global picSearchResults
     strippedText = session.ctx['message'][-1].data.get('text', '').strip()
     replyId = str(session.ctx['message'][0].data['id'])
     isRecordedReply = replyId in picSearchResults
     if not strippedText.startswith('#') and not isRecordedReply:
         return
-
-    replyMessageCtx = await session.bot.get_msg(message_id=replyId)
-    # print(replyId, replyMessageCtx)
 
     if replyId in picSearchResults:
         resultDict = picSearchResults[replyId]
@@ -88,20 +111,6 @@ async def picSearchNLP(session: NLPSession):
         except (IndexError, ValueError):
             await session.send("未找到对应图片链接, 请检查输入是否正确")
             return
-    if strippedText == '#picurl':
-        imgUrls = extractImgUrls(replyMessageCtx['message'])
-        await session.send('\n'.join(imgUrls))
-    if strippedText in ['#picsearch', '#搜图']:
-        imgUrls = extractImgUrls(replyMessageCtx['message'])
-        if not imgUrls:
-            return
-        await session.send("正在搜索……")
-        resultDict = await getSearchResult(imgUrls[0])
-        if not resultDict or not resultDict["info"]:
-            await session.send('没有搜索到结果^ ^')
-            return
-        sendMsgInfo = await session.send(imgLocalPathToBase64('picsearch.jpg'))
-        picSearchResults[str(sendMsgInfo['message_id'])] = resultDict['info']
 
 
 def drawTextToImage(text: str):
