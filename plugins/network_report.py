@@ -59,7 +59,7 @@ async def _(session: CommandSession):
     await session.send(str(latestReport))
 
 
-@nonebot.scheduler.scheduled_job('cron', minute='0', hour='23', day='7-15/4', month='1,7', second='5', misfire_grace_time=120)
+@nonebot.scheduler.scheduled_job('cron', minute='0', hour='20', day='1-31/4', month='1,7', second='5', misfire_grace_time=120)
 async def vacationMentionRunner():
     if not ENV_PROD:
         return
