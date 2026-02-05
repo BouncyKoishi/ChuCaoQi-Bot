@@ -11,8 +11,8 @@ friendHandleTimestamp = 0
 @on_request('group')
 async def newMemberHandle(session: RequestSession):
     groupNum = session.event.group_id
-    allow_list = config['group']['adminAuthGroup']
-    if groupNum not in allow_list:
+    availableList = config['group']['adminAuthGroup']
+    if groupNum not in availableList:
         return
 
     adder_id = session.event.user_id
@@ -20,9 +20,14 @@ async def newMemberHandle(session: RequestSession):
     st = f"{adder_id}申请进群。加群备注为：\n" + session.event.comment
     await bot.send_group_msg(group_id=groupNum, message=st)
     await sendLog(f'群聊{groupNum}:' + st)
+
+    # 目前只对SYSU主群开启自动入群管理，其它群聊仅提示
+    isSysu = groupNum == config['group']['sysu']
+    if not isSysu:
+        return
+
     if session.event.sub_type == 'add':
         if session.event.comment.strip() == '':
-            isSysu = groupNum == config['group']['sysu']
             # 原napcat实现中没有user2_id！这里是修改了napcat的源码后实现的
             if isSysu and hasattr(session.event, 'user2_id') and session.event.user2_id != 0:
                 sign = f'这是一个未填写备注信息的邀请进群。请[CQ:at,qq={session.event.user2_id}] 说明入群者的身份。'
@@ -41,7 +46,7 @@ async def newMemberHandle(session: RequestSession):
             )
             await sendLog(f'群聊{groupNum}触发空备注风控，已拒绝{adder_id}的申请')
             return
-        for keyword in ('交流学习', '通过一下', '管理员你好', '朋友推荐', ):
+        for keyword in ('交流学习', '通过一下', '你好', '朋友推荐', ):
             if keyword in session.event.comment:
                 await bot.set_group_add_request(
                     flag=session.event.flag,

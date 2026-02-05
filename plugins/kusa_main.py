@@ -9,10 +9,10 @@ import random
 import dbConnection.db as baseDB
 import dbConnection.kusa_item as itemDB
 import dbConnection.kusa_field as fieldDB
-from utils import convertNumStrToInt, intToFormattedStr
+from utils import convertNumStrToInt
 from nonebot import on_command, CommandSession
 from nonebot import MessageSegment as ms
-from datetime import datetime, timedelta
+from datetime import datetime
 from kusa_base import config, isUserExist, sendPrivateMsg, sendGroupMsg
 from .kusa_statistics import getKusaAdvRank
 
@@ -70,8 +70,8 @@ async def warehouse(session: CommandSession):
 
 async def getWarehouseInfoStr(user):
     userId = user.qq
-    output = f'当前拥有草: {intToFormattedStr(user.kusa)}\n'
-    output += (f'当前拥有草之精华: {intToFormattedStr(user.advKusa)}\n' if user.advKusa else '')
+    output = f'当前拥有草: {user.kusa:,}\n'
+    output += (f'当前拥有草之精华: {user.advKusa:,}\n' if user.advKusa else '')
 
     output += f'\n当前财产：\n'
     itemsWorth = await itemDB.getItemsByType("财产")
@@ -203,8 +203,11 @@ async def flag_list(session: CommandSession):
 @on_command(name='配置', only_to_me=False)
 async def flag_set(session: CommandSession):
     userId = session.ctx['user_id']
-    stripped_arg = session.current_arg_text.strip()
-    flagName, flagType = stripped_arg.split()
+    strippedArg = session.current_arg_text.strip()
+    if not strippedArg:
+        helpStr = '使用方法：\n!配置 [配置名] [on/off]\n使用 !配置列表 查看当前配置情况'
+        await session.send(helpStr)
+    flagName, flagType = strippedArg.split()
     if flagType.lower() != 'on' and flagType.lower() != 'off':
         return
     flagValue = 1 if flagType.lower() == 'on' else 0

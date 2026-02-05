@@ -68,7 +68,7 @@ async def _(session: CommandSession):
     outputStr = "草排行榜：\n"
     for i, user in enumerate(userList[:25]):
         userName = user.name if user.name else user.qq
-        outputStr += f'{i + 1}. {userName}: {user.kusa}\n'
+        outputStr += f'{i + 1}. {userName}: {user.kusa:,}\n'
     await session.send(outputStr[:-1])
 
 

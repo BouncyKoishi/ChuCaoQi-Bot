@@ -575,8 +575,8 @@ async def goodNewsReport(field):
         if baseAdvKusa >= advKusaThresholds:
             await sendReportMsg(field, '质量喜报')
             return
-    # 总草精数喜报：最终草精大于等于80(仅当未触发基础草精喜报时发送)
-    if field.advKusaResult >= 80:
+    # 总草精数喜报：最终草精大于120(仅当未触发基础草精喜报时发送)
+    if field.advKusaResult > 120:
         await sendReportMsg(field, '草精喜报')
 
 

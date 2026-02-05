@@ -23,6 +23,9 @@ archiveInfo = {
     "zundamon": {"onlinePath": BASE_PIC_PATH + r'\豆包2.0', "displayName": "俊达萌"},
     "zundamon2": {"onlinePath": BASE_PIC_PATH + r'\豆包', "displayName": "俊达萌美图"},
     "pusheen": {"onlinePath": BASE_PIC_PATH + r'\libmmc', "displayName": "猫猫虫"},
+    "cat": {"onlinePath": BASE_PIC_PATH + r'\cat', "displayName": "怪猫"},
+    "251": {"onlinePath": BASE_PIC_PATH + r'\251图库', "displayName": "251"},
+    "xiba": {"onlinePath": BASE_PIC_PATH + r'\西八兔子图库', "displayName": "西八兔"},
 }
 for value in archiveInfo.values():
     value['onlineFilePaths'] = glob.glob(os.path.join(value['onlinePath'], '*.*'))
@@ -77,6 +80,21 @@ async def _(session: CommandSession):
 @on_command(name='rollmmc', aliases=('rolllg',), only_to_me=False)
 async def _(session: CommandSession):
     await rollPic(session, "pusheen")
+
+
+@on_command(name='rollgm', only_to_me=False)
+async def _(session: CommandSession):
+    await rollPic(session, "cat")
+
+
+@on_command(name='roll251', only_to_me=False)
+async def _(session: CommandSession):
+    await rollPic(session, "251")
+
+
+@on_command(name='rollxb', only_to_me=False)
+async def _(session: CommandSession):
+    await rollPic(session, "xiba")
 
 
 @on_command(name="commitpic", aliases=('commitlj', 'commitpurelj', 'commitxhb'), only_to_me=False)
