@@ -1,7 +1,13 @@
 # 除草器Bot
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/release/python-370/)
-[![NoneBot](https://img.shields.io/badge/nonebot-1.9.1-blue)](https://v1.nonebot.dev/)
+### [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/release/python-370/) [![NoneBot](https://img.shields.io/badge/nonebot-1.9.1-blue)](https://v1.nonebot.dev/)
+
+> **本项目已停止维护**
+>
+> 本项目已完成重构，后续开发和维护转移至新仓库：**[ChuCaoQi-Nonebot2](https://github.com/BouncyKoishi/ChuCaoQi-Nonebot2)**
+>
+> 新版本基于 NoneBot2 重构，新增了 Web 管理界面，提供更好的用户体验。欢迎前往新仓库查看最新代码和文档。
+
 
 名为"除草器"的QQBot，采用Python编写，基于[NoneBot1](https://v1.nonebot.dev/)构建。
 
@@ -20,7 +26,7 @@
 - **算卦模块**：提供基于铜钱起卦法的在线算卦，解卦功能。
 - **台风查询**：查询当前正在活跃的台风信息（目前仅限西太洋区）。
 - **雷达回波**：查询中国境内部分雷达站的最新雷达回波图，用于判断降雨等情况。
-- **图片搜索**：通过多个搜图引擎搜索图片，是[cpuopt/nonebot_plugin_imgexploration](https://github.com/cpuopt/nonebot_plugin_imgexploration)的nonebot1适配改造。
+- **图片搜索**：通过多个搜图引擎搜索图片，是[cpuopt/nonebot\_plugin\_imgexploration](https://github.com/cpuopt/nonebot_plugin_imgexploration)的nonebot1适配改造。
 - **音乐搜索**：根据名字从网易云音乐搜索相关音乐信息。
 
 部分杂项功能、自用功能、历史功能、仅为中山大学群内服务用的功能等未全部列出。
@@ -30,6 +36,7 @@
 ## 部署与运行
 
 除草器当前在以下项目的基础上构建：
+
 - [richardchien/nonebot](https://github.com/nonebot/nonebot)
 - [NapNeko/NapCatQQ](https://github.com/NapNeko/NapCatQQ)
 
